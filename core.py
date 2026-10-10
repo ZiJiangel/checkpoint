@@ -220,7 +220,13 @@ def start_vm(vmx):
 
 
 def stop_vm(vmx):
-    return run_vmrun(["stop", vmx, "soft"])
+    """关机：先软关机（优雅退出），超时或失败则回退硬关机。"""
+    ok, out = run_vmrun(["stop", vmx, "soft"], timeout=60)
+    if ok:
+        return ok, out
+    # 软关机失败（如超时，多为未装 VMware Tools）→ 回退硬关机
+    log("软关机失败，改用硬关机：" + str(vmx) + " — " + str(out))
+    return run_vmrun(["stop", vmx, "hard"], timeout=60)
 
 
 def save_alias(vmx, name, note):
