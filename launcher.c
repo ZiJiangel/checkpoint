@@ -38,7 +38,6 @@ const char* find_python(char* buf, int bufsz) {
         "C:\\ProgramData\\anaconda3\\pythonw.exe",
         "C:\\Anaconda3\\pythonw.exe",
         "D:\\Anaconda3\\pythonw.exe",
-        "D:\\OBject\\Anaconda\\pythonw.exe",
         NULL
     };
     for (int i = 0; common[i]; i++) {
