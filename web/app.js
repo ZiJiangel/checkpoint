@@ -478,24 +478,41 @@ async function runCluster(action) {
     powerLog(lines.join(''));
   }
 
+  let aborted = false;
   for (const st of stages) {
+    if (aborted) break;
     const group = enabled.filter(s => s.stage === st);
     for (const svc of group) {
       const label = '阶段' + st + ' · ' + svc.name;
       lines.push(renderLine(label, 'running'));
       powerLog(lines.join(''));
-      let ok = true;
+      let ok = true, verified = true, detail = '';
       try {
         const r = await window.pywebview.api.run_service(svc.id, action);
         ok = r.ok;
-      } catch (e) { ok = false; }
-      lines[lines.length - 1] = renderLine(label, ok ? 'done' : 'fail');
+        // 取自检状态与首个失败信息
+        if (r.results && r.results.length) {
+          const bad = r.results.find(x => !x.ok);
+          if (bad) { verified = false; detail = bad.node + ': ' + (bad.out || '').split('\n')[0]; }
+        }
+      } catch (e) { ok = false; detail = String(e); }
+      if (!ok) {
+        lines[lines.length - 1] = renderLine(label + (detail ? ' — ' + detail : ''), 'fail');
+        powerLog(lines.join(''));
+        // 依赖被破坏，停止后续阶段
+        lines.push('<div class="result err">✕ 检测未通过，已停止后续阶段（依赖未就绪）</div>');
+        aborted = true;
+        break;
+      }
+      lines[lines.length - 1] = renderLine(label, 'done');
       powerLog(lines.join(''));
     }
   }
   POWER_RUNNING = false;
-  lines.push('<div class="empty" style="margin-top:0.6rem">' + t('cl.powerDone') + '</div>');
-  powerLog(lines.join(''));
+  if (!aborted) {
+    lines.push('<div class="empty" style="margin-top:0.6rem">' + t('cl.powerDone') + '</div>');
+    powerLog(lines.join(''));
+  }
   runHealthCheck();   // 结束后自动刷新体检
 }
 
