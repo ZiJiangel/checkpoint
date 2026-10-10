@@ -183,6 +183,15 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .vm-power.on { color: #3ecf8e; border-color: #3ecf8e; }
 .vm-power.off { color: var(--muted); }
 .vm-power.none { color: var(--muted); opacity: 0.6; border-style: dashed; }
+/* 分裂按钮（VSCode 风格） */
+.split-btn { position: relative; display: inline-flex; }
+.split-btn .split-main { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.split-btn .split-arrow { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left: none; padding: 0.25rem 0.4rem; }
+.split-menu { position: absolute; top: calc(100% + 3px); right: 0; z-index: 60; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 0.3rem; min-width: 140px; box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
+.split-menu.hidden { display: none; }
+.split-item { padding: 0.4rem 0.6rem; font-size: 0.8rem; border-radius: 4px; cursor: pointer; white-space: nowrap; color: var(--ink); }
+.split-item:hover { background: var(--surface-2); }
+
 /* 服务行内 启动/停止 小链接 */
 .svc-action { color: #5b8def; cursor: pointer; font-size: 0.78rem; padding: 0 0.3rem; }
 .svc-action:hover { text-decoration: underline; }

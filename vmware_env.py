@@ -128,20 +128,29 @@ def overall_state():
     }
 
 
-def start_services():
-    """启动所有停止的 VMware 服务（提权，会弹 UAC）"""
+def start_services(mode="all"):
+    """启动 VMware 服务。mode='all' 全部；mode='critical' 仅必需。
+    提权，会弹 UAC。"""
+    if mode == "critical":
+        names = [s["name"] for s in VMWARE_SERVICES if s["critical"]]
+    else:
+        names = [s["name"] for s in VMWARE_SERVICES]
     script = "$ErrorActionPreference='SilentlyContinue'\n"
-    script += "$names=@(%s)\n" % ",".join("'%s'" % s["name"] for s in VMWARE_SERVICES)
+    script += "$names=@(%s)\n" % ",".join("'%s'" % n for n in names)
     script += ("Get-Service | Where-Object { $names -contains $_.Name -and "
                "$_.Status -ne 'Running' } | ForEach-Object { Start-Service $_.Name }\n")
     return _run_elevated_ps(script)
 
 
-def stop_services():
-    """停止所有正在运行的 VMware 服务（提权，会弹 UAC）。
-    警告：停止授权服务后 vmrun 将不可用。"""
+def stop_services(mode="optional"):
+    """停止 VMware 服务。mode='optional' 仅可选；mode='all' 全部。
+    提权，会弹 UAC。警告：停止授权服务后 vmrun 将不可用。"""
+    if mode == "all":
+        names = [s["name"] for s in VMWARE_SERVICES]
+    else:
+        names = [s["name"] for s in VMWARE_SERVICES if not s["critical"]]
     script = "$ErrorActionPreference='SilentlyContinue'\n"
-    script += "$names=@(%s)\n" % ",".join("'%s'" % s["name"] for s in VMWARE_SERVICES)
+    script += "$names=@(%s)\n" % ",".join("'%s'" % n for n in names)
     script += ("Get-Service | Where-Object { $names -contains $_.Name -and "
                "$_.Status -eq 'Running' } | ForEach-Object { Stop-Service $_.Name -Force }\n")
     return _run_elevated_ps(script)

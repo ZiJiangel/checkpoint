@@ -115,12 +115,12 @@ class Api:
     def vmware_state(self):
         return vmware_env.overall_state()
 
-    def vmware_start_services(self):
-        ok = vmware_env.start_services()
+    def vmware_start_services(self, mode="all"):
+        ok = vmware_env.start_services(mode)
         return {"ok": ok}
 
-    def vmware_stop_services(self):
-        ok = vmware_env.stop_services()
+    def vmware_stop_services(self, mode="optional"):
+        ok = vmware_env.stop_services(mode)
         return {"ok": ok}
 
     def vmware_start_one(self, name):

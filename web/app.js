@@ -914,6 +914,52 @@ function renderVmwareStatusBar() {
     : 'VMware 检查中…';
 }
 
+// 分裂按钮：主按钮直接执行，小箭头展开更多选项（VSCode 风格）
+// 返回 HTML；通过 window.__splitMenus[id] 暂存下拉项
+function splitBtn(id, mainLabel, items) {
+  window.__splitMenus = window.__splitMenus || {};
+  window.__splitMenus[id] = items;
+  return '<div class="split-btn">' +
+    '<button class="mini-btn split-main" id="' + id + 'Main">' + mainLabel + '</button>' +
+    '<button class="mini-btn split-arrow" id="' + id + 'Arrow">▾</button>' +
+    '<div class="split-menu hidden" id="' + id + 'Menu">' +
+    items.map((it, i) => '<div class="split-item" data-split="' + id + '" data-idx="' + i + '">' + it.label + '</div>').join('') +
+    '</div></div>';
+}
+
+function bindSplitBtns(root) {
+  root = root || document;
+  root.querySelectorAll('.split-main').forEach(b => {
+    b.addEventListener('click', () => {
+      const items = (window.__splitMenus || {})[b.id.replace('Main', '')];
+      if (items && items[0]) items[0].fn();   // 主按钮 = 第一项
+    });
+  });
+  root.querySelectorAll('.split-arrow').forEach(b => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const menu = document.getElementById(b.id.replace('Arrow', 'Menu'));
+      if (!menu) return;
+      const wasHidden = menu.classList.contains('hidden');
+      document.querySelectorAll('.split-menu').forEach(m => m.classList.add('hidden'));
+      if (wasHidden) menu.classList.remove('hidden');
+    });
+  });
+  root.querySelectorAll('.split-item').forEach(it => {
+    it.addEventListener('click', () => {
+      const items = (window.__splitMenus || {})[it.dataset.split];
+      const idx = parseInt(it.dataset.idx);
+      document.querySelectorAll('.split-menu').forEach(m => m.classList.add('hidden'));
+      if (items && items[idx]) items[idx].fn();
+    });
+  });
+}
+
+// 全局：点别处关掉下拉
+document.addEventListener('click', () => {
+  document.querySelectorAll('.split-menu').forEach(m => m.classList.add('hidden'));
+});
+
 function renderVmwareCard() {
   const box = document.getElementById('vmwareCard');
   if (!box) return;
@@ -943,20 +989,26 @@ function renderVmwareCard() {
     '<span class="status-dot st-' + (state === 'green' ? 'green' : state === 'red' ? 'red' : 'yellow') + '"></span>' +
     '<span class="vm-name">VMware 环境：' + meta.text.replace('VMware ', '') + '</span></div>' +
     '<div style="display:flex;gap:0.4rem">' +
-    '<button class="mini-btn" id="vmwareStartSvc">启动服务</button>' +
-    '<button class="mini-btn" id="vmwareLaunch">启动 VMware</button>' +
+    splitBtn('vmwareStart', t('vm.start'), [
+      { label: t('vm.startAll'), fn: () => startVmwareServices('all') },
+      { label: t('vm.startCritical'), fn: () => startVmwareServices('critical') },
+    ]) +
+    splitBtn('vmwareStop', t('vm.stop'), [
+      { label: t('vm.stopOptional'), fn: () => stopVmwareServices('optional') },
+      { label: t('vm.stopAll'), fn: () => stopVmwareServices('all') },
+    ]) +
+    '<button class="mini-btn" id="vmwareLaunch">' + t('vm.launch') + '</button>' +
     '</div></div>' +
     '<div style="margin-top:0.4rem">' + appLine + '</div>' +
     svcRows +
     '<div class="hint-foot" style="margin-top:0.6rem">vmrun 依赖「授权服务」；虚拟机联网依赖「NAT/DHCP」。启动服务需管理员权限（会弹 UAC）。</div>' +
     '</div>';
 
-  const btnSvc = document.getElementById('vmwareStartSvc');
+  bindSplitBtns(box);
   const btnApp = document.getElementById('vmwareLaunch');
-  if (btnSvc) btnSvc.addEventListener('click', startVmwareServices);
   if (btnApp) btnApp.addEventListener('click', launchVmwareApp);
   // 每个服务的单独 启动/停止
-  document.querySelectorAll('#vmwareCard .svc-action').forEach(el => {
+  box.querySelectorAll('.svc-action').forEach(el => {
     el.addEventListener('click', () => toggleService(el.dataset.svc, el.dataset.act));
   });
 }
@@ -976,12 +1028,29 @@ async function toggleService(name, act) {
   await loadVmware();
 }
 
-async function startVmwareServices() {
-  if (!await uiConfirm('启动所有 VMware 服务？（需要管理员权限，会弹出 UAC 授权窗口）')) return;
+async function startVmwareServices(mode) {
+  mode = mode || 'all';
+  const label = mode === 'critical' ? t('vm.startCritical') : t('vm.startAll');
+  if (!await uiConfirm(label + '？（需要管理员权限，会弹出 UAC 授权窗口）')) return;
   const box = document.getElementById('vmwareCard');
-  box.insertAdjacentHTML('afterbegin', '<div class="result cl-run" id="vmwareBusy">正在启动服务（请在弹出的 UAC 窗口点「是」）…</div>');
+  box.insertAdjacentHTML('afterbegin', '<div class="result cl-run" id="vmwareBusy">' + t('vm.working') + '</div>');
   try {
-    await window.pywebview.api.vmware_start_services();
+    await window.pywebview.api.vmware_start_services(mode);
+  } catch (e) {}
+  await new Promise(r => setTimeout(r, 1500));
+  await loadVmware();
+}
+
+async function stopVmwareServices(mode) {
+  mode = mode || 'optional';
+  const label = mode === 'all' ? t('vm.stopAll') : t('vm.stopOptional');
+  let warn = label + '？';
+  if (mode === 'all') warn = t('vm.stopAllWarn');
+  if (!await uiConfirm(warn)) return;
+  const box = document.getElementById('vmwareCard');
+  box.insertAdjacentHTML('afterbegin', '<div class="result cl-run" id="vmwareBusy">' + t('vm.working') + '</div>');
+  try {
+    await window.pywebview.api.vmware_stop_services(mode);
   } catch (e) {}
   await new Promise(r => setTimeout(r, 1500));
   await loadVmware();
