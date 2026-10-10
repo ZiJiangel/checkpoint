@@ -502,6 +502,7 @@ function renderDetailBody(n) {
     body.innerHTML = renderServiceTab(n);
   } else if (DETAIL_TAB === 'snapshot') {
     body.innerHTML = renderSnapshotTab(n);
+    bindSnapshotTab(n);
   } else {
     body.innerHTML = renderConfigTab(n);
     document.getElementById('ndSave').addEventListener('click', () => saveDetail(n.id));
@@ -530,8 +531,60 @@ function renderServiceTab(n) {
   return '<div class="empty">' + t('cl.serviceHint') + '</div>';
 }
 
+function normVmx(p) { return (p || '').replace(/\\/g, '/').toLowerCase(); }
+
 function renderSnapshotTab(n) {
-  return '<div class="empty">' + t('cl.snapshotHint') + '</div>';
+  if (!n.vmx) return '<div class="empty">' + t('cl.noVmx') + '</div>';
+  const vm = VMS.find(v => normVmx(v.vmx) === normVmx(n.vmx));
+  const snaps = vm ? vm.snapshots : [];
+  let html = '<div class="form-row" style="margin-top:0.6rem">' +
+    '<input class="nd-snapname" placeholder="' + t('ph.snapName') + '" style="max-width:260px">' +
+    '<button class="primary" id="ndSnapCreate">' + t('btn.create') + '</button>' +
+    '</div>' +
+    '<div class="result" id="ndSnapResult"></div>' +
+    '<div style="margin-top:0.9rem;font-size:0.85rem" class="vm-role">' + t('cl.snapshots') + '（' + snaps.length + '）</div>';
+  html += snaps.length ? snaps.map(s =>
+    '<div class="card" style="margin-top:0.4rem;padding:0.5rem 0.7rem">' +
+    '<div class="card-top"><span class="snap">' + s + '</span>' +
+    '<div style="display:flex;gap:0.6rem">' +
+    '<span class="svc-action" data-snap-rev="' + s + '">' + t('btn.revert') + '</span>' +
+    '<span class="svc-action" data-snap-del="' + s + '" style="color:#e06c6c">' + t('btn.delete') + '</span>' +
+    '</div></div></div>'
+  ).join('') : '<div class="empty">' + t('ov.empty') + '</div>';
+  return html;
+}
+
+function bindSnapshotTab(n) {
+  const box = document.getElementById('detailBody');
+  const res = document.getElementById('ndSnapResult');
+  const create = document.getElementById('ndSnapCreate');
+  if (create) create.addEventListener('click', async () => {
+    const name = box.querySelector('.nd-snapname').value.trim();
+    if (!name) { res.innerHTML = '<span class="err">' + t('ops.needName') + '</span>'; return; }
+    res.textContent = t('ops.running');
+    const r = await window.pywebview.api.snapshot(n.vmx, name);
+    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>';
+    await loadVms(false, true);
+    showDetail(n.id);
+  });
+  box.querySelectorAll('[data-snap-rev]').forEach(el => el.addEventListener('click', async () => {
+    const s = el.dataset.snapRev;
+    if (!await uiConfirm(t('ops.revert') + '：' + s + ' ?')) return;
+    res.textContent = t('ops.running');
+    const r = await window.pywebview.api.revert(n.vmx, s);
+    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>';
+    await loadVms(false, true);
+    showDetail(n.id);
+  }));
+  box.querySelectorAll('[data-snap-del]').forEach(el => el.addEventListener('click', async () => {
+    const s = el.dataset.snapDel;
+    if (!await uiConfirm(t('ops.delete') + '：' + s + ' ?')) return;
+    res.textContent = t('ops.running');
+    const r = await window.pywebview.api.delete_snap(n.vmx, s);
+    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.deleted') : r.out) + '</span>';
+    await loadVms(false, true);
+    showDetail(n.id);
+  }));
 }
 
 function renderConfigTab(n) {
