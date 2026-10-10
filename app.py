@@ -101,6 +101,9 @@ class Api:
     def start_vms(self):
         return services.start_vms()
 
+    def stop_vms(self):
+        return services.stop_vms()
+
     def get_vms(self, force=False, snaps=True):
         running = [os.path.basename(r) for r in core.list_running()] if snaps else []
         result = []

@@ -122,3 +122,15 @@ def start_vms():
         ok, out = core.start_vm(vmx)
         results.append({"node": n.get("name"), "ok": ok, "out": out})
     return {"ok": True, "results": results}
+
+
+def stop_vms():
+    """关闭配了 vmx 的节点对应的虚拟机（只关虚拟机，不动 VMware 软件）"""
+    results = []
+    for n in cluster.list_nodes():
+        vmx = n.get("vmx", "")
+        if not vmx:
+            continue
+        ok, out = core.stop_vm(vmx)
+        results.append({"node": n.get("name"), "ok": ok, "out": out})
+    return {"ok": True, "results": results}

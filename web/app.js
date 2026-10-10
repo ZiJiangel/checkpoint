@@ -641,6 +641,19 @@ function renderLine(text, state) {
 
 document.getElementById('clusterStart').addEventListener('click', () => runCluster('start'));
 document.getElementById('clusterStop').addEventListener('click', () => runCluster('stop'));
+
+async function shutdownVms() {
+  if (!confirm(t('cl.confirmShutdown'))) return;
+  powerLog(renderLine(t('cl.shuttingDown'), 'running'));
+  try {
+    const r = await window.pywebview.api.stop_vms();
+    const n = r.results ? r.results.length : 0;
+    powerLog(renderLine(t('cl.shuttingDown') + ' (' + n + ' 台)', 'done'));
+  } catch (e) {
+    powerLog(renderLine(t('cl.shuttingDown') + ': ' + e, 'fail'));
+  }
+}
+document.getElementById('vmShutdown').addEventListener('click', shutdownVms);
 document.getElementById('autoCheck').addEventListener('change', (e) => {
   AUTO_CHECK = e.target.checked;
   window.pywebview.api.save_auto_check(AUTO_CHECK);
