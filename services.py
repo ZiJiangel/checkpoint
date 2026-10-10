@@ -156,7 +156,20 @@ def start_vm_node(nid):
     ok, out = core.start_vm(vmx)
     if ok:
         return {"ok": True, "mode": "started", "detail": ""}
-    return {"ok": False, "mode": "failed", "detail": out}
+    # 偶发冲突（如 VM 状态未恢复）→ 稍等重试一次
+    import time
+    time.sleep(2)
+    # 重试前再确认一次是否已起（可能首次其实成功了）
+    try:
+        running2 = set(os.path.normcase(os.path.abspath(r)) for r in core.list_running())
+        if os.path.normcase(os.path.abspath(vmx)) in running2:
+            return {"ok": True, "mode": "started", "detail": ""}
+    except Exception:
+        pass
+    ok2, out2 = core.start_vm(vmx)
+    if ok2:
+        return {"ok": True, "mode": "started", "detail": ""}
+    return {"ok": False, "mode": "failed", "detail": out2 or out}
 
 
 def stop_vms():

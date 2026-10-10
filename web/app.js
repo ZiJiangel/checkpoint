@@ -648,9 +648,10 @@ async function runCluster(action) {
         return renderLine('阶段0 · ' + n.name + ' — ' + r.text, st);
       })).join(''));
     };
-    lines.push(renderLine('阶段0 · 启动虚拟机（并发）', 'running'));
+    lines.push(renderLine('阶段0 · 启动虚拟机（逐个）', 'running'));
     vpaint();
-    await Promise.all(targets.map(async (n) => {
+    // 串行启动：vmrun start 本身很快，串行避免并发冲突
+    for (const n of targets) {
       try {
         const r = await window.pywebview.api.start_vm_node(n.id);
         if (r.ok) {
@@ -662,7 +663,7 @@ async function runCluster(action) {
         }
       } catch (e) { vrows[n.id].state = 'fail'; vrows[n.id].text = String(e); }
       vpaint();
-    }));
+    }
     // 等待节点 SSH 就绪
     const ready = await waitNodesReady((sec) => {
       powerLog(lines.concat(targets.map(n => {
