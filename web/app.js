@@ -454,6 +454,62 @@ async function runHealthCheck() {
 document.getElementById('clusterAdd').addEventListener('click', addNode);
 document.getElementById('clusterCheck').addEventListener('click', runHealthCheck);
 
+// ============ 集群启停编排 ============
+let POWER_RUNNING = false;
+
+function powerLog(html) {
+  document.getElementById('powerProgress').innerHTML = html;
+}
+
+async function runCluster(action) {
+  if (POWER_RUNNING) { alert(t('cl.busy')); return; }
+  POWER_RUNNING = true;
+  const svcs = await window.pywebview.api.get_services();
+  const enabled = svcs.filter(s => s.enabled);
+  const stages = [...new Set(enabled.map(s => s.stage))].sort((a, b) => action === 'stop' ? b - a : a - b);
+
+  // 阶段0：启动 VM（仅启动时做）
+  let lines = [];
+  if (action === 'start') {
+    lines.push(renderLine('阶段0 · 启动虚拟机', 'running'));
+    powerLog(lines.join(''));
+    try { await window.pywebview.api.start_vms(); } catch (e) {}
+    lines[lines.length - 1] = renderLine('阶段0 · 启动虚拟机', 'done');
+    powerLog(lines.join(''));
+  }
+
+  for (const st of stages) {
+    const group = enabled.filter(s => s.stage === st);
+    for (const svc of group) {
+      const label = '阶段' + st + ' · ' + svc.name;
+      lines.push(renderLine(label, 'running'));
+      powerLog(lines.join(''));
+      let ok = true;
+      try {
+        const r = await window.pywebview.api.run_service(svc.id, action);
+        ok = r.ok;
+      } catch (e) { ok = false; }
+      lines[lines.length - 1] = renderLine(label, ok ? 'done' : 'fail');
+      powerLog(lines.join(''));
+    }
+  }
+  POWER_RUNNING = false;
+  lines.push('<div class="empty" style="margin-top:0.6rem">' + t('cl.powerDone') + '</div>');
+  powerLog(lines.join(''));
+  runHealthCheck();   // 结束后自动刷新体检
+}
+
+function renderLine(text, state) {
+  const icon = { running: '⏳', done: '✓', fail: '✕' }[state] || '';
+  const cls = { running: 'cl-run', done: 'ok', fail: 'err' }[state] || '';
+  return '<div class="result ' + cls + '">' + icon + ' ' + text + '</div>';
+}
+
+document.getElementById('clusterStart').addEventListener('click', () => runCluster('start'));
+document.getElementById('clusterStop').addEventListener('click', () => runCluster('stop'));
+
+
+
 // ============ 启动 ============
 window.addEventListener('pywebviewready', async () => {
   const s = await window.pywebview.api.get_settings();

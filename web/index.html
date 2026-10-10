@@ -54,6 +54,12 @@
       <div id="nodeList"></div>
       <div class="hint-foot" data-i18n="cl.hint">节点用于 SSH 连接集群（健康检查、启停等）。密码仅存本机，不上传。</div>
 
+      <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="cl.power">集群启停</span>
+        <button class="mini-btn primary" id="clusterStart" style="margin-left:auto" data-i18n="cl.startAll">一键启动</button>
+        <button class="mini-btn" id="clusterStop" data-i18n="cl.stopAll">一键停止</button>
+      </div>
+      <div id="powerProgress"></div>
+
       <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="cl.detail">节点详情</span></div>
       <div id="nodeDetail"><div class="empty" data-i18n="cl.pick">点击上方节点查看详情</div></div>
     </div>
