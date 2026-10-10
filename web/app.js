@@ -1,3 +1,29 @@
+// ============ 自绘弹窗 ============
+function showModal(opts) {
+  return new Promise((resolve) => {
+    const mask = document.getElementById('modalMask');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const okBtn = document.getElementById('modalOk');
+    const cancelBtn = document.getElementById('modalCancel');
+    titleEl.textContent = opts.title || (typeof t === 'function' ? t('app.name') : '提示');
+    bodyEl.textContent = opts.body || '';
+    cancelBtn.style.display = opts.confirm ? '' : 'none';
+    okBtn.textContent = opts.okText || (typeof t === 'function' ? t('btn.ok') : '确定');
+    cancelBtn.textContent = opts.cancelText || (typeof t === 'function' ? t('btn.cancel') : '取消');
+    mask.classList.remove('hidden');
+    const done = (val) => {
+      mask.classList.add('hidden');
+      okBtn.onclick = null; cancelBtn.onclick = null;
+      resolve(val);
+    };
+    okBtn.onclick = () => done(true);
+    cancelBtn.onclick = () => done(false);
+  });
+}
+function uiAlert(body, title) { return showModal({ body: body, title: title, confirm: false }); }
+function uiConfirm(body, title) { return showModal({ body: body, title: title, confirm: true }); }
+
 // ============ 主题 ============
 let theme = localStorage.getItem('theme') || 'dark';
 function applyTheme(t) {
@@ -247,7 +273,7 @@ async function doStop() {
 async function saveVmrun() {
   const p = document.getElementById('vmrunPath').value.trim();
   await window.pywebview.api.save_vmrun(p);
-  alert(t('msg.saved'));
+  uiAlert(t('msg.saved'));
 }
 
 async function saveAllAlias() {
@@ -258,7 +284,7 @@ async function saveAllAlias() {
     const note = row.querySelector('.a-note').value.trim();
     await window.pywebview.api.save_alias(vmx, name, note);
   }
-  alert(t('msg.saved'));
+  uiAlert(t('msg.saved'));
   loadVms();
 }
 
@@ -558,7 +584,7 @@ async function testDetail(n) {
 }
 
 async function delNode(id) {
-  if (!confirm(t('cl.confirmDel'))) return;
+  if (!await uiConfirm(t('cl.confirmDel'))) return;
   await window.pywebview.api.delete_node(id);
   delete HEALTH[id];
   await loadNodes();
@@ -582,7 +608,7 @@ async function runHealthCheck() {
     renderNodes();
     renderClusterCard();
   } catch (e) {
-    alert('体检失败: ' + e);
+    uiAlert('体检失败: ' + e);
   } finally {
     btn.disabled = false;
     btn.textContent = t('cl.check');
@@ -600,7 +626,7 @@ function powerLog(html) {
 }
 
 async function runCluster(action) {
-  if (POWER_RUNNING) { alert(t('cl.busy')); return; }
+  if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }
   POWER_RUNNING = true;
   const svcs = await window.pywebview.api.get_services();
   const enabled = svcs.filter(s => s.enabled);
@@ -690,7 +716,7 @@ async function waitNodesReady(onTick) {
 
 // 单独启动所有虚拟机（不启动服务）
 async function bootVms() {
-  if (POWER_RUNNING) { alert(t('cl.busy')); return; }
+  if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }
   POWER_RUNNING = true;
   powerLog(renderLine(t('cl.booting'), 'running'));
   try {
@@ -718,7 +744,7 @@ document.getElementById('clusterStart').addEventListener('click', () => runClust
 document.getElementById('clusterStop').addEventListener('click', () => runCluster('stop'));
 
 async function shutdownVms() {
-  if (!confirm(t('cl.confirmShutdown'))) return;
+  if (!await uiConfirm(t('cl.confirmShutdown'))) return;
   powerLog(renderLine(t('cl.shuttingDown'), 'running'));
   try {
     await window.pywebview.api.stop_vms();

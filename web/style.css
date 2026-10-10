@@ -167,6 +167,14 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .status-dot.st-red { background: #e06c6c; opacity:1; }       /* 异常 */
 .status-dot.st-gray { background: var(--muted); opacity:0.4; } /* 未检查 */
 .cl-run { color: #e0b34a; }
+/* 自绘对话框 */
+.modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 999; }
+.modal-mask.hidden { display: none; }
+.modal { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1.2rem 1.4rem; min-width: 320px; max-width: 460px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+.modal-title { font-size: 1rem; font-weight: 650; margin-bottom: 0.8rem; }
+.modal-body { font-size: 0.88rem; color: var(--ink-2); line-height: 1.6; margin-bottom: 1.2rem; word-break: break-word; }
+.modal-foot { display: flex; gap: 0.6rem; justify-content: flex-end; }
+
 /* VM 开/关机徽标 */
 .vm-power { font-size: 0.72rem; padding: 0.1rem 0.5rem; border-radius: 12px; border: 1px solid var(--line); }
 .vm-power.on { color: #3ecf8e; border-color: #3ecf8e; }
