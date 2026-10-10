@@ -43,6 +43,7 @@ ensure_deps()
 import webview  # noqa
 import core
 import cluster
+import services
 
 import sys
 
@@ -85,6 +86,20 @@ class Api:
 
     def health_check(self):
         return cluster.health_check_all()
+
+    # ===== 集群启停 =====
+    def get_services(self):
+        return services.get_services()
+
+    def set_service_enabled(self, sid, enabled):
+        services.set_service_enabled(sid, enabled)
+        return {"ok": True}
+
+    def run_service(self, sid, action="start"):
+        return services.run_service(sid, action)
+
+    def start_vms(self):
+        return services.start_vms()
 
     def get_vms(self, force=False, snaps=True):
         running = [os.path.basename(r) for r in core.list_running()] if snaps else []
