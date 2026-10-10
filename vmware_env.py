@@ -38,10 +38,12 @@ def _ps(cmd, timeout=30):
 
 
 def _run_elevated_ps(script, timeout=90):
-    """提权运行 PowerShell 脚本（用 base64 避免引号/中文问题）"""
+    """提权运行 PowerShell 脚本（隐藏控制台窗口，只弹 UAC）。
+    用 base64 避免引号/中文问题。"""
     encoded = base64.b64encode(script.encode("utf-16-le")).decode()
-    outer = ("Start-Process powershell -Verb RunAs -ArgumentList "
-             "'-NoProfile','-EncodedCommand','%s' -Wait") % encoded
+    # -WindowStyle Hidden 隐藏提权后的 PowerShell 控制台窗口
+    outer = ("Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList "
+             "'-NoProfile','-WindowStyle','Hidden','-EncodedCommand','%s' -Wait") % encoded
     try:
         subprocess.run(["powershell", "-NoProfile", "-Command", outer],
                        timeout=timeout, creationflags=CREATE_NO_WINDOW)
