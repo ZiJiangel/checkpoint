@@ -52,10 +52,14 @@ document.querySelectorAll('.tab').forEach(t => {
     t.classList.add('active');
     document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
     document.getElementById('page-' + t.dataset.tab).classList.remove('hidden');
-    // 进入「集群」页且开启自动检查 → 自动体检一次
-    if (t.dataset.tab === 'cluster' && AUTO_CHECK && !CHECKED_ONCE && NODES.length) {
-      CHECKED_ONCE = true;
-      runHealthCheck();
+    // 进入「集群」页 → 刷新 VMware 状态
+    if (t.dataset.tab === 'cluster') {
+      loadVmware();
+      // 开启自动检查 → 自动体检一次
+      if (AUTO_CHECK && !CHECKED_ONCE && NODES.length) {
+        CHECKED_ONCE = true;
+        runHealthCheck();
+      }
     }
   });
 });
@@ -873,13 +877,21 @@ const VMWARE_STATE_META = {
   gray:   { color: '#8a8a94', text: 'VMware 检查中' },
 };
 
+let VMWARE_LOADING = false;   // 防重入
+
 async function loadVmware() {
+  if (VMWARE_LOADING) return;   // 上次还没查完，跳过本次
+  VMWARE_LOADING = true;
   try {
     VMWARE_STATE = await window.pywebview.api.vmware_state();
   } catch (e) { VMWARE_STATE = null; }
   renderVmwareStatusBar();
   renderVmwareCard();
+  VMWARE_LOADING = false;
 }
+
+// 定时轮询 VMware 状态（每 15 秒）。查询仅约 0.6 秒，成本低，让状态灯全窗口保持最新
+setInterval(() => { loadVmware(); }, 15000);
 
 function renderVmwareStatusBar() {
   const dot = document.getElementById('vmwareDot');
