@@ -166,6 +166,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .status-dot.st-yellow { background: #e0b34a; opacity:1; }    /* 部分异常 */
 .status-dot.st-red { background: #e06c6c; opacity:1; }       /* 异常 */
 .status-dot.st-gray { background: var(--muted); opacity:0.4; } /* 未检查 */
+.status-dot.st-off { background: var(--muted); opacity:0.5; }   /* 关机 */
 .cl-run { color: #e0b34a; }
 /* 自绘对话框 */
 .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 999; }

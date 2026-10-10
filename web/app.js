@@ -378,8 +378,8 @@ function healthStatusOf(id) {
   return HEALTH[id] ? HEALTH[id].status : 'gray';
 }
 
-// 状态严重度：取最严重（vSphere 规则）
-const SEVERITY = { gray: 0, green: 1, yellow: 2, red: 3 };
+// 状态严重度：取最严重（vSphere 规则）。off(关机) 比 gray 高，比 yellow 低
+const SEVERITY = { gray: 0, off: 1, green: 2, yellow: 3, red: 4 };
 
 function renderClusterCard() {
   const box = document.getElementById('clusterCard');
@@ -387,19 +387,20 @@ function renderClusterCard() {
   if (NODES.length === 0) { box.innerHTML = ''; return; }
 
   // 聚合：集群状态 = 最差节点状态
-  let worst = 'gray', counts = { green: 0, yellow: 0, red: 0, gray: 0 };
+  let worst = 'gray', counts = { green: 0, yellow: 0, red: 0, gray: 0, off: 0 };
   NODES.forEach(n => {
     const st = healthStatusOf(n.id);
     counts[st] = (counts[st] || 0) + 1;
     if (SEVERITY[st] > SEVERITY[worst]) worst = st;
   });
 
-  const label = { green: '健康', yellow: '部分异常', red: '异常', gray: '未检查' }[worst];
+  const label = { green: '健康', yellow: '部分异常', red: '异常', gray: '未检查', off: '关机' }[worst];
   const total = NODES.length;
   const parts = [];
   if (counts.green) parts.push('<span class="ok">' + counts.green + ' 正常</span>');
   if (counts.yellow) parts.push('<span style="color:#e0b34a">' + counts.yellow + ' 部分异常</span>');
   if (counts.red) parts.push('<span class="err">' + counts.red + ' 异常</span>');
+  if (counts.off) parts.push('<span class="vm-role">' + counts.off + ' 关机</span>');
   if (counts.gray) parts.push('<span class="vm-role">' + counts.gray + ' 未检查</span>');
 
   box.innerHTML =
@@ -413,7 +414,7 @@ function renderClusterCard() {
 }
 
 function severityColor(s) {
-  return { green: '#3ecf8e', yellow: '#e0b34a', red: '#e06c6c', gray: '#8a8a94' }[s] || '#8a8a94';
+  return { green: '#3ecf8e', yellow: '#e0b34a', red: '#e06c6c', gray: '#8a8a94', off: '#8a8a94' }[s] || '#8a8a94';
 }
 
 function renderNodes() {
@@ -460,7 +461,7 @@ function showDetail(id) {
   if (!n) return;
   window._DETAIL_ID = id;
   const st = healthStatusOf(id);
-  const statusText = { green: '正常', yellow: '部分异常', red: '异常', gray: '未检查' }[st] || '未知';
+  const statusText = { green: '正常', yellow: '部分异常', red: '异常', gray: '未检查', off: '关机' }[st] || '未知';
 
   // 选项卡栏
   const tabs = [

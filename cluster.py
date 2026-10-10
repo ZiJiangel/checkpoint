@@ -201,15 +201,24 @@ def _parse_ports(out):
     return ports
 
 
-def health_check(node):
+def health_check(node, running_vmx=None):
     """检查单个节点：在线 + 进程 + 端口。
     返回 {id, online, procs, expected, missing, ports_ok, ports_missing, status, detail}
-    status: green(正常) / yellow(部分异常) / red(异常) / gray(未启用)"""
+    status: green(正常) / yellow(部分异常) / red(异常) / gray(未启用) / off(关机)"""
     nid = node.get("id")
     if not node.get("enabled", True):
         return {"id": nid, "online": False, "procs": [], "expected": [],
-                "missing": [], "ports_ok": [], "ports_missing": [],
-                "status": "gray", "detail": "已禁用"}
+                "missing": [], "ports_ok": [], "ports_missing": [], "services": {},
+                "svcs_missing": [], "status": "gray", "detail": "已禁用"}
+
+    # 配了 vmx 且 VM 未运行 → 直接判为关机，跳过 SSH 探测（不白等超时）
+    vmx = node.get("vmx", "")
+    if vmx and running_vmx is not None:
+        key = os.path.normcase(os.path.abspath(vmx))
+        if key not in running_vmx:
+            return {"id": nid, "online": False, "procs": [], "expected": [],
+                    "missing": [], "ports_ok": [], "ports_missing": [], "services": {},
+                    "svcs_missing": [], "status": "off", "detail": "虚拟机关机（未开机）"}
 
     checks = ROLE_CHECKS.get(node.get("role", "worker"),
                              {"procs": [], "ports": {}, "services": {}})
@@ -275,9 +284,16 @@ def health_check_all():
     nodes = list_nodes()
     if not nodes:
         return []
+    # 先取一次运行中的 VM（避免逐台重复调用 vmrun）
+    running_vmx = set()
+    try:
+        for r in core.list_running():
+            running_vmx.add(os.path.normcase(os.path.abspath(r)))
+    except Exception:
+        running_vmx = None
     results = []
     with ThreadPoolExecutor(max_workers=len(nodes)) as pool:
-        fut = {pool.submit(health_check, n): n for n in nodes}
+        fut = {pool.submit(health_check, n, running_vmx): n for n in nodes}
         for f in as_completed(fut):
             try:
                 results.append(f.result())
