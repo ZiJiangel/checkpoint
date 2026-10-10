@@ -243,6 +243,7 @@ async function doRev() {
     html += '<div class="' + (r.ok ? 'ok' : 'err') + '">' + v.label + ' — ' + (r.ok ? t('ops.done') : r.out) + '</div>';
   }
   box.innerHTML = html;
+  loadVms();
 }
 
 async function doDel() {
@@ -261,6 +262,7 @@ async function doStart() {
   const r = await window.pywebview.api.start_vm(vmx);
   document.getElementById('opResult').innerHTML = '<div class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.started') : r.out) + '</div>';
   loadVms();
+  refreshVmStatus();
 }
 
 async function doStop() {
@@ -268,6 +270,7 @@ async function doStop() {
   const r = await window.pywebview.api.stop_vm(vmx);
   document.getElementById('opResult').innerHTML = '<div class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.stopped') : r.out) + '</div>';
   loadVms();
+  refreshVmStatus();
 }
 
 async function saveVmrun() {
@@ -608,6 +611,7 @@ async function runHealthCheck() {
     res.forEach(r => { HEALTH[r.id] = r; });
     renderNodes();
     renderClusterCard();
+    refreshVmStatus();
   } catch (e) {
     uiAlert('体检失败: ' + e);
   } finally {
