@@ -107,6 +107,9 @@ class Api:
     def stop_vm_node(self, nid):
         return services.stop_vm_node(nid)
 
+    def start_vm_node(self, nid):
+        return services.start_vm_node(nid)
+
     def check_nodes_ready(self):
         return cluster.check_nodes_ready()
 

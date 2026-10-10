@@ -113,15 +113,50 @@ def run_service(sid, action="start"):
 
 
 def start_vms():
-    """启动配了 vmx 的节点对应的虚拟机（可选步骤）"""
+    """启动配了 vmx 的节点对应的虚拟机（跳过已在运行的）"""
+    running = set()
+    try:
+        for r in core.list_running():
+            running.add(os.path.normcase(os.path.abspath(r)))
+    except Exception:
+        pass
     results = []
     for n in cluster.list_nodes():
         vmx = n.get("vmx", "")
         if not vmx:
             continue
+        if os.path.normcase(os.path.abspath(vmx)) in running:
+            results.append({"node": n.get("name"), "ok": True, "out": "已在运行，跳过", "skipped": True})
+            continue
         ok, out = core.start_vm(vmx)
         results.append({"node": n.get("name"), "ok": ok, "out": out})
     return {"ok": True, "results": results}
+
+
+def start_vm_node(nid):
+    """启动单个节点的虚拟机（供前端并发 + 进度显示）。
+    返回 {ok, mode: 'started'|'skipped'|'failed', detail}"""
+    n = None
+    for x in cluster.list_nodes():
+        if x.get("id") == nid:
+            n = x
+            break
+    if not n:
+        return {"ok": False, "mode": "failed", "detail": "节点不存在"}
+    vmx = n.get("vmx", "")
+    if not vmx:
+        return {"ok": False, "mode": "failed", "detail": "未配置虚拟机路径"}
+    # 已在运行则跳过
+    try:
+        running = set(os.path.normcase(os.path.abspath(r)) for r in core.list_running())
+    except Exception:
+        running = set()
+    if os.path.normcase(os.path.abspath(vmx)) in running:
+        return {"ok": True, "mode": "skipped", "detail": ""}
+    ok, out = core.start_vm(vmx)
+    if ok:
+        return {"ok": True, "mode": "started", "detail": ""}
+    return {"ok": False, "mode": "failed", "detail": out}
 
 
 def stop_vms():
