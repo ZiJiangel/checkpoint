@@ -887,12 +887,14 @@ let VMWARE_LOADING = false;   // 防重入
 
 async function loadVmware() {
   if (VMWARE_LOADING) return;   // 上次还没查完，跳过本次
+  // 有下拉菜单打开时，不重渲染卡片（避免冲掉用户的展开）
+  const anyMenuOpen = document.querySelector('.split-menu:not(.hidden)');
   VMWARE_LOADING = true;
   try {
     VMWARE_STATE = await window.pywebview.api.vmware_state();
   } catch (e) { VMWARE_STATE = null; }
   renderVmwareStatusBar();
-  renderVmwareCard();
+  if (!anyMenuOpen) renderVmwareCard();
   VMWARE_LOADING = false;
 }
 
