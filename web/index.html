@@ -1,0 +1,111 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>集群快照管理器</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-dark">
+  <header class="titlebar">
+    <div class="tb-left">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span class="brand-name">快照管理器</span>
+      </div>
+    </div>
+    <div class="tb-center">
+      <span class="tb-status" id="status"><span class="dot"></span>就绪</span>
+    </div>
+    <div class="tb-right">
+      <button class="tb-icon" id="themeBtn" title="切换主题">
+        <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="2" fill="none"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12h2.5M19 12h2.5M5.2 5.2l1.8 1.8M17 17l1.8 1.8M18.8 5.2L17 7M7 17l-1.8 1.8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      </button>
+      <div class="win-btns">
+        <button class="win-btn" id="minBtn" title="最小化"><svg viewBox="0 0 10 10" width="11" height="11"><rect x="1" y="4.7" width="8" height="0.6" fill="currentColor"/></svg></button>
+        <button class="win-btn" id="maxBtn" title="最大化"><svg viewBox="0 0 10 10" width="11" height="11"><rect x="1.3" y="1.3" width="7.4" height="7.4" rx="1" stroke="currentColor" stroke-width="0.8" fill="none"/></svg></button>
+        <button class="win-btn win-close" id="closeBtn" title="关闭"><svg viewBox="0 0 10 10" width="11" height="11"><path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="content">
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="overview">概览</button>
+      <button class="tab" data-tab="ops">快照操作</button>
+      <button class="tab" data-tab="runtime">运行状态</button>
+      <button class="tab" data-tab="settings">设置</button>
+    </nav>
+
+    <div class="page" id="page-overview">
+      <div class="sec-head"><span class="sec-num">01</span><span class="sec-title">快照分布</span>
+        <button class="mini-btn" id="refreshOverview" style="margin-left:auto">刷新</button>
+        <button class="mini-btn" id="rescanVms" title="重新扫描虚拟机（可能较慢）">重新扫描</button>
+      </div>
+      <div id="vmList"></div>
+      <div class="hint-foot">虚拟机由软件自动扫描（读取 VMware 记录）。路径不对或没扫到？可在「设置」中配置。</div>
+    </div>
+
+    <div class="page hidden" id="page-ops">
+      <div class="sec-head"><span class="sec-num">02</span><span class="sec-title">打快照</span></div>
+      <div class="form-row">
+        <input id="snapName" placeholder="快照名（如 base_clean_1010）">
+        <div class="dd">
+          <div class="dd-btn" id="snapDDBtn"><span id="snapDDLabel">选择虚拟机</span><span class="arrow">▼</span></div>
+          <div class="dd-menu" id="snapDDMenu"></div>
+        </div>
+        <button class="primary" id="doSnap">创建</button>
+      </div>
+      <div class="result" id="snapResult"></div>
+
+      <div class="sec-head" style="margin-top:2rem"><span class="sec-num">03</span><span class="sec-title">切换分支</span></div>
+      <div class="form-row">
+        <select id="revName"><option value="">选择分支…</option></select>
+        <div class="dd">
+          <div class="dd-btn" id="revDDBtn"><span id="revDDLabel">选择虚拟机</span><span class="arrow">▼</span></div>
+          <div class="dd-menu" id="revDDMenu"></div>
+        </div>
+        <button class="primary" id="doRev">回滚</button>
+      </div>
+      <div class="result" id="revResult"></div>
+
+      <div class="sec-head" style="margin-top:2rem"><span class="sec-num">04</span><span class="sec-title">删除快照</span></div>
+      <div class="form-row">
+        <select id="delVm"></select>
+        <select id="delSnap"></select>
+        <button id="doDel" disabled>删除</button>
+      </div>
+      <div class="result" id="delResult"></div>
+    </div>
+
+    <div class="page hidden" id="page-runtime">
+      <div class="sec-head"><span class="sec-num">05</span><span class="sec-title">运行中的虚拟机</span>
+        <button class="mini-btn" id="refreshRun" style="margin-left:auto">刷新</button>
+      </div>
+      <div id="runList"></div>
+      <div class="sec-head" style="margin-top:2rem"><span class="sec-num">06</span><span class="sec-title">启动 / 停止</span></div>
+      <div class="form-row">
+        <select id="opVm"></select>
+        <button class="primary" id="doStart">启动</button>
+        <button id="doStop">停止</button>
+      </div>
+      <div class="result" id="opResult"></div>
+    </div>
+
+    <div class="page hidden" id="page-settings">
+      <div class="sec-head"><span class="sec-num">07</span><span class="sec-title">VMware 路径</span></div>
+      <div class="form-row">
+        <input id="vmrunPath" placeholder="vmrun.exe 路径">
+        <button class="primary" id="saveVmrun">保存</button>
+      </div>
+
+      <div class="sec-head" style="margin-top:2rem"><span class="sec-num">08</span><span class="sec-title">虚拟机名称</span>
+        <span class="sec-note-inline">显示名（大字）与备注（灰色小字）</span>
+      </div>
+      <div id="aliasList"></div>
+      <button class="primary" id="saveAllAlias" style="margin-top:1rem">保存全部</button>
+    </div>
+  </main>
+
+<script src="app.js"></script>
+</body>
+</html>

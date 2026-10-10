@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- 背景：圆角深色方块 -->
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="#16161a"/>
+  <!-- 分支图形：主干 + 两个分支节点 -->
+  <!-- 主干竖线 -->
+  <line x1="80" y1="52" x2="80" y2="204" stroke="#ececf1" stroke-width="14" stroke-linecap="round"/>
+  <!-- 分支 1：向右上 -->
+  <path d="M80 108 C 120 108, 130 88, 168 88" stroke="#5b8def" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <!-- 分支 2：向右下 -->
+  <path d="M80 152 C 120 152, 130 172, 168 172" stroke="#3ecf8e" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <!-- 节点圆点 -->
+  <circle cx="80" cy="52" r="16" fill="#ececf1"/>
+  <circle cx="176" cy="88" r="14" fill="#5b8def"/>
+  <circle cx="176" cy="172" r="14" fill="#3ecf8e"/>
+</svg>

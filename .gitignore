@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 运行时生成
+settings.json
+aliases.json
+vms_cache.json
+error.log
+
+# 打包产物
+build/
+dist/
+*.spec
+
+# 系统
+.DS_Store
+Thumbs.db

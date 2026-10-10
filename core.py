@@ -1,0 +1,213 @@
+# -*- coding: utf-8 -*-
+"""集群快照管理器 - 核心逻辑"""
+import subprocess
+import json
+import os
+import re
+import glob
+
+import sys
+
+if getattr(sys, "frozen", False):
+    # 打包后：配置文件放在 exe 旁边
+    BASE = os.path.dirname(sys.executable)
+else:
+    BASE = os.path.dirname(os.path.abspath(__file__))
+SETTINGS_FILE = os.path.join(BASE, "settings.json")
+ALIAS_FILE = os.path.join(BASE, "aliases.json")
+
+VMRUN_CANDIDATES = [
+    r"D:\VM\VM170603\vmrun.exe",
+    r"C:\Program Files (x86)\VMware\VMware Workstation\vmrun.exe",
+    r"C:\Program Files\VMware\VMware Workstation\vmrun.exe",
+    r"C:\Program Files (x86)\VMware\VMware Player\vmrun.exe",
+]
+
+SCAN_DIRS = [
+    r"D:\VM\VMs",
+    os.path.join(os.path.expanduser("~"), "Documents", "Virtual Machines"),
+    os.path.join(os.path.expanduser("~"), "vm"),
+]
+
+
+def load_json(path, default):
+    if os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return default
+    return default
+
+
+def save_json(path, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def detect_vmrun():
+    for p in VMRUN_CANDIDATES:
+        if os.path.exists(p):
+            return p
+    return ""
+
+
+def get_vmrun():
+    s = load_json(SETTINGS_FILE, {})
+    v = s.get("vmrun", "")
+    if v and os.path.exists(v):
+        return v
+    return detect_vmrun()
+
+
+def run_vmrun(args, timeout=60):
+    vmrun = get_vmrun()
+    if not vmrun or not os.path.exists(vmrun):
+        return False, "未找到 vmrun，请在设置中指定 VMware 的 vmrun 路径"
+    try:
+        CREATE_NO_WINDOW = 0x08000000
+        p = subprocess.run([vmrun] + args, capture_output=True, text=True,
+                           timeout=timeout, encoding="utf-8", errors="replace",
+                           creationflags=CREATE_NO_WINDOW)
+        out = ((p.stdout or "") + (p.stderr or "")).strip()
+        return p.returncode == 0, out
+    except Exception as e:
+        return False, str(e)
+
+
+def read_inventory():
+    results = []
+    inv = os.path.join(os.environ.get("APPDATA", ""), "VMware", "inventory.vmls")
+    if not os.path.exists(inv):
+        return results
+    try:
+        with open(inv, "r", encoding="gbk", errors="replace") as f:
+            text = f.read()
+    except Exception:
+        return results
+    paths, names = {}, {}
+    for line in text.splitlines():
+        m = re.match(r'(vmlist\d+)\.config\s*=\s*"(.+)"', line.strip())
+        if m:
+            paths[m.group(1)] = m.group(2)
+        m2 = re.match(r'(vmlist\d+)\.DisplayName\s*=\s*"(.+)"', line.strip())
+        if m2:
+            names[m2.group(1)] = m2.group(2)
+    for k, p in paths.items():
+        results.append((p, names.get(k, os.path.basename(p))))
+    return results
+
+
+def scan_dirs():
+    results = []
+    for d in SCAN_DIRS:
+        if os.path.isdir(d):
+            for p in glob.glob(os.path.join(d, "**", "*.vmx"), recursive=True):
+                results.append((p, os.path.splitext(os.path.basename(p))[0]))
+    return results
+
+
+CACHE_FILE = os.path.join(BASE, "vms_cache.json")
+
+
+def scan_vms(force=False):
+    """扫描虚拟机（带文件缓存）"""
+    # 有缓存且不强制刷新 → 用缓存
+    if not force and os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, encoding="utf-8") as f:
+                cached = json.load(f)
+            # 过滤掉已不存在的
+            valid = [c for c in cached if os.path.exists(c["vmx"])]
+            if valid:
+                return valid
+        except Exception:
+            pass
+
+    # 重新扫描
+    found = {}
+    for p, name in read_inventory():
+        if p and os.path.exists(p):
+            found[os.path.normcase(p)] = {"vmx": p, "display": name}
+    for p, name in scan_dirs():
+        key = os.path.normcase(p)
+        if key not in found:
+            found[key] = {"vmx": p, "display": name}
+    result = list(found.values())
+
+    # 写缓存
+    try:
+        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+    return result
+
+
+def list_vms(force=False):
+    aliases = load_json(ALIAS_FILE, {})
+    result = []
+    for vm in scan_vms(force=force):
+        vmx = vm["vmx"]
+        meta = aliases.get(vmx, {})
+        display = vm["display"] or os.path.splitext(os.path.basename(vmx))[0]
+        show_name = (meta.get("name") or "").strip() or display
+        note = meta.get("note", "")
+        result.append({
+            "name": display,
+            "label": show_name,
+            "note": note,
+            "vmx": vmx,
+        })
+    result.sort(key=lambda x: x["label"])
+    return result
+
+
+def list_snapshots(vmx):
+    if not vmx or not os.path.exists(vmx):
+        return []
+    ok, out = run_vmrun(["listSnapshots", vmx])
+    if not ok:
+        return []
+    return [l.strip() for l in out.splitlines()
+            if l.strip() and not l.lower().startswith("total snapshots")]
+
+
+def list_running():
+    ok, out = run_vmrun(["list"])
+    if not ok:
+        return []
+    return [l.strip() for l in out.splitlines()
+            if l.strip() and not l.lower().startswith("total")]
+
+
+def take_snapshot(vmx, name):
+    return run_vmrun(["snapshot", vmx, name])
+
+
+def revert_snapshot(vmx, name):
+    return run_vmrun(["revertToSnapshot", vmx, name])
+
+
+def delete_snapshot(vmx, name):
+    return run_vmrun(["deleteSnapshot", vmx, name])
+
+
+def start_vm(vmx):
+    return run_vmrun(["start", vmx, "nogui"])
+
+
+def stop_vm(vmx):
+    return run_vmrun(["stop", vmx, "soft"])
+
+
+def save_alias(vmx, name, note):
+    aliases = load_json(ALIAS_FILE, {})
+    aliases[vmx] = {"name": name, "note": note}
+    save_json(ALIAS_FILE, aliases)
+
+
+def set_vmrun(path):
+    s = load_json(SETTINGS_FILE, {})
+    s["vmrun"] = path
+    save_json(SETTINGS_FILE, s)
