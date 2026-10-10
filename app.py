@@ -119,7 +119,12 @@ class Api:
         return result
 
     def get_settings(self):
-        return {"vmrun": core.get_vmrun(), "lang": core.get_lang()}
+        return {"vmrun": core.get_vmrun(), "lang": core.get_lang(),
+                "auto_check": core.get_auto_check()}
+
+    def save_auto_check(self, enabled):
+        core.set_auto_check(enabled)
+        return {"ok": True}
 
     def save_lang(self, lang):
         core.set_lang(lang)

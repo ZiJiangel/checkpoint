@@ -245,6 +245,17 @@ def set_lang(lang):
     save_json(SETTINGS_FILE, s)
 
 
+def get_auto_check():
+    """打开集群页时是否自动体检（默认开）"""
+    return load_json(SETTINGS_FILE, {}).get("auto_check", True)
+
+
+def set_auto_check(enabled):
+    s = load_json(SETTINGS_FILE, {})
+    s["auto_check"] = bool(enabled)
+    save_json(SETTINGS_FILE, s)
+
+
 def _ver_tuple(v):
     """把 "0.1.0" 转成 (0,1,0) 便于比较"""
     try:

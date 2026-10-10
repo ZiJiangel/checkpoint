@@ -17,12 +17,20 @@ document.getElementById('maxBtn').addEventListener('click', () => window.pywebvi
 document.getElementById('closeBtn').addEventListener('click', () => window.pywebview.api.close_win());
 
 // ============ 标签页 ============
+let AUTO_CHECK = true;    // 由设置加载
+let CHECKED_ONCE = false;  // 避免反复体检
+
 document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
     document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
     document.getElementById('page-' + t.dataset.tab).classList.remove('hidden');
+    // 进入「集群」页且开启自动检查 → 自动体检一次
+    if (t.dataset.tab === 'cluster' && AUTO_CHECK && !CHECKED_ONCE && NODES.length) {
+      CHECKED_ONCE = true;
+      runHealthCheck();
+    }
   });
 });
 
@@ -524,6 +532,10 @@ function renderLine(text, state) {
 
 document.getElementById('clusterStart').addEventListener('click', () => runCluster('start'));
 document.getElementById('clusterStop').addEventListener('click', () => runCluster('stop'));
+document.getElementById('autoCheck').addEventListener('change', (e) => {
+  AUTO_CHECK = e.target.checked;
+  window.pywebview.api.save_auto_check(AUTO_CHECK);
+});
 
 
 
@@ -532,6 +544,8 @@ window.addEventListener('pywebviewready', async () => {
   const s = await window.pywebview.api.get_settings();
   initLang(s.lang);
   document.getElementById('vmrunPath').value = s.vmrun || '';
+  AUTO_CHECK = s.auto_check !== false;
+  document.getElementById('autoCheck').checked = AUTO_CHECK;
   // 加载版本 / 作者
   try {
     const meta = await window.pywebview.api.get_meta();
