@@ -335,10 +335,49 @@ let HEALTH = {};       // id -> 健康结果
 async function loadNodes() {
   NODES = await window.pywebview.api.get_nodes();
   renderNodes();
+  renderClusterCard();
 }
 
 function healthStatusOf(id) {
   return HEALTH[id] ? HEALTH[id].status : 'gray';
+}
+
+// 状态严重度：取最严重（vSphere 规则）
+const SEVERITY = { gray: 0, green: 1, yellow: 2, red: 3 };
+
+function renderClusterCard() {
+  const box = document.getElementById('clusterCard');
+  if (!box) return;
+  if (NODES.length === 0) { box.innerHTML = ''; return; }
+
+  // 聚合：集群状态 = 最差节点状态
+  let worst = 'gray', counts = { green: 0, yellow: 0, red: 0, gray: 0 };
+  NODES.forEach(n => {
+    const st = healthStatusOf(n.id);
+    counts[st] = (counts[st] || 0) + 1;
+    if (SEVERITY[st] > SEVERITY[worst]) worst = st;
+  });
+
+  const label = { green: '健康', yellow: '部分异常', red: '异常', gray: '未检查' }[worst];
+  const total = NODES.length;
+  const parts = [];
+  if (counts.green) parts.push('<span class="ok">' + counts.green + ' 正常</span>');
+  if (counts.yellow) parts.push('<span style="color:#e0b34a">' + counts.yellow + ' 部分异常</span>');
+  if (counts.red) parts.push('<span class="err">' + counts.red + ' 异常</span>');
+  if (counts.gray) parts.push('<span class="vm-role">' + counts.gray + ' 未检查</span>');
+
+  box.innerHTML =
+    '<div class="card" style="border-left:3px solid ' + severityColor(worst) + '">' +
+    '<div class="card-top"><div>' +
+    '<span class="status-dot st-' + worst + '"></span>' +
+    '<span class="vm-name">集群整体状态：' + label + '</span></div>' +
+    '<span class="vm-count">' + total + ' 台</span></div>' +
+    '<div style="margin-top:0.5rem;font-size:0.82rem;display:flex;gap:1rem">' + parts.join('') + '</div>' +
+    '</div>';
+}
+
+function severityColor(s) {
+  return { green: '#3ecf8e', yellow: '#e0b34a', red: '#e06c6c', gray: '#8a8a94' }[s] || '#8a8a94';
 }
 
 function renderNodes() {
@@ -457,6 +496,7 @@ async function runHealthCheck() {
     HEALTH = {};
     res.forEach(r => { HEALTH[r.id] = r; });
     renderNodes();
+    renderClusterCard();
   } catch (e) {
     alert('体检失败: ' + e);
   } finally {
