@@ -96,8 +96,9 @@ class Api:
         import webbrowser
         try:
             webbrowser.open(url)
-        except Exception:
-            pass
+        except Exception as e:
+            core.log("打开链接失败：" + str(url) + " — " + str(e), exc=True)
+            return {"ok": False, "out": str(e)}
         return {"ok": True}
 
     def save_vmrun(self, path):
@@ -132,26 +133,10 @@ class Api:
         return core.list_running()
 
 
-def log_error(msg):
-    """把异常写入安装目录的 error.log"""
-    try:
-        import traceback
-        from datetime import datetime
-        logf = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "error.log")
-        with open(logf, "a", encoding="utf-8") as f:
-            f.write("[" + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "] " + msg + "\n")
-            f.write(traceback.format_exc() + "\n\n")
-        return logf
-    except Exception:
-        return ""
-
-
 def show_error(title, msg):
     # 不依赖 tkinter：写日志 + 打印
     try:
-        logf = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "error.log")
-        with open(logf, "a", encoding="utf-8") as f:
-            f.write(title + ": " + msg + "\n")
+        core.log(title + ": " + msg)
     except Exception:
         pass
     print(title + ": " + msg)
@@ -173,9 +158,9 @@ if __name__ == "__main__":
         )
         webview.start()
     except Exception as e:
-        logf = log_error("程序异常：" + str(e))
+        core.log("程序异常：" + str(e), exc=True)
         show_error("程序出错",
                    "程序发生了错误：\n\n" + str(e) +
-                   "\n\n详细信息已写入日志：\n" + logf +
+                   "\n\n详细信息已写入日志：\n" + core.LOG_FILE +
                    "\n\n请把该日志发给开发者。")
         sys.exit(1)

@@ -7,6 +7,8 @@ import re
 import glob
 import sys
 import urllib.request
+import traceback
+from datetime import datetime
 
 # 版本信息（更新时改这里 + setup.iss 的 MyAppVersion）
 VERSION = "0.2.0"
@@ -20,6 +22,18 @@ else:
     BASE = os.path.dirname(os.path.abspath(__file__))
 SETTINGS_FILE = os.path.join(BASE, "settings.json")
 ALIAS_FILE = os.path.join(BASE, "aliases.json")
+LOG_FILE = os.path.join(BASE, "error.log")
+
+
+def log(msg, exc=False):
+    """写错误日志（带时间戳）。exc=True 时附带调用栈。"""
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write("[" + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "] " + str(msg) + "\n")
+            if exc:
+                f.write(traceback.format_exc() + "\n")
+    except Exception:
+        pass
 
 VMRUN_CANDIDATES = [
     r"D:\VM\VM170603\vmrun.exe",
@@ -41,6 +55,7 @@ def load_json(path, default):
             with open(path, encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
+            log("读取 JSON 失败：" + path, exc=True)
             return default
     return default
 
@@ -77,6 +92,7 @@ def run_vmrun(args, timeout=60):
         out = ((p.stdout or "") + (p.stderr or "")).strip()
         return p.returncode == 0, out
     except Exception as e:
+        log("执行 vmrun 失败：" + " ".join(args) + " — " + str(e), exc=True)
         return False, str(e)
 
 
@@ -89,6 +105,7 @@ def read_inventory():
         with open(inv, "r", encoding="gbk", errors="replace") as f:
             text = f.read()
     except Exception:
+        log("读取 VMware 清单失败：" + inv, exc=True)
         return results
     paths, names = {}, {}
     for line in text.splitlines():
@@ -127,7 +144,7 @@ def scan_vms(force=False):
             if valid:
                 return valid
         except Exception:
-            pass
+            log("读取扫描缓存失败，将重新扫描", exc=True)
 
     # 重新扫描
     found = {}
@@ -145,7 +162,7 @@ def scan_vms(force=False):
         with open(CACHE_FILE, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
     except Exception:
-        pass
+        log("写入扫描缓存失败", exc=True)
     return result
 
 
@@ -233,6 +250,7 @@ def _ver_tuple(v):
     try:
         return tuple(int(x) for x in v.strip().lstrip("v").split("."))
     except Exception:
+        log("版本号解析失败：" + str(v), exc=True)
         return (0,)
 
 
@@ -250,6 +268,6 @@ def check_update():
         if latest and _ver_tuple(latest) > _ver_tuple(VERSION):
             return {"has": True, "latest": latest,
                     "url": data.get("html_url", ""), "current": VERSION}
-    except Exception:
-        pass
+    except Exception as e:
+        log("检查更新失败：" + str(e), exc=True)
     return {"has": False, "current": VERSION}
