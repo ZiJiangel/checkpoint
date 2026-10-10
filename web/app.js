@@ -373,12 +373,18 @@ async function loadNodes() {
   refreshVmStatus();
 }
 
-async function refreshVmStatus() {
+async function refreshVmStatus(force) {
+  let next;
   try {
-    VM_STATUS = await window.pywebview.api.nodes_vm_status();
-  } catch (e) { VM_STATUS = {}; }
-  renderNodes();
-  renderClusterCard();
+    next = await window.pywebview.api.nodes_vm_status();
+  } catch (e) { next = {}; }
+  // 仅当状态变化（或 force）时才重渲染，避免打断用户操作
+  const changed = JSON.stringify(next) !== JSON.stringify(VM_STATUS);
+  VM_STATUS = next;
+  if (changed || force) {
+    renderNodes();
+    renderClusterCard();
+  }
 }
 
 function healthStatusOf(id) {
@@ -890,8 +896,11 @@ async function loadVmware() {
   VMWARE_LOADING = false;
 }
 
-// 定时轮询 VMware 状态（每 15 秒）。查询仅约 0.6 秒，成本低，让状态灯全窗口保持最新
-setInterval(() => { loadVmware(); }, 15000);
+// 定时轮询（每 15 秒）：VMware 环境状态 + VM 开/关机状态，让界面保持最新
+setInterval(() => {
+  loadVmware();
+  if (NODES.length) refreshVmStatus();
+}, 15000);
 
 function renderVmwareStatusBar() {
   const dot = document.getElementById('vmwareDot');
