@@ -464,10 +464,14 @@ function renderHealthTab(n) {
   let html = '<div class="result">' + (h.detail || '') + '</div>';
   if (h.missing && h.missing.length)
     html += '<div class="result err" style="margin-top:0.4rem">缺进程：' + h.missing.join(', ') + '</div>';
+  if (h.svcs_missing && h.svcs_missing.length)
+    html += '<div class="result err" style="margin-top:0.2rem">缺服务：' + h.svcs_missing.join(', ') + '</div>';
   if (h.ports_missing && h.ports_missing.length)
     html += '<div class="result err" style="margin-top:0.2rem">缺端口：' + h.ports_missing.join(', ') + '</div>';
-  if ((!h.missing || !h.missing.length) && (!h.ports_missing || !h.ports_missing.length))
-    html += '<div class="result ok" style="margin-top:0.4rem">全部检查通过</div>';
+  const noProb = (!h.missing || !h.missing.length)
+    && (!h.svcs_missing || !h.svcs_missing.length)
+    && (!h.ports_missing || !h.ports_missing.length);
+  if (noProb) html += '<div class="result ok" style="margin-top:0.4rem">全部检查通过</div>';
   return html;
 }
 
