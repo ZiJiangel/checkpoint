@@ -391,9 +391,10 @@ function renderNodes() {
     const dot = '<span class="status-dot st-' + st + '"></span>';
     const role = '<span class="vm-role">' + (n.role || 'worker') + '</span>';
     const host = '<span class="vm-role">' + n.host + '</span>';
+    const note = n.note ? '<span class="vm-role">' + n.note + '</span>' : '';
     return '<div class="card" data-id="' + n.id + '" style="cursor:pointer">' +
       '<div class="card-top"><div>' + dot +
-      '<span class="vm-name">' + n.name + '</span>' + role + host + '</div>' +
+      '<span class="vm-name">' + n.name + '</span>' + role + host + note + '</div>' +
       '<span class="vm-count" style="cursor:pointer" data-del="' + n.id + '">删除</span></div></div>';
   }).join('');
   // 点击卡片 → 详情；点击删除
@@ -491,6 +492,9 @@ function renderConfigTab(n) {
     ['master','worker','ntp','kdc'].map(r => '<option value="' + r + '"' + (n.role === r ? ' selected' : '') + '>' + r + '</option>').join('') +
     '</select>' +
     '</div>' +
+    '<div class="form-row" style="margin-top:0.6rem">' +
+    '<input class="nd-note" value="' + (n.note || '') + '" placeholder="备注（如：主节点 / Kerberos 客户端）">' +
+    '</div>' +
     '<div class="form-row" style="margin-top:0.8rem">' +
     '<button class="primary" id="ndSave">保存</button>' +
     '<button id="ndTest">测试连接</button>' +
@@ -507,6 +511,7 @@ function readDetailForm(base) {
     user: q('.nd-user').value.trim(),
     pass: q('.nd-pass').value,
     role: q('.nd-role').value,
+    note: q('.nd-note') ? q('.nd-note').value.trim() : (base.note || ''),
   });
 }
 
