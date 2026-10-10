@@ -17,6 +17,11 @@ error.log
 # 打包产物
 build/
 build_*/
+_build.py
+_build.bat
+build.log
+iscc.log
+_*.py
 dist/
 dist_*/
 *.spec
