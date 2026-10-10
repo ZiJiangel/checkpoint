@@ -847,10 +847,14 @@ function renderVmwareCard() {
   const svcRows = VMWARE_STATE.services.map(s => {
     const dot = s.running ? 'st-green' : (s.critical ? 'st-red' : 'st-gray');
     const tag = s.critical ? '' : '<span class="vm-role">可选</span>';
+    const action = s.running
+      ? '<span class="svc-action" data-svc="' + s.name + '" data-act="stop">停止</span>'
+      : '<span class="svc-action" data-svc="' + s.name + '" data-act="start">启动</span>';
     return '<div style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;margin-top:0.35rem">' +
       '<span class="status-dot ' + dot + '"></span>' +
       '<span>' + s.label + '</span>' + tag +
-      '<span class="vm-role" style="margin-left:auto">' + (s.running ? '运行中' : '已停止') + '</span></div>';
+      '<span class="vm-role" style="margin-left:auto">' + (s.running ? '运行中' : '已停止') + '</span>' +
+      action + '</div>';
   }).join('');
 
   box.innerHTML =
@@ -871,6 +875,25 @@ function renderVmwareCard() {
   const btnApp = document.getElementById('vmwareLaunch');
   if (btnSvc) btnSvc.addEventListener('click', startVmwareServices);
   if (btnApp) btnApp.addEventListener('click', launchVmwareApp);
+  // 每个服务的单独 启动/停止
+  document.querySelectorAll('#vmwareCard .svc-action').forEach(el => {
+    el.addEventListener('click', () => toggleService(el.dataset.svc, el.dataset.act));
+  });
+}
+
+async function toggleService(name, act) {
+  const critical = (VMWARE_STATE.services.find(s => s.name === name) || {}).critical;
+  if (act === 'stop') {
+    let warn = '确定停止服务「' + name + '」？';
+    if (critical) warn = '「' + name + '」是必需服务，停止后 vmrun / 虚拟机操作将失效！\n\n确定停止？';
+    if (!await uiConfirm(warn)) return;
+  }
+  try {
+    if (act === 'start') await window.pywebview.api.vmware_start_one(name);
+    else await window.pywebview.api.vmware_stop_one(name);
+  } catch (e) {}
+  await new Promise(r => setTimeout(r, 1500));
+  await loadVmware();
 }
 
 async function startVmwareServices() {

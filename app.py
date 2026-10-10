@@ -119,6 +119,18 @@ class Api:
         ok = vmware_env.start_services()
         return {"ok": ok}
 
+    def vmware_stop_services(self):
+        ok = vmware_env.stop_services()
+        return {"ok": ok}
+
+    def vmware_start_one(self, name):
+        ok = vmware_env.start_one(name)
+        return {"ok": ok}
+
+    def vmware_stop_one(self, name):
+        ok = vmware_env.stop_one(name)
+        return {"ok": ok}
+
     def vmware_launch_app(self):
         ok, msg = vmware_env.launch_app()
         return {"ok": ok, "out": msg}

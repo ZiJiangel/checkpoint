@@ -112,6 +112,34 @@ def start_services():
     return _run_elevated_ps(script)
 
 
+def stop_services():
+    """停止所有正在运行的 VMware 服务（提权，会弹 UAC）。
+    警告：停止授权服务后 vmrun 将不可用。"""
+    script = "$ErrorActionPreference='SilentlyContinue'\n"
+    script += "$names=@(%s)\n" % ",".join("'%s'" % s["name"] for s in VMWARE_SERVICES)
+    script += ("Get-Service | Where-Object { $names -contains $_.Name -and "
+               "$_.Status -eq 'Running' } | ForEach-Object { Stop-Service $_.Name -Force }\n")
+    return _run_elevated_ps(script)
+
+
+def start_one(name):
+    """启动单个 VMware 服务（提权）"""
+    if name not in [s["name"] for s in VMWARE_SERVICES]:
+        return False
+    script = ("$ErrorActionPreference='SilentlyContinue'\n"
+              "Start-Service '%s'\n") % name
+    return _run_elevated_ps(script)
+
+
+def stop_one(name):
+    """停止单个 VMware 服务（提权）。停止授权服务后 vmrun 将不可用。"""
+    if name not in [s["name"] for s in VMWARE_SERVICES]:
+        return False
+    script = ("$ErrorActionPreference='SilentlyContinue'\n"
+              "Stop-Service '%s' -Force\n") % name
+    return _run_elevated_ps(script)
+
+
 def launch_app():
     """启动 VMware Workstation 图形界面"""
     if not os.path.exists(VMWARE_EXE):
