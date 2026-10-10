@@ -98,6 +98,28 @@ def test_node(node):
     return False, out
 
 
+def node_reachable(node, timeout=8):
+    """探测单个节点 SSH 是否可达（快速）"""
+    ok, _ = ssh_exec(node.get("host", ""), node.get("port", 22),
+                     node.get("user", ""), node.get("pass", ""),
+                     "hostname", timeout=timeout)
+    return ok
+
+
+def check_nodes_ready():
+    """检查所有启用节点的 SSH 可达性（单次，供前端轮询）。
+    返回 {ready: bool, nodes: [{name, ok}]}"""
+    targets = [n for n in list_nodes() if n.get("enabled", True)]
+    nodes = []
+    all_ok = True
+    for n in targets:
+        ok = node_reachable(n)
+        nodes.append({"name": n.get("name"), "ok": ok})
+        if not ok:
+            all_ok = False
+    return {"ready": all_ok, "nodes": nodes}
+
+
 # ============ 逻辑层：健康检查 ============
 
 # 各角色的检查项（声明式，可后续扩展）

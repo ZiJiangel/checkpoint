@@ -585,17 +585,29 @@ async function runCluster(action) {
   const enabled = svcs.filter(s => s.enabled);
   const stages = [...new Set(enabled.map(s => s.stage))].sort((a, b) => action === 'stop' ? b - a : a - b);
 
-  // 阶段0：启动 VM（仅启动时做）
+  // 阶段0：启动 VM 并等待 SSH 就绪（仅启动时做）
   let lines = [];
+  let aborted = false;
   if (action === 'start') {
     lines.push(renderLine('阶段0 · 启动虚拟机', 'running'));
     powerLog(lines.join(''));
     try { await window.pywebview.api.start_vms(); } catch (e) {}
-    lines[lines.length - 1] = renderLine('阶段0 · 启动虚拟机', 'done');
+    // 轮询等待所有节点 SSH 就绪（最长 150 秒）
+    const ready = await waitNodesReady((sec, total, allOk) => {
+      lines[lines.length - 1] = renderLine('阶段0 · 等待节点就绪 (' + sec + 's)', 'running');
+      powerLog(lines.join(''));
+    });
+    if (!ready) {
+      lines[lines.length - 1] = renderLine('阶段0 · 等待节点就绪超时（有节点未连上）', 'fail');
+      powerLog(lines.join(''));
+      lines.push('<div class="result err">✕ 节点未就绪，已停止（请检查虚拟机是否正常启动）</div>');
+      POWER_RUNNING = false;
+      powerLog(lines.join(''));
+      return;
+    }
+    lines[lines.length - 1] = renderLine('阶段0 · 节点已就绪', 'done');
     powerLog(lines.join(''));
   }
-
-  let aborted = false;
   for (const st of stages) {
     if (aborted) break;
     const group = enabled.filter(s => s.stage === st);
@@ -638,6 +650,46 @@ function renderLine(text, state) {
   const cls = { running: 'cl-run', done: 'ok', fail: 'err' }[state] || '';
   return '<div class="result ' + cls + '">' + icon + ' ' + text + '</div>';
 }
+
+// 轮询等待节点 SSH 就绪（前端轮询，进度可见）。最长 150 秒
+async function waitNodesReady(onTick) {
+  const maxSec = 150, intervalMs = 5000;
+  let waited = 0;
+  while (waited < maxSec) {
+    await new Promise(r => setTimeout(r, intervalMs));
+    waited += 5;
+    let res;
+    try { res = await window.pywebview.api.check_nodes_ready(); } catch (e) { res = { ready: false }; }
+    if (onTick) onTick(waited, maxSec, res.ready);
+    if (res.ready) return true;
+  }
+  return false;
+}
+
+// 单独启动所有虚拟机（不启动服务）
+async function bootVms() {
+  if (POWER_RUNNING) { alert(t('cl.busy')); return; }
+  POWER_RUNNING = true;
+  powerLog(renderLine(t('cl.booting'), 'running'));
+  try {
+    const r = await window.pywebview.api.start_vms();
+    const n = r.results ? r.results.length : 0;
+    powerLog(renderLine(t('cl.booting') + ' (' + n + ' 台)', 'running'));
+    const ready = await waitNodesReady((sec) => {
+      powerLog(renderLine(t('cl.booting') + ' — ' + t('cl.waitReady') + ' (' + sec + 's)', 'running'));
+    });
+    if (ready) {
+      powerLog(renderLine(t('cl.booting') + ' — ' + t('cl.ready'), 'done'));
+    } else {
+      powerLog(renderLine(t('cl.booting') + ' — ' + t('cl.readyTimeout'), 'fail'));
+    }
+  } catch (e) {
+    powerLog(renderLine(t('cl.booting') + ': ' + e, 'fail'));
+  }
+  POWER_RUNNING = false;
+  loadVms();
+}
+document.getElementById('vmBoot').addEventListener('click', bootVms);
 
 document.getElementById('clusterStart').addEventListener('click', () => runCluster('start'));
 document.getElementById('clusterStop').addEventListener('click', () => runCluster('stop'));
