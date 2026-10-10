@@ -405,18 +405,81 @@ function renderNodes() {
   });
 }
 
+let DETAIL_TAB = 'config';    // 当前节点详情的选项卡
+
 function showDetail(id) {
   const n = NODES.find(x => x.id === id);
   if (!n) return;
+  window._DETAIL_ID = id;
   const st = healthStatusOf(id);
-  const h = HEALTH[id];
   const statusText = { green: '正常', yellow: '部分异常', red: '异常', gray: '未检查' }[st] || '未知';
+
+  // 选项卡栏
+  const tabs = [
+    ['health', '健康'], ['service', '服务'], ['snapshot', '快照'], ['config', '配置'],
+  ];
+  const tabBar = '<div class="detail-tabs">' + tabs.map(([k, label]) =>
+    '<button class="detail-tab' + (DETAIL_TAB === k ? ' active' : '') + '" data-dtab="' + k + '">' + label + '</button>'
+  ).join('') + '</div>';
+
   document.getElementById('nodeDetail').innerHTML =
     '<div class="card">' +
     '<div class="card-top"><div><span class="status-dot st-' + st + '"></span>' +
-    '<span class="vm-name">' + n.name + '</span></div>' +
+    '<span class="vm-name">' + n.name + '</span>' +
+    '<span class="vm-role">' + (n.role || '') + '</span></div>' +
     '<span class="vm-count">' + statusText + '</span></div>' +
-    '<div class="form-row" style="margin-top:0.8rem">' +
+    tabBar +
+    '<div id="detailBody"></div>' +
+    '</div>';
+
+  // 选项卡切换
+  document.querySelectorAll('.detail-tab').forEach(b => {
+    b.addEventListener('click', () => {
+      DETAIL_TAB = b.dataset.dtab;
+      showDetail(id);
+    });
+  });
+  renderDetailBody(n);
+}
+
+function renderDetailBody(n) {
+  const body = document.getElementById('detailBody');
+  if (DETAIL_TAB === 'health') {
+    body.innerHTML = renderHealthTab(n);
+  } else if (DETAIL_TAB === 'service') {
+    body.innerHTML = renderServiceTab(n);
+  } else if (DETAIL_TAB === 'snapshot') {
+    body.innerHTML = renderSnapshotTab(n);
+  } else {
+    body.innerHTML = renderConfigTab(n);
+    document.getElementById('ndSave').addEventListener('click', () => saveDetail(n.id));
+    document.getElementById('ndTest').addEventListener('click', () => testDetail(n));
+  }
+}
+
+function renderHealthTab(n) {
+  const h = HEALTH[n.id];
+  if (!h) return '<div class="empty">' + t('cl.notChecked') + '</div>';
+  let html = '<div class="result">' + (h.detail || '') + '</div>';
+  if (h.missing && h.missing.length)
+    html += '<div class="result err" style="margin-top:0.4rem">缺进程：' + h.missing.join(', ') + '</div>';
+  if (h.ports_missing && h.ports_missing.length)
+    html += '<div class="result err" style="margin-top:0.2rem">缺端口：' + h.ports_missing.join(', ') + '</div>';
+  if ((!h.missing || !h.missing.length) && (!h.ports_missing || !h.ports_missing.length))
+    html += '<div class="result ok" style="margin-top:0.4rem">全部检查通过</div>';
+  return html;
+}
+
+function renderServiceTab(n) {
+  return '<div class="empty">' + t('cl.serviceHint') + '</div>';
+}
+
+function renderSnapshotTab(n) {
+  return '<div class="empty">' + t('cl.snapshotHint') + '</div>';
+}
+
+function renderConfigTab(n) {
+  return '<div class="form-row" style="margin-top:0.8rem">' +
     '<input class="nd-name" value="' + (n.name || '') + '" placeholder="名称">' +
     '<input class="nd-host" value="' + (n.host || '') + '" placeholder="IP / 主机名">' +
     '<input class="nd-port" value="' + (n.port || 22) + '" placeholder="端口" style="max-width:90px">' +
@@ -432,16 +495,7 @@ function showDetail(id) {
     '<button class="primary" id="ndSave">保存</button>' +
     '<button id="ndTest">测试连接</button>' +
     '</div>' +
-    '<div class="result" id="ndResult">' + (h && h.detail ? h.detail : '') + '</div>' +
-    (h && (h.missing && h.missing.length || h.ports_missing && h.ports_missing.length)
-      ? '<div class="result err" style="margin-top:0.3rem">' +
-        (h.missing && h.missing.length ? '缺进程：' + h.missing.join(', ') + '  ' : '') +
-        (h.ports_missing && h.ports_missing.length ? '缺端口：' + h.ports_missing.join(', ') : '') +
-        '</div>'
-      : '') +
-    '</div>';
-  document.getElementById('ndSave').addEventListener('click', () => saveDetail(n.id));
-  document.getElementById('ndTest').addEventListener('click', () => testDetail(n));
+    '<div class="result" id="ndResult"></div>';
 }
 
 function readDetailForm(base) {

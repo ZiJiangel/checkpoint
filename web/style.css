@@ -167,3 +167,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .status-dot.st-red { background: #e06c6c; opacity:1; }       /* 异常 */
 .status-dot.st-gray { background: var(--muted); opacity:0.4; } /* 未检查 */
 .cl-run { color: #e0b34a; }
+/* 节点详情选项卡 */
+.detail-tabs { display: flex; gap: 1.2rem; border-bottom: 1px solid var(--line); margin: 0.9rem 0 1rem; }
+.detail-tab { background: none; border: none; padding: 0.4rem 0; font-size: 0.85rem; color: var(--muted); cursor: pointer; font-family: inherit; border-bottom: 2px solid transparent; }
+.detail-tab.active { color: var(--ink); border-bottom-color: var(--accent); }
