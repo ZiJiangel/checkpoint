@@ -37,19 +37,40 @@ def _ps(cmd, timeout=30):
         return ""
 
 
-def _run_elevated_ps(script, timeout=90):
-    """提权运行 PowerShell 脚本（隐藏控制台窗口，只弹 UAC）。
-    用 base64 避免引号/中文问题。"""
-    encoded = base64.b64encode(script.encode("utf-16-le")).decode()
-    # -WindowStyle Hidden 隐藏提权后的 PowerShell 控制台窗口
-    outer = ("Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList "
-             "'-NoProfile','-WindowStyle','Hidden','-EncodedCommand','%s' -Wait") % encoded
+def _is_admin():
+    """当前进程是否管理员"""
     try:
+        import ctypes
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
+def _run_elevated_ps(script, timeout=90):
+    """运行 PowerShell 脚本。
+    已是管理员 → 直接执行（无弹窗）；否则 → 提权（弹 UAC，隐藏控制台窗口）。"""
+    encoded = base64.b64encode(script.encode("utf-16-le")).decode()
+    try:
+        if _is_admin():
+            # 已是管理员，直接跑，不弹任何窗
+            p = subprocess.run(
+                ["powershell", "-NoProfile", "-WindowStyle", "Hidden",
+                 "-EncodedCommand", encoded],
+                capture_output=True, text=True, timeout=timeout,
+                encoding="utf-8", errors="replace",
+                creationflags=CREATE_NO_WINDOW)
+            out = ((p.stdout or "") + (p.stderr or "")).strip()
+            if p.returncode != 0:
+                core.log("执行失败(admin)：" + out)
+            return p.returncode == 0
+        # 非管理员 → 提权（弹 UAC）
+        outer = ("Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList "
+                 "'-NoProfile','-WindowStyle','Hidden','-EncodedCommand','%s' -Wait") % encoded
         subprocess.run(["powershell", "-NoProfile", "-Command", outer],
                        timeout=timeout, creationflags=CREATE_NO_WINDOW)
         return True
     except Exception as e:
-        core.log("提权执行失败：" + str(e), exc=True)
+        core.log("执行失败：" + str(e), exc=True)
         return False
 
 
