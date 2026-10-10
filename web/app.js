@@ -702,6 +702,12 @@ async function runCluster(action) {
       try {
         const r = await window.pywebview.api.run_service(svc.id, action);
         ok = r.ok;
+        // 无目标节点 → 跳过（如未配 kdc 节点时，KDC 阶段跳过）
+        if (r.skipped) {
+          lines[lines.length - 1] = renderLine(label + ' — ' + t('cl.svcSkipped'), 'done');
+          powerLog(lines.join(''));
+          continue;
+        }
         // 取自检状态与首个失败信息
         if (r.results && r.results.length) {
           const bad = r.results.find(x => !x.ok);
