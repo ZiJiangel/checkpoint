@@ -90,3 +90,80 @@ def test_node(node):
     if ok:
         return True, "连接成功：" + out.strip().replace("\n", " / ")
     return False, out
+
+
+# ============ 逻辑层：健康检查 ============
+
+# 各角色期望的 Hadoop 进程（可后续扩展）
+EXPECTED_PROCS = {
+    "master": ["NameNode", "DataNode", "ResourceManager", "NodeManager", "JobHistoryServer"],
+    "worker": ["DataNode", "NodeManager"],
+    "ntp": [],      # NTP/KDC 暂不查进程
+    "kdc": [],
+}
+
+
+def _parse_jps(out):
+    """解析 jps 输出，返回进程名列表"""
+    procs = []
+    for line in out.splitlines():
+        parts = line.strip().split()
+        if len(parts) >= 2 and parts[0].isdigit():
+            procs.append(parts[1])
+    return procs
+
+
+def health_check(node):
+    """检查单个节点：在线状态 + Hadoop 进程。
+    返回 {id, online, procs, expected, missing, status}
+    status: green(正常) / yellow(缺部分) / red(异常) / gray(未启用)"""
+    nid = node.get("id")
+    if not node.get("enabled", True):
+        return {"id": nid, "online": False, "procs": [], "expected": [],
+                "missing": [], "status": "gray", "detail": "已禁用"}
+
+    ok, out = ssh_exec(node.get("host", ""), node.get("port", 22),
+                       node.get("user", ""), node.get("pass", ""),
+                       "source /etc/profile 2>/dev/null; jps", timeout=12)
+    if not ok:
+        return {"id": nid, "online": False, "procs": [], "expected": [],
+                "missing": [], "status": "red", "detail": out}
+
+    procs = _parse_jps(out)
+    expected = EXPECTED_PROCS.get(node.get("role", "worker"), [])
+    missing = [p for p in expected if p not in procs]
+
+    if not expected:
+        status = "green"
+    elif not missing:
+        status = "green"
+    elif len(missing) == len(expected):
+        status = "red"
+    else:
+        status = "yellow"
+
+    return {"id": nid, "online": True, "procs": procs, "expected": expected,
+            "missing": missing, "status": status,
+            "detail": "进程：" + (", ".join(procs) if procs else "无")}
+
+
+def health_check_all():
+    """并发检查所有节点，返回列表"""
+    nodes = list_nodes()
+    if not nodes:
+        return []
+    results = []
+    with ThreadPoolExecutor(max_workers=len(nodes)) as pool:
+        fut = {pool.submit(health_check, n): n for n in nodes}
+        for f in as_completed(fut):
+            try:
+                results.append(f.result())
+            except Exception as e:
+                n = fut[f]
+                core.log("健康检查异常：" + str(n.get("name")) + " — " + str(e))
+                results.append({"id": n.get("id"), "online": False, "procs": [],
+                                "expected": [], "missing": [], "status": "red",
+                                "detail": str(e)})
+    order = {n["id"]: i for i, n in enumerate(nodes)}
+    results.sort(key=lambda r: order.get(r["id"], 999))
+    return results
