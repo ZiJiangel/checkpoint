@@ -4,6 +4,7 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+_cleanenv/
 
 # 运行时生成
 settings.json
@@ -13,8 +14,12 @@ error.log
 
 # 打包产物
 build/
+build_*/
 dist/
+dist_*/
 *.spec
+pyi*.log
+fspack*.log
 
 # 系统
 .DS_Store
