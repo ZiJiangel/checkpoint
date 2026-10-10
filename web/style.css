@@ -161,3 +161,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .status-dot.on { background: var(--ok); opacity:1; }        /* 运行中（绿） */
 .status-dot.exist { background: #5b8def; opacity:1; }        /* 存在未运行（蓝） */
 .status-dot.err { background: #e06c6c; opacity:1; }          /* 失效（红） */
+/* 健康状态圆点 */
+.status-dot.st-green { background: #3ecf8e; opacity:1; }     /* 正常 */
+.status-dot.st-yellow { background: #e0b34a; opacity:1; }    /* 部分异常 */
+.status-dot.st-red { background: #e06c6c; opacity:1; }       /* 异常 */
+.status-dot.st-gray { background: var(--muted); opacity:0.4; } /* 未检查 */

@@ -320,6 +320,140 @@ document.getElementById('langSelect').addEventListener('change', (e) => {
   renderAll();       // 重渲染（动态文字也换语言）
 });
 
+// ============ 集群节点 ============
+let NODES = [];
+let HEALTH = {};       // id -> 健康结果
+
+async function loadNodes() {
+  NODES = await window.pywebview.api.get_nodes();
+  renderNodes();
+}
+
+function healthStatusOf(id) {
+  return HEALTH[id] ? HEALTH[id].status : 'gray';
+}
+
+function renderNodes() {
+  const box = document.getElementById('nodeList');
+  if (NODES.length === 0) {
+    box.innerHTML = '<div class="card"><div class="empty">' + t('cl.empty') + '</div></div>';
+    return;
+  }
+  box.innerHTML = NODES.map(n => {
+    const st = healthStatusOf(n.id);
+    const dot = '<span class="status-dot st-' + st + '"></span>';
+    const role = '<span class="vm-role">' + (n.role || 'worker') + '</span>';
+    const host = '<span class="vm-role">' + n.host + '</span>';
+    return '<div class="card" data-id="' + n.id + '" style="cursor:pointer">' +
+      '<div class="card-top"><div>' + dot +
+      '<span class="vm-name">' + n.name + '</span>' + role + host + '</div>' +
+      '<span class="vm-count" style="cursor:pointer" data-del="' + n.id + '">删除</span></div></div>';
+  }).join('');
+  // 点击卡片 → 详情；点击删除
+  box.querySelectorAll('.card').forEach(c => {
+    c.addEventListener('click', (e) => {
+      if (e.target.dataset.del) { delNode(e.target.dataset.del); return; }
+      showDetail(c.dataset.id);
+    });
+  });
+}
+
+function showDetail(id) {
+  const n = NODES.find(x => x.id === id);
+  if (!n) return;
+  const st = healthStatusOf(id);
+  const h = HEALTH[id];
+  const statusText = { green: '正常', yellow: '部分异常', red: '异常', gray: '未检查' }[st] || '未知';
+  document.getElementById('nodeDetail').innerHTML =
+    '<div class="card">' +
+    '<div class="card-top"><div><span class="status-dot st-' + st + '"></span>' +
+    '<span class="vm-name">' + n.name + '</span></div>' +
+    '<span class="vm-count">' + statusText + '</span></div>' +
+    '<div class="form-row" style="margin-top:0.8rem">' +
+    '<input class="nd-name" value="' + (n.name || '') + '" placeholder="名称">' +
+    '<input class="nd-host" value="' + (n.host || '') + '" placeholder="IP / 主机名">' +
+    '<input class="nd-port" value="' + (n.port || 22) + '" placeholder="端口" style="max-width:90px">' +
+    '</div>' +
+    '<div class="form-row" style="margin-top:0.6rem">' +
+    '<input class="nd-user" value="' + (n.user || '') + '" placeholder="用户名">' +
+    '<input class="nd-pass" type="password" value="' + (n.pass || '') + '" placeholder="密码">' +
+    '<select class="nd-role">' +
+    ['master','worker','ntp','kdc'].map(r => '<option value="' + r + '"' + (n.role === r ? ' selected' : '') + '>' + r + '</option>').join('') +
+    '</select>' +
+    '</div>' +
+    '<div class="form-row" style="margin-top:0.8rem">' +
+    '<button class="primary" id="ndSave">保存</button>' +
+    '<button id="ndTest">测试连接</button>' +
+    '</div>' +
+    '<div class="result" id="ndResult">' + (h && h.detail ? h.detail : '') + '</div>' +
+    '</div>';
+  document.getElementById('ndSave').addEventListener('click', () => saveDetail(n.id));
+  document.getElementById('ndTest').addEventListener('click', () => testDetail(n));
+}
+
+function readDetailForm(base) {
+  const q = (s) => document.querySelector(s);
+  return Object.assign({}, base, {
+    name: q('.nd-name').value.trim(),
+    host: q('.nd-host').value.trim(),
+    port: parseInt(q('.nd-port').value) || 22,
+    user: q('.nd-user').value.trim(),
+    pass: q('.nd-pass').value,
+    role: q('.nd-role').value,
+  });
+}
+
+async function saveDetail(id) {
+  const base = NODES.find(x => x.id === id) || {};
+  const node = readDetailForm(base);
+  await window.pywebview.api.save_node(node);
+  await loadNodes();
+  showDetail(id);
+}
+
+async function testDetail(n) {
+  const base = NODES.find(x => x.id === n.id) || n;
+  const node = readDetailForm(base);
+  const box = document.getElementById('ndResult');
+  box.textContent = t('cl.testing');
+  const r = await window.pywebview.api.test_node(node);
+  box.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + r.out + '</span>';
+}
+
+async function delNode(id) {
+  if (!confirm(t('cl.confirmDel'))) return;
+  await window.pywebview.api.delete_node(id);
+  delete HEALTH[id];
+  await loadNodes();
+  document.getElementById('nodeDetail').innerHTML = '<div class="empty">' + t('cl.pick') + '</div>';
+}
+
+async function addNode() {
+  await window.pywebview.api.save_node({ name: '新节点', host: '', user: 'root', pass: '', role: 'worker' });
+  await loadNodes();
+  if (NODES.length) showDetail(NODES[NODES.length - 1].id);
+}
+
+async function runHealthCheck() {
+  const btn = document.getElementById('clusterCheck');
+  btn.disabled = true;
+  btn.textContent = t('cl.checking');
+  try {
+    const res = await window.pywebview.api.health_check();
+    HEALTH = {};
+    res.forEach(r => { HEALTH[r.id] = r; });
+    renderNodes();
+  } catch (e) {
+    alert('体检失败: ' + e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('cl.check');
+  }
+}
+
+document.getElementById('clusterAdd').addEventListener('click', addNode);
+document.getElementById('clusterCheck').addEventListener('click', runHealthCheck);
+
 // ============ 启动 ============
 window.addEventListener('pywebviewready', async () => {
   const s = await window.pywebview.api.get_settings();
@@ -332,4 +466,5 @@ window.addEventListener('pywebviewready', async () => {
     document.getElementById('aboutAuthor').textContent = t('about.author') + meta.author;
   } catch (e) {}
   loadVms();
+  loadNodes();
 });

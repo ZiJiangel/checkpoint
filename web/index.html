@@ -31,6 +31,7 @@
   <main class="content">
     <nav class="tabs" id="tabs">
       <button class="tab active" data-tab="overview" data-i18n="tab.overview">概览</button>
+      <button class="tab" data-tab="cluster" data-i18n="tab.cluster">集群</button>
       <button class="tab" data-tab="ops" data-i18n="tab.ops">快照操作</button>
       <button class="tab" data-tab="runtime" data-i18n="tab.runtime">运行状态</button>
       <button class="tab" data-tab="settings" data-i18n="tab.settings">设置</button>
@@ -43,6 +44,18 @@
       </div>
       <div id="vmList"></div>
       <div class="hint-foot" data-i18n="ov.hint">虚拟机由软件自动扫描（读取 VMware 记录）。路径不对或没扫到？可在「设置」中配置。</div>
+    </div>
+
+    <div class="page hidden" id="page-cluster">
+      <div class="sec-head"><span class="sec-title" data-i18n="cl.nodes">集群节点</span>
+        <button class="mini-btn" id="clusterAdd" style="margin-left:auto" data-i18n="cl.add">添加节点</button>
+        <button class="mini-btn primary" id="clusterCheck" data-i18n="cl.check">一键体检</button>
+      </div>
+      <div id="nodeList"></div>
+      <div class="hint-foot" data-i18n="cl.hint">节点用于 SSH 连接集群（健康检查、启停等）。密码仅存本机，不上传。</div>
+
+      <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="cl.detail">节点详情</span></div>
+      <div id="nodeDetail"><div class="empty" data-i18n="cl.pick">点击上方节点查看详情</div></div>
     </div>
 
     <div class="page hidden" id="page-ops">
