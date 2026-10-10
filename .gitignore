@@ -10,6 +10,7 @@ _cleanenv/
 settings.json
 aliases.json
 vms_cache.json
+nodes.json
 error.log
 
 # 打包产物
