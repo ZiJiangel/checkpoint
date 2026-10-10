@@ -746,24 +746,45 @@ document.getElementById('clusterStop').addEventListener('click', () => runCluste
 
 async function shutdownVms() {
   if (!await uiConfirm(t('cl.confirmShutdown'))) return;
-  powerLog(renderLine(t('cl.shuttingDown'), 'running'));
-  try {
-    await window.pywebview.api.stop_vms();
-    // 软关机会持续几秒~几十秒，轮询等待全部关机
-    let sec = 0, allOff = false;
-    while (sec < 90) {
-      await new Promise(r => setTimeout(r, 5000));
-      sec += 5;
-      await refreshVmStatus();
-      const states = Object.values(VM_STATUS).filter(v => v.has_vmx);
-      allOff = states.length > 0 && states.every(v => !v.running);
-      powerLog(renderLine(t('cl.shuttingDown') + ' (' + sec + 's)', allOff ? 'done' : 'running'));
-      if (allOff) break;
+  // 并发逐台关机，每台一行进度
+  const targets = NODES.filter(n => (VM_STATUS[n.id] || {}).has_vmx);
+  if (targets.length === 0) { powerLog('<div class="empty">' + t('cl.noVmxNodes') + '</div>'); return; }
+  POWER_RUNNING = true;
+  const rows = {};   // id -> 状态
+  targets.forEach(n => { rows[n.id] = { name: n.name, state: 'running', text: t('cl.shutdownWait') }; });
+  const paint = () => {
+    powerLog(targets.map(n => {
+      const r = rows[n.id];
+      const st = r.state === 'done' ? 'done' : (r.state === 'fail' ? 'fail' : 'running');
+      return renderLine(n.name + ' — ' + r.text, st);
+    }).join(''));
+  };
+  paint();
+  // 并发发起
+  await Promise.all(targets.map(async (n) => {
+    try {
+      const r = await window.pywebview.api.stop_vm_node(n.id);
+      if (r.ok) {
+        rows[n.id].state = 'done';
+        rows[n.id].text = r.mode === 'hard' ? t('cl.shutdownHard') : t('cl.shutdownSoft');
+      } else {
+        rows[n.id].state = 'fail';
+        rows[n.id].text = t('cl.shutdownFail') + ': ' + (r.detail || '');
+      }
+    } catch (e) {
+      rows[n.id].state = 'fail';
+      rows[n.id].text = String(e);
     }
-    powerLog(renderLine(allOff ? t('cl.allShutdown') : t('cl.shutdownTimeout'), allOff ? 'done' : 'fail'));
-  } catch (e) {
-    powerLog(renderLine(t('cl.shuttingDown') + ': ' + e, 'fail'));
-  }
+    paint();
+  }));
+  POWER_RUNNING = false;
+  const allOk = targets.every(n => rows[n.id].state === 'done');
+  paint();
+  powerLog(targets.map(n => {
+    const r = rows[n.id];
+    return renderLine(n.name + ' — ' + r.text, r.state === 'done' ? 'done' : 'fail');
+  }).join('') + '<div class="empty" style="margin-top:0.5rem">' +
+    (allOk ? t('cl.allShutdown') : t('cl.shutdownTimeout')) + '</div>');
   refreshVmStatus();
 }
 document.getElementById('vmShutdown').addEventListener('click', shutdownVms);

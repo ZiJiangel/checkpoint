@@ -125,12 +125,44 @@ def start_vms():
 
 
 def stop_vms():
-    """关闭配了 vmx 的节点对应的虚拟机（只关虚拟机，不动 VMware 软件）"""
+    """关闭配了 vmx 的节点对应的虚拟机（并行，只关虚拟机，不动 VMware 软件）"""
+    from concurrent.futures import ThreadPoolExecutor
+    targets = [n for n in cluster.list_nodes() if n.get("vmx", "")]
+    if not targets:
+        return {"ok": True, "results": []}
     results = []
-    for n in cluster.list_nodes():
-        vmx = n.get("vmx", "")
-        if not vmx:
-            continue
-        ok, out = core.stop_vm(vmx)
-        results.append({"node": n.get("name"), "ok": ok, "out": out})
+    with ThreadPoolExecutor(max_workers=len(targets)) as pool:
+        futs = {pool.submit(core.stop_vm, n["vmx"]): n for n in targets}
+        for f in futs:
+            n = futs[f]
+            try:
+                ok, out = f.result()
+            except Exception as e:
+                ok, out = False, str(e)
+            results.append({"node": n.get("name"), "ok": ok, "out": out})
     return {"ok": True, "results": results}
+
+
+def stop_vm_node(nid):
+    """关闭单个节点的虚拟机（供前端并发调用 + 显示进度）。
+    返回 {ok, mode: 'soft'|'hard', detail}"""
+    n = None
+    for x in cluster.list_nodes():
+        if x.get("id") == nid:
+            n = x
+            break
+    if not n:
+        return {"ok": False, "mode": "", "detail": "节点不存在"}
+    vmx = n.get("vmx", "")
+    if not vmx:
+        return {"ok": False, "mode": "", "detail": "未配置虚拟机路径"}
+    # 1. 先软关机（优雅），超时 25 秒
+    ok, out = core.run_vmrun(["stop", vmx, "soft"], timeout=25)
+    if ok:
+        return {"ok": True, "mode": "soft", "detail": ""}
+    # 2. 软关超时/失败 → 硬关机
+    core.log("软关机失败，改硬关机：" + vmx + " — " + str(out))
+    ok2, out2 = core.run_vmrun(["stop", vmx, "hard"], timeout=60)
+    if ok2:
+        return {"ok": True, "mode": "hard", "detail": ""}
+    return {"ok": False, "mode": "hard", "detail": str(out2 or out)}
