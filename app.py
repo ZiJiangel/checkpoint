@@ -41,6 +41,7 @@ ensure_deps()
 
 import webview  # noqa
 import core
+import cluster
 
 import sys
 
@@ -61,6 +62,28 @@ class Api:
 
     def close_win(self):
         webview.windows[0].destroy()
+
+    # ===== 集群节点 =====
+    def get_nodes(self):
+        return cluster.list_nodes()
+
+    def save_node(self, node):
+        if node.get("id"):
+            cluster.update_node(node)
+        else:
+            cluster.add_node(node)
+        return {"ok": True}
+
+    def delete_node(self, nid):
+        cluster.delete_node(nid)
+        return {"ok": True}
+
+    def test_node(self, node):
+        ok, msg = cluster.test_node(node)
+        return {"ok": ok, "out": msg}
+
+    def health_check(self):
+        return cluster.health_check_all()
 
     def get_vms(self, force=False, snaps=True):
         running = [os.path.basename(r) for r in core.list_running()] if snaps else []
