@@ -149,7 +149,7 @@ if __name__ == "__main__":
             width=1180, height=780,
             min_size=(900, 600),
             frameless=True,
-            easy_drag=True,
+            easy_drag=False,
             resizable=True,
             background_color="#16161a",
         )
