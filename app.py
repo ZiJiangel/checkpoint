@@ -20,7 +20,7 @@ def ensure_deps():
         CREATE_NO_WINDOW = 0x08000000
         subprocess.run(
             [py, "-m", "pip", "install", "pywebview", "paramiko", "-q",
-             "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"],
+             "-i", "https://mirrors.aliyun.com/pypi/simple/"],
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -31,7 +31,7 @@ def ensure_deps():
         try:
             logf = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "error.log")
             with open(logf, "a", encoding="utf-8") as f:
-                f.write("依赖缺失：缺少 pywebview，且自动安装失败。请手动执行 pip install pywebview\n")
+                f.write("依赖缺失：缺少 pywebview 或 paramiko，且自动安装失败。请手动执行：pip install pywebview paramiko\n")
                 f.write("错误：" + str(e) + "\n")
         except Exception:
             pass

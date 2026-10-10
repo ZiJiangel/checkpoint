@@ -35,11 +35,12 @@ def log(msg, exc=False):
     except Exception:
         pass
 
+# 依次尝试查找 vmrun：通用路径优先，最后是"保底路径"（可自行增删）
 VMRUN_CANDIDATES = [
-    r"D:\VM\VM170603\vmrun.exe",
     r"C:\Program Files (x86)\VMware\VMware Workstation\vmrun.exe",
     r"C:\Program Files\VMware\VMware Workstation\vmrun.exe",
     r"C:\Program Files (x86)\VMware\VMware Player\vmrun.exe",
+    r"D:\VM\VM170603\vmrun.exe",  # 保底：本机 VMware 安装位置
 ]
 
 SCAN_DIRS = [
