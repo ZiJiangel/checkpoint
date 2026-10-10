@@ -188,7 +188,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .split-btn:hover { border-color: var(--muted); }
 .split-btn .split-main { border: none; border-radius: 5px 0 0 5px; }
 .split-btn .split-arrow { border: none; border-left: 1px solid var(--line); border-radius: 0 5px 5px 0; padding: 0.25rem 0.4rem; }
-.split-menu { position: absolute; top: calc(100% + 3px); right: 0; z-index: 60; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 0.3rem; min-width: 140px; box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
+.split-menu { position: absolute; top: calc(100% + 3px); left: 0; z-index: 60; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 0.3rem; min-width: 140px; box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
 .split-menu.hidden { display: none; }
 .split-item { padding: 0.4rem 0.6rem; font-size: 0.8rem; border-radius: 4px; cursor: pointer; white-space: nowrap; color: var(--ink); }
 .split-item:hover { background: var(--surface-2); }
