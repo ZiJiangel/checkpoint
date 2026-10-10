@@ -96,4 +96,4 @@ python app.py
 
 ## 许可
 
-MIT License
+本项目基于 **GNU General Public License v3.0 (GPLv3)** 发布，详见 [LICENSE](LICENSE)。

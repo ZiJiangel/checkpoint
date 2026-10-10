@@ -93,4 +93,4 @@ Generated at runtime **next to the program**:
 
 ## License
 
-MIT License
+This project is licensed under the **GNU General Public License v3.0 (GPLv3)** — see [LICENSE](LICENSE).
