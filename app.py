@@ -44,6 +44,7 @@ import webview  # noqa
 import core
 import cluster
 import services
+import vmware_env
 
 import sys
 
@@ -109,6 +110,18 @@ class Api:
 
     def start_vm_node(self, nid):
         return services.start_vm_node(nid)
+
+    # ===== VMware 宿主机环境 =====
+    def vmware_state(self):
+        return vmware_env.overall_state()
+
+    def vmware_start_services(self):
+        ok = vmware_env.start_services()
+        return {"ok": ok}
+
+    def vmware_launch_app(self):
+        ok, msg = vmware_env.launch_app()
+        return {"ok": ok, "out": msg}
 
     def check_nodes_ready(self):
         return cluster.check_nodes_ready()

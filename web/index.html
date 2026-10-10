@@ -14,7 +14,10 @@
       </div>
     </div>
     <div class="tb-center">
-      <span class="tb-status" id="status"><span class="dot"></span><span data-i18n="status.ready">就绪</span></span>
+      <span class="tb-status clickable" id="vmwareStatus" title="VMware 环境状态（点击查看）">
+        <span class="dot" id="vmwareDot"></span>
+        <span id="vmwareStatusText">VMware 检查中…</span>
+      </span>
     </div>
     <div class="tb-right">
       <button class="tb-icon" id="themeBtn" title="切换主题">
@@ -47,6 +50,8 @@
     </div>
 
     <div class="page hidden" id="page-cluster">
+      <div id="vmwareCard"></div>
+
       <div id="clusterCard"></div>
 
       <div class="sec-head"><span class="sec-title" data-i18n="cl.nodes">集群节点</span>

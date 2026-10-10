@@ -53,6 +53,8 @@ body {
 .tb-center { flex: 0 0 auto; }
 .tb-status { font-size: 11.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 20px; background: var(--btn-hover); }
 .tb-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dot); }
+.tb-status.clickable { cursor: pointer; }
+.tb-status.clickable:hover { background: var(--line); }
 .tb-right { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 .tb-icon, .win-btn {
   -webkit-app-region: no-drag;

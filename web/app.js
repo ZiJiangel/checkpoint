@@ -804,6 +804,105 @@ document.getElementById('autoCheck').addEventListener('change', (e) => {
 
 
 
+// ============ VMware 宿主机环境 ============
+let VMWARE_STATE = null;
+
+const VMWARE_STATE_META = {
+  green:  { color: '#3ecf8e', text: 'VMware 就绪' },
+  yellow: { color: '#e0b34a', text: 'VMware 部分服务' },
+  red:    { color: '#e06c6c', text: 'VMware 授权未启动' },
+  gray:   { color: '#8a8a94', text: 'VMware 检查中' },
+};
+
+async function loadVmware() {
+  try {
+    VMWARE_STATE = await window.pywebview.api.vmware_state();
+  } catch (e) { VMWARE_STATE = null; }
+  renderVmwareStatusBar();
+  renderVmwareCard();
+}
+
+function renderVmwareStatusBar() {
+  const dot = document.getElementById('vmwareDot');
+  const txt = document.getElementById('vmwareStatusText');
+  if (!dot || !txt) return;
+  const state = VMWARE_STATE ? VMWARE_STATE.state : 'gray';
+  const meta = VMWARE_STATE_META[state] || VMWARE_STATE_META.gray;
+  dot.style.background = meta.color;
+  txt.textContent = VMWARE_STATE
+    ? meta.text + '（' + VMWARE_STATE.running_count + '/' + VMWARE_STATE.total_count + '）'
+    : 'VMware 检查中…';
+}
+
+function renderVmwareCard() {
+  const box = document.getElementById('vmwareCard');
+  if (!box) return;
+  if (!VMWARE_STATE) { box.innerHTML = ''; return; }
+  const state = VMWARE_STATE.state;
+  const meta = VMWARE_STATE_META[state] || VMWARE_STATE_META.gray;
+  const appLine = VMWARE_STATE.app_running
+    ? '<span class="ok">VMware 软件运行中</span>'
+    : '<span class="vm-role">VMware 软件未运行</span>';
+
+  const svcRows = VMWARE_STATE.services.map(s => {
+    const dot = s.running ? 'st-green' : (s.critical ? 'st-red' : 'st-gray');
+    const tag = s.critical ? '' : '<span class="vm-role">可选</span>';
+    return '<div style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;margin-top:0.35rem">' +
+      '<span class="status-dot ' + dot + '"></span>' +
+      '<span>' + s.label + '</span>' + tag +
+      '<span class="vm-role" style="margin-left:auto">' + (s.running ? '运行中' : '已停止') + '</span></div>';
+  }).join('');
+
+  box.innerHTML =
+    '<div class="card" style="border-left:3px solid ' + meta.color + '">' +
+    '<div class="card-top"><div>' +
+    '<span class="status-dot st-' + (state === 'green' ? 'green' : state === 'red' ? 'red' : 'yellow') + '"></span>' +
+    '<span class="vm-name">VMware 环境：' + meta.text.replace('VMware ', '') + '</span></div>' +
+    '<div style="display:flex;gap:0.4rem">' +
+    '<button class="mini-btn" id="vmwareStartSvc">启动服务</button>' +
+    '<button class="mini-btn" id="vmwareLaunch">启动 VMware</button>' +
+    '</div></div>' +
+    '<div style="margin-top:0.4rem">' + appLine + '</div>' +
+    svcRows +
+    '<div class="hint-foot" style="margin-top:0.6rem">vmrun 依赖「授权服务」；虚拟机联网依赖「NAT/DHCP」。启动服务需管理员权限（会弹 UAC）。</div>' +
+    '</div>';
+
+  const btnSvc = document.getElementById('vmwareStartSvc');
+  const btnApp = document.getElementById('vmwareLaunch');
+  if (btnSvc) btnSvc.addEventListener('click', startVmwareServices);
+  if (btnApp) btnApp.addEventListener('click', launchVmwareApp);
+}
+
+async function startVmwareServices() {
+  if (!await uiConfirm('启动所有 VMware 服务？（需要管理员权限，会弹出 UAC 授权窗口）')) return;
+  const box = document.getElementById('vmwareCard');
+  box.insertAdjacentHTML('afterbegin', '<div class="result cl-run" id="vmwareBusy">正在启动服务（请在弹出的 UAC 窗口点「是」）…</div>');
+  try {
+    await window.pywebview.api.vmware_start_services();
+  } catch (e) {}
+  await new Promise(r => setTimeout(r, 1500));
+  await loadVmware();
+}
+
+async function launchVmwareApp() {
+  try {
+    const r = await window.pywebview.api.vmware_launch_app();
+    if (!r.ok && r.out) uiAlert('启动 VMware 失败：' + r.out);
+  } catch (e) { uiAlert('启动失败：' + e); }
+  await new Promise(r => setTimeout(r, 1500));
+  await loadVmware();
+}
+
+document.getElementById('vmwareStatus').addEventListener('click', () => {
+  // 点击标题栏状态 → 跳到集群页
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+  const tab = document.querySelector('.tab[data-tab="cluster"]');
+  if (tab) tab.classList.add('active');
+  document.getElementById('page-cluster').classList.remove('hidden');
+  loadVmware();
+});
+
 // ============ 启动 ============
 window.addEventListener('pywebviewready', async () => {
   const s = await window.pywebview.api.get_settings();
@@ -819,4 +918,5 @@ window.addEventListener('pywebviewready', async () => {
   } catch (e) {}
   loadVms();
   loadNodes();
+  loadVmware();
 });
