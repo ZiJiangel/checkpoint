@@ -16,6 +16,7 @@ DEFAULT_SERVICES = [
         "target": ["master", "worker", "ntp", "kdc"],
         "start": "systemctl start ntpd",
         "stop": "systemctl stop ntpd",
+        "check": "systemctl is-active ntpd",
         "why": "先对时——Kerberos 对时间极敏感，差几分钟就认证失败",
     },
     {
@@ -23,6 +24,7 @@ DEFAULT_SERVICES = [
         "target": ["kdc"],
         "start": "systemctl start krb5kdc; systemctl start kadmind",
         "stop": "systemctl stop krb5kdc; systemctl stop kadmind",
+        "check": "systemctl is-active krb5kdc",
         "why": "认证服务——若启用了 Kerberos 才需要",
     },
     {
@@ -30,6 +32,7 @@ DEFAULT_SERVICES = [
         "target": ["master"],
         "start": "source /etc/profile; start-dfs.sh",
         "stop": "source /etc/profile; stop-dfs.sh",
+        "check": "jps | grep -q NameNode",
         "why": "数据层——在 master 执行，会自动 SSH 拉起从节点",
     },
     {
@@ -37,6 +40,7 @@ DEFAULT_SERVICES = [
         "target": ["master"],
         "start": "source /etc/profile; start-yarn.sh",
         "stop": "source /etc/profile; stop-yarn.sh",
+        "check": "jps | grep -q ResourceManager",
         "why": "计算层——依赖 HDFS，必须在其之后启动",
     },
     {
@@ -44,6 +48,7 @@ DEFAULT_SERVICES = [
         "target": ["master"],
         "start": "source /etc/profile; mapred --daemon start historyserver",
         "stop": "source /etc/profile; mapred --daemon stop historyserver",
+        "check": "jps | grep -q JobHistoryServer",
         "why": "历史服务器——最后启动",
     },
 ]
@@ -86,12 +91,23 @@ def run_service(sid, action="start"):
         return {"ok": True, "results": [], "msg": "服务已禁用，跳过"}
 
     cmd = svc.get(action, "")
+    check = svc.get("check", "")
     targets = _nodes_for_role(svc.get("target", []))
     results = []
     for n in targets:
         ok, out = cluster.ssh_exec(n.get("host", ""), n.get("port", 22),
                                    n.get("user", ""), n.get("pass", ""), cmd, timeout=60)
-        results.append({"node": n.get("name"), "ok": ok, "out": out})
+        item = {"node": n.get("name"), "ok": ok, "out": out}
+        # 启动后自检：仅启动动作时验证（停止不需要）
+        if ok and check and action == "start":
+            cok, _ = cluster.ssh_exec(n.get("host", ""), n.get("port", 22),
+                                      n.get("user", ""), n.get("pass", ""),
+                                      "source /etc/profile 2>/dev/null; " + check,
+                                      timeout=30, use_exit_code=True)
+            item["verified"] = cok
+            if not cok:
+                item["ok"] = False   # 自检没过，标记失败
+        results.append(item)
     all_ok = all(r["ok"] for r in results) if results else False
     return {"ok": all_ok, "results": results}
 

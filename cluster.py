@@ -54,8 +54,11 @@ def delete_node(nid):
 
 # ============ 连接层：SSH 唯一出口 ============
 
-def ssh_exec(host, port, user, password, cmd, timeout=15):
-    """在远程节点执行一条命令。返回 (ok, 输出文本)。"""
+def ssh_exec(host, port, user, password, cmd, timeout=15, use_exit_code=False):
+    """在远程节点执行一条命令。
+    use_exit_code=False（默认）：ok = 是否成功执行（SSH 连上并跑完）
+    use_exit_code=True：ok = 命令退出码是否为 0（用于自检/条件判断）
+    返回 (ok, 输出文本)。"""
     try:
         import paramiko
     except ImportError:
@@ -72,8 +75,11 @@ def ssh_exec(host, port, user, password, cmd, timeout=15):
         si, so, se = cli.exec_command(cmd, timeout=timeout)
         out = so.read().decode("utf-8", "replace")
         err = se.read().decode("utf-8", "replace")
+        code = so.channel.recv_exit_status()
         if err.strip():
             out = out + ("\n[STDERR] " + err if out else err)
+        if use_exit_code:
+            return code == 0, out
         return True, out
     except Exception as e:
         core.log("SSH 执行失败：" + str(host) + " — " + str(e))
