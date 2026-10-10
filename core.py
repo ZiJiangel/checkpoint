@@ -5,8 +5,13 @@ import json
 import os
 import re
 import glob
-
 import sys
+import urllib.request
+
+# 版本信息（更新时改这里 + setup.iss 的 MyAppVersion）
+VERSION = "0.2.0"
+AUTHOR = "ZiJiangel"
+GITHUB_REPO = "ZiJiangel/snapshot-manager"
 
 if getattr(sys, "frozen", False):
     # 打包后：配置文件放在 exe 旁边
@@ -211,3 +216,40 @@ def set_vmrun(path):
     s = load_json(SETTINGS_FILE, {})
     s["vmrun"] = path
     save_json(SETTINGS_FILE, s)
+
+
+def get_lang():
+    return load_json(SETTINGS_FILE, {}).get("lang", "zh")
+
+
+def set_lang(lang):
+    s = load_json(SETTINGS_FILE, {})
+    s["lang"] = lang
+    save_json(SETTINGS_FILE, s)
+
+
+def _ver_tuple(v):
+    """把 "0.1.0" 转成 (0,1,0) 便于比较"""
+    try:
+        return tuple(int(x) for x in v.strip().lstrip("v").split("."))
+    except Exception:
+        return (0,)
+
+
+def check_update():
+    """检查 GitHub 上是否有新版本。
+    返回: {"has": bool, "latest": str, "url": str, "current": str}"""
+    try:
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+        req = urllib.request.Request(url, headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "snapshot-manager",
+        })
+        data = json.loads(urllib.request.urlopen(req, timeout=6).read())
+        latest = data.get("tag_name", "").lstrip("v")
+        if latest and _ver_tuple(latest) > _ver_tuple(VERSION):
+            return {"has": True, "latest": latest,
+                    "url": data.get("html_url", ""), "current": VERSION}
+    except Exception:
+        pass
+    return {"has": False, "current": VERSION}

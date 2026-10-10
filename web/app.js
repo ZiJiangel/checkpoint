@@ -134,7 +134,7 @@ function buildDD(menuId, labelId, picked) {
 
 function updateDDLabel(labelId, picked) {
   const el = document.getElementById(labelId);
-  if (picked.size === 0) { el.textContent = '选择虚拟机'; return; }
+  if (picked.size === 0) { el.textContent = t('dd.select'); return; }
   const names = VMS.filter(v => picked.has(v.vmx)).map(v => v.label);
   el.textContent = names.join('、');
 }
@@ -143,7 +143,7 @@ function renderRuntime() {
   const running = VMS.filter(v => v.running);
   document.getElementById('runList').innerHTML = running.length
     ? running.map(v => '<div class="card"><span class="dot dot-on"></span><span class="vm-name">' + v.label + '</span></div>').join('')
-    : '<div class="card"><span class="dot dot-off"></span><span class="empty" style="margin:0">当前没有运行中的虚拟机</span></div>';
+    : '<div class="card"><span class="dot dot-off"></span><span class="empty" style="margin:0">' + t('run.none') + '</span></div>';
   document.getElementById('opVm').innerHTML = VMS.map(v => '<option value="' + v.vmx + '">' + v.label + '</option>').join('');
 }
 
@@ -156,7 +156,7 @@ function renderDelSelectors() {
     const snapSel2 = document.getElementById('delSnap');
     const delBtn = document.getElementById('doDel');
     if (snaps.length === 0) {
-      snapSel2.innerHTML = '<option>（无快照）</option>';
+      snapSel2.innerHTML = '<option>' + t('ops.noSnap') + '</option>';
       snapSel2.disabled = true;
       delBtn.disabled = true;
     } else {
@@ -173,8 +173,8 @@ function renderAliasList() {
   document.getElementById('aliasList').innerHTML = VMS.map(v =>
     '<div class="alias-row" data-vmx="' + v.vmx + '">' +
     '<span class="alias-file">' + v.name + '</span>' +
-    '<input class="a-name" placeholder="显示名" value="' + (v.label !== v.name ? v.label : '') + '">' +
-    '<input class="a-note" placeholder="备注（灰色小字）" value="' + (v.note || '') + '">' +
+    '<input class="a-name" placeholder="' + t('alias.name') + '" value="' + (v.label !== v.name ? v.label : '') + '">' +
+    '<input class="a-note" placeholder="' + t('alias.note') + '" value="' + (v.note || '') + '">' +
     '</div>'
   ).join('');
 }
@@ -184,13 +184,13 @@ async function doSnap() {
   const name = document.getElementById('snapName').value.trim();
   const box = document.getElementById('snapResult');
   const targets = Array.from(snapPicked);
-  if (!name || targets.length === 0) { box.innerHTML = '<span class="err">请填快照名并选目标</span>'; return; }
-  box.textContent = '执行中…';
+  if (!name || targets.length === 0) { box.innerHTML = '<span class="err">' + t('ops.needName') + '</span>'; return; }
+  box.textContent = t('ops.running');
   let html = '';
   for (const vmx of targets) {
     const r = await window.pywebview.api.snapshot(vmx, name);
     const v = VMS.find(x => x.vmx === vmx);
-    html += '<div class="' + (r.ok ? 'ok' : 'err') + '">' + v.label + ' — ' + (r.ok ? '完成' : r.out) + '</div>';
+    html += '<div class="' + (r.ok ? 'ok' : 'err') + '">' + v.label + ' — ' + (r.ok ? t('ops.done') : r.out) + '</div>';
   }
   box.innerHTML = html;
   loadVms();
@@ -200,13 +200,13 @@ async function doRev() {
   const name = document.getElementById('revName').value.trim();
   const box = document.getElementById('revResult');
   const targets = Array.from(revPicked);
-  if (!name || targets.length === 0) { box.innerHTML = '<span class="err">请填快照名并选目标</span>'; return; }
-  box.textContent = '执行中…';
+  if (!name || targets.length === 0) { box.innerHTML = '<span class="err">' + t('ops.needName') + '</span>'; return; }
+  box.textContent = t('ops.running');
   let html = '';
   for (const vmx of targets) {
     const r = await window.pywebview.api.revert(vmx, name);
     const v = VMS.find(x => x.vmx === vmx);
-    html += '<div class="' + (r.ok ? 'ok' : 'err') + '">' + v.label + ' — ' + (r.ok ? '完成' : r.out) + '</div>';
+    html += '<div class="' + (r.ok ? 'ok' : 'err') + '">' + v.label + ' — ' + (r.ok ? t('ops.done') : r.out) + '</div>';
   }
   box.innerHTML = html;
 }
@@ -216,30 +216,30 @@ async function doDel() {
   const vmx = document.getElementById('delVm').value;
   const snap = snapSel2.value;
   const box = document.getElementById('delResult');
-  if (!snap || snap === '（无快照）' || snapSel2.disabled) return;
+  if (!snap || snap === t('ops.noSnap') || snapSel2.disabled) return;
   const r = await window.pywebview.api.delete_snap(vmx, snap);
-  box.innerHTML = '<div class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? '已删除' : r.out) + '</div>';
+  box.innerHTML = '<div class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.deleted') : r.out) + '</div>';
   loadVms();
 }
 
 async function doStart() {
   const vmx = document.getElementById('opVm').value;
   const r = await window.pywebview.api.start_vm(vmx);
-  document.getElementById('opResult').innerHTML = '<div class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? '已启动' : r.out) + '</div>';
+  document.getElementById('opResult').innerHTML = '<div class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.started') : r.out) + '</div>';
   loadVms();
 }
 
 async function doStop() {
   const vmx = document.getElementById('opVm').value;
   const r = await window.pywebview.api.stop_vm(vmx);
-  document.getElementById('opResult').innerHTML = '<div class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? '已停止' : r.out) + '</div>';
+  document.getElementById('opResult').innerHTML = '<div class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.stopped') : r.out) + '</div>';
   loadVms();
 }
 
 async function saveVmrun() {
   const p = document.getElementById('vmrunPath').value.trim();
   await window.pywebview.api.save_vmrun(p);
-  alert('已保存');
+  alert(t('msg.saved'));
 }
 
 async function saveAllAlias() {
@@ -250,7 +250,7 @@ async function saveAllAlias() {
     const note = row.querySelector('.a-note').value.trim();
     await window.pywebview.api.save_alias(vmx, name, note);
   }
-  alert('已保存');
+  alert(t('msg.saved'));
   loadVms();
 }
 
@@ -284,9 +284,52 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.dd-menu').forEach(m => m.classList.remove('open'));
 });
 
+// ============ 关于 / 检查更新 ============
+document.getElementById('checkUpdateBtn').addEventListener('click', async () => {
+  const msg = document.getElementById('updateMsg');
+  msg.textContent = t('upd.checking');
+  try {
+    const r = await window.pywebview.api.check_update();
+    if (r.has) {
+      msg.innerHTML = t('upd.found') + ' <b>v' + r.latest + '</b> ' +
+        '<a href="#" id="dlLink" style="color:#5b8def">' + t('upd.go') + '</a>';
+      const link = document.getElementById('dlLink');
+      if (link) link.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.pywebview.api.open_url(r.url);
+      });
+    } else {
+      msg.textContent = t('upd.latest') + ' (v' + (r.current || '') + ')';
+    }
+  } catch (e) {
+    msg.textContent = t('upd.failed') + ': ' + e;
+  }
+});
+
+// ============ 语言切换 ============
+function initLang(lang) {
+  currentLang = lang || 'zh';
+  const sel = document.getElementById('langSelect');
+  if (sel) sel.value = currentLang;
+  applyI18n();
+}
+document.getElementById('langSelect').addEventListener('change', (e) => {
+  currentLang = e.target.value;
+  window.pywebview.api.save_lang(currentLang);
+  applyI18n();
+  renderAll();       // 重渲染（动态文字也换语言）
+});
+
 // ============ 启动 ============
 window.addEventListener('pywebviewready', async () => {
   const s = await window.pywebview.api.get_settings();
+  initLang(s.lang);
   document.getElementById('vmrunPath').value = s.vmrun || '';
+  // 加载版本 / 作者
+  try {
+    const meta = await window.pywebview.api.get_meta();
+    document.getElementById('aboutVer').textContent = 'v' + meta.version;
+    document.getElementById('aboutAuthor').textContent = t('about.author') + meta.author;
+  } catch (e) {}
   loadVms();
 });

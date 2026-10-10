@@ -80,7 +80,25 @@ class Api:
         return result
 
     def get_settings(self):
-        return {"vmrun": core.get_vmrun()}
+        return {"vmrun": core.get_vmrun(), "lang": core.get_lang()}
+
+    def save_lang(self, lang):
+        core.set_lang(lang)
+        return {"ok": True}
+
+    def get_meta(self):
+        return {"version": core.VERSION, "author": core.AUTHOR}
+
+    def check_update(self):
+        return core.check_update()
+
+    def open_url(self, url):
+        import webbrowser
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+        return {"ok": True}
 
     def save_vmrun(self, path):
         core.set_vmrun(path)

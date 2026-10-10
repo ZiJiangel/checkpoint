@@ -2,7 +2,7 @@
 
 A small desktop tool for managing VMware virtual machine snapshots (branches). Create, revert, and track VM snapshots the way you'd switch Git branches.
 
-> Current version: **v0.1.0**
+> Current version: **v0.2.0**
 
 ---
 
@@ -16,6 +16,8 @@ A small desktop tool for managing VMware virtual machine snapshots (branches). C
 - **Light & dark themes**: one-click switch, applied across the whole window
 - **Frameless window**: custom title bar (no native Windows title bar)
 - **Runtime status**: view running VMs, start/stop them
+- **Language switch**: ZH / EN UI, remembers your choice
+- **Check for updates**: one-click check against GitHub releases
 - **Error handling**: global exception capture, written to `error.log` with a dialog
 
 ---
@@ -87,6 +89,7 @@ Generated at runtime **next to the program**:
 
 ## Changelog
 
+- **v0.2.0** (2026-10-10): Added **language switch (ZH/EN)** and **check for updates**.
 - **v0.1.0** (2026-10-10): First release. Auto-discovery, snapshot management, labels, theme switch, installer.
 
 ---
