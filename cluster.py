@@ -100,12 +100,19 @@ def test_node(node):
 
 # ============ 逻辑层：健康检查 ============
 
-# 各角色期望的 Hadoop 进程（可后续扩展）
-EXPECTED_PROCS = {
-    "master": ["NameNode", "DataNode", "ResourceManager", "NodeManager", "JobHistoryServer"],
-    "worker": ["DataNode", "NodeManager"],
-    "ntp": [],      # NTP/KDC 暂不查进程
-    "kdc": [],
+# 各角色的检查项（声明式，可后续扩展）
+# procs：期望运行的进程；ports：期望监听的端口（端口→人话说明）
+ROLE_CHECKS = {
+    "master": {
+        "procs": ["NameNode", "DataNode", "ResourceManager", "NodeManager", "JobHistoryServer"],
+        "ports": {9000: "HDFS NameNode", 8088: "YARN ResourceManager", 19888: "JobHistoryServer"},
+    },
+    "worker": {
+        "procs": ["DataNode", "NodeManager"],
+        "ports": {},
+    },
+    "ntp": {"procs": [], "ports": {}},
+    "kdc": {"procs": [], "ports": {}},
 }
 
 
@@ -119,38 +126,80 @@ def _parse_jps(out):
     return procs
 
 
+def _parse_ports(out):
+    """解析 ss/netstat 输出，返回监听端口集合（忽略表头）"""
+    ports = set()
+    for line in out.splitlines():
+        line = line.strip()
+        if not line or line.lower().startswith(("netid", "state", "proto")):
+            continue
+        parts = line.split()
+        for token in parts:
+            # 形如 0.0.0.0:9000 / *:8088 / :::9000
+            if ":" in token:
+                p = token.rsplit(":", 1)[-1]
+                if p.isdigit():
+                    ports.add(int(p))
+    return ports
+
+
 def health_check(node):
-    """检查单个节点：在线状态 + Hadoop 进程。
-    返回 {id, online, procs, expected, missing, status}
-    status: green(正常) / yellow(缺部分) / red(异常) / gray(未启用)"""
+    """检查单个节点：在线 + 进程 + 端口。
+    返回 {id, online, procs, expected, missing, ports_ok, ports_missing, status, detail}
+    status: green(正常) / yellow(部分异常) / red(异常) / gray(未启用)"""
     nid = node.get("id")
     if not node.get("enabled", True):
         return {"id": nid, "online": False, "procs": [], "expected": [],
-                "missing": [], "status": "gray", "detail": "已禁用"}
+                "missing": [], "ports_ok": [], "ports_missing": [],
+                "status": "gray", "detail": "已禁用"}
 
+    # 一条命令同时取 jps 和端口
+    cmd = "source /etc/profile 2>/dev/null; echo __JPS__; jps; echo __PORTS__; " \
+          "(ss -tln 2>/dev/null || netstat -tln 2>/dev/null)"
     ok, out = ssh_exec(node.get("host", ""), node.get("port", 22),
-                       node.get("user", ""), node.get("pass", ""),
-                       "source /etc/profile 2>/dev/null; jps", timeout=12)
+                       node.get("user", ""), node.get("pass", ""), cmd, timeout=15)
     if not ok:
         return {"id": nid, "online": False, "procs": [], "expected": [],
-                "missing": [], "status": "red", "detail": out}
+                "missing": [], "ports_ok": [], "ports_missing": [],
+                "status": "red", "detail": out}
 
-    procs = _parse_jps(out)
-    expected = EXPECTED_PROCS.get(node.get("role", "worker"), [])
+    # 拆 JPS 段和 PORTS 段
+    jps_out, ports_out = out, ""
+    if "__JPS__" in out and "__PORTS__" in out:
+        jps_out = out.split("__JPS__", 1)[1].split("__PORTS__", 1)[0]
+        ports_out = out.split("__PORTS__", 1)[1]
+
+    procs = _parse_jps(jps_out)
+    listening = _parse_ports(ports_out)
+
+    checks = ROLE_CHECKS.get(node.get("role", "worker"), {"procs": [], "ports": {}})
+    expected = checks.get("procs", [])
+    expected_ports = checks.get("ports", {})
+
     missing = [p for p in expected if p not in procs]
+    ports_ok = [p for p in expected_ports if p in listening]
+    ports_missing = [p for p in expected_ports if p not in listening]
 
-    if not expected:
+    # 状态判定
+    if not expected and not expected_ports:
         status = "green"
-    elif not missing:
-        status = "green"
-    elif len(missing) == len(expected):
-        status = "red"
     else:
-        status = "yellow"
+        problems = len(missing) + len(ports_missing)
+        total = len(expected) + len(expected_ports)
+        if problems == 0:
+            status = "green"
+        elif problems == total:
+            status = "red"
+        else:
+            status = "yellow"
+
+    detail = "进程：" + (", ".join(procs) if procs else "无")
+    if expected_ports:
+        detail += "；端口：" + (", ".join(str(p) for p in sorted(ports_ok)) if ports_ok else "无")
 
     return {"id": nid, "online": True, "procs": procs, "expected": expected,
-            "missing": missing, "status": status,
-            "detail": "进程：" + (", ".join(procs) if procs else "无")}
+            "missing": missing, "ports_ok": ports_ok, "ports_missing": ports_missing,
+            "status": status, "detail": detail}
 
 
 def health_check_all():
@@ -168,7 +217,8 @@ def health_check_all():
                 n = fut[f]
                 core.log("健康检查异常：" + str(n.get("name")) + " — " + str(e))
                 results.append({"id": n.get("id"), "online": False, "procs": [],
-                                "expected": [], "missing": [], "status": "red",
+                                "expected": [], "missing": [], "ports_ok": [],
+                                "ports_missing": [], "status": "red",
                                 "detail": str(e)})
     order = {n["id"]: i for i, n in enumerate(nodes)}
     results.sort(key=lambda r: order.get(r["id"], 999))

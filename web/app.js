@@ -394,6 +394,12 @@ function showDetail(id) {
     '<button id="ndTest">测试连接</button>' +
     '</div>' +
     '<div class="result" id="ndResult">' + (h && h.detail ? h.detail : '') + '</div>' +
+    (h && (h.missing && h.missing.length || h.ports_missing && h.ports_missing.length)
+      ? '<div class="result err" style="margin-top:0.3rem">' +
+        (h.missing && h.missing.length ? '缺进程：' + h.missing.join(', ') + '  ' : '') +
+        (h.ports_missing && h.ports_missing.length ? '缺端口：' + h.ports_missing.join(', ') : '') +
+        '</div>'
+      : '') +
     '</div>';
   document.getElementById('ndSave').addEventListener('click', () => saveDetail(n.id));
   document.getElementById('ndTest').addEventListener('click', () => testDetail(n));
