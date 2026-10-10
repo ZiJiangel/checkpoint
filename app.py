@@ -107,6 +107,9 @@ class Api:
     def check_nodes_ready(self):
         return cluster.check_nodes_ready()
 
+    def nodes_vm_status(self):
+        return cluster.nodes_vm_status()
+
     def get_vms(self, force=False, snaps=True):
         running = [os.path.basename(r) for r in core.list_running()] if snaps else []
         result = []

@@ -331,9 +331,19 @@ document.getElementById('langSelect').addEventListener('change', (e) => {
 // ============ 集群节点 ============
 let NODES = [];
 let HEALTH = {};       // id -> 健康结果
+let VM_STATUS = {};    // id -> {running, has_vmx}
 
 async function loadNodes() {
   NODES = await window.pywebview.api.get_nodes();
+  renderNodes();
+  renderClusterCard();
+  refreshVmStatus();
+}
+
+async function refreshVmStatus() {
+  try {
+    VM_STATUS = await window.pywebview.api.nodes_vm_status();
+  } catch (e) { VM_STATUS = {}; }
   renderNodes();
   renderClusterCard();
 }
@@ -392,10 +402,21 @@ function renderNodes() {
     const role = '<span class="vm-role">' + (n.role || 'worker') + '</span>';
     const host = '<span class="vm-role">' + n.host + '</span>';
     const note = n.note ? '<span class="vm-role">' + n.note + '</span>' : '';
+    // VM 开机/关机 徽标
+    const vm = VM_STATUS[n.id];
+    let vmBadge = '';
+    if (vm && vm.has_vmx) {
+      vmBadge = vm.running
+        ? '<span class="vm-power on">● ' + t('cl.vmOn') + '</span>'
+        : '<span class="vm-power off">○ ' + t('cl.vmOff') + '</span>';
+    } else if (vm && !vm.has_vmx) {
+      vmBadge = '<span class="vm-power none">— ' + t('cl.noVmx') + '</span>';
+    }
     return '<div class="card" data-id="' + n.id + '" style="cursor:pointer">' +
       '<div class="card-top"><div>' + dot +
       '<span class="vm-name">' + n.name + '</span>' + role + host + note + '</div>' +
-      '<span class="vm-count" style="cursor:pointer" data-del="' + n.id + '">删除</span></div></div>';
+      '<div style="display:flex;align-items:center;gap:0.5rem">' + vmBadge +
+      '<span class="vm-count" style="cursor:pointer" data-del="' + n.id + '">删除</span></div></div></div>';
   }).join('');
   // 点击卡片 → 详情；点击删除
   box.querySelectorAll('.card').forEach(c => {
@@ -643,6 +664,7 @@ async function runCluster(action) {
     powerLog(lines.join(''));
   }
   runHealthCheck();   // 结束后自动刷新体检
+  refreshVmStatus();  // 刷新 VM 开/关机状态
 }
 
 function renderLine(text, state) {
@@ -688,6 +710,7 @@ async function bootVms() {
   }
   POWER_RUNNING = false;
   loadVms();
+  refreshVmStatus();
 }
 document.getElementById('vmBoot').addEventListener('click', bootVms);
 
@@ -698,12 +721,23 @@ async function shutdownVms() {
   if (!confirm(t('cl.confirmShutdown'))) return;
   powerLog(renderLine(t('cl.shuttingDown'), 'running'));
   try {
-    const r = await window.pywebview.api.stop_vms();
-    const n = r.results ? r.results.length : 0;
-    powerLog(renderLine(t('cl.shuttingDown') + ' (' + n + ' 台)', 'done'));
+    await window.pywebview.api.stop_vms();
+    // 软关机会持续几秒~几十秒，轮询等待全部关机
+    let sec = 0, allOff = false;
+    while (sec < 90) {
+      await new Promise(r => setTimeout(r, 5000));
+      sec += 5;
+      await refreshVmStatus();
+      const states = Object.values(VM_STATUS).filter(v => v.has_vmx);
+      allOff = states.length > 0 && states.every(v => !v.running);
+      powerLog(renderLine(t('cl.shuttingDown') + ' (' + sec + 's)', allOff ? 'done' : 'running'));
+      if (allOff) break;
+    }
+    powerLog(renderLine(allOff ? t('cl.allShutdown') : t('cl.shutdownTimeout'), allOff ? 'done' : 'fail'));
   } catch (e) {
     powerLog(renderLine(t('cl.shuttingDown') + ': ' + e, 'fail'));
   }
+  refreshVmStatus();
 }
 document.getElementById('vmShutdown').addEventListener('click', shutdownVms);
 document.getElementById('autoCheck').addEventListener('change', (e) => {

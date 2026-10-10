@@ -106,6 +106,22 @@ def node_reachable(node, timeout=8):
     return ok
 
 
+def nodes_vm_status():
+    """返回 {节点id: {'running': bool, 'has_vmx': bool}}"""
+    running = set()
+    for r in core.list_running():
+        running.add(os.path.normcase(os.path.abspath(r)))
+    result = {}
+    for n in list_nodes():
+        vmx = n.get("vmx", "")
+        if not vmx:
+            result[n.get("id")] = {"running": False, "has_vmx": False}
+        else:
+            key = os.path.normcase(os.path.abspath(vmx))
+            result[n.get("id")] = {"running": key in running, "has_vmx": True}
+    return result
+
+
 def check_nodes_ready():
     """检查所有启用节点的 SSH 可达性（单次，供前端轮询）。
     返回 {ready: bool, nodes: [{name, ok}]}"""
