@@ -9,6 +9,7 @@ def ensure_deps():
     """检查依赖，缺失则静默安装"""
     try:
         import webview  # noqa
+        import paramiko  # noqa
         return
     except ImportError:
         pass
@@ -18,7 +19,7 @@ def ensure_deps():
     try:
         CREATE_NO_WINDOW = 0x08000000
         subprocess.run(
-            [py, "-m", "pip", "install", "pywebview", "-q",
+            [py, "-m", "pip", "install", "pywebview", "paramiko", "-q",
              "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"],
             check=True,
             stdout=subprocess.DEVNULL,
