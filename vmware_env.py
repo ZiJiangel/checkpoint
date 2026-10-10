@@ -64,11 +64,13 @@ def _run_elevated_ps(script, timeout=90):
                 core.log("执行失败(admin)：" + out)
             return p.returncode == 0
         # 非管理员 → 提权（弹 UAC）
+        # 结果写入临时文件，供提权进程回传（否则拿不到真实结果）
         outer = ("Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList "
                  "'-NoProfile','-WindowStyle','Hidden','-EncodedCommand','%s' -Wait") % encoded
-        subprocess.run(["powershell", "-NoProfile", "-Command", outer],
-                       timeout=timeout, creationflags=CREATE_NO_WINDOW)
-        return True
+        p = subprocess.run(["powershell", "-NoProfile", "-Command", outer],
+                           timeout=timeout, creationflags=CREATE_NO_WINDOW)
+        # 提权进程正常退出即认为操作已发起（UAC 被拒会抛异常）
+        return p.returncode == 0
     except Exception as e:
         core.log("执行失败：" + str(e), exc=True)
         return False

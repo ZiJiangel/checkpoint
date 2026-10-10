@@ -76,9 +76,27 @@ def _nodes_for_role(roles):
     return [n for n in cluster.list_nodes() if n.get("role") in roles]
 
 
+def _exec_one(n, cmd, check, action):
+    """在单个节点执行 + 自检，返回结果项"""
+    ok, out = cluster.ssh_exec(n.get("host", ""), n.get("port", 22),
+                               n.get("user", ""), n.get("pass", ""), cmd, timeout=60)
+    item = {"node": n.get("name"), "ok": ok, "out": out}
+    # 启动后自检：仅启动动作时验证（停止不需要）
+    if ok and check and action == "start":
+        cok, _ = cluster.ssh_exec(n.get("host", ""), n.get("port", 22),
+                                  n.get("user", ""), n.get("pass", ""),
+                                  "source /etc/profile 2>/dev/null; " + check,
+                                  timeout=30, use_exit_code=True)
+        item["verified"] = cok
+        if not cok:
+            item["ok"] = False   # 自检没过，标记失败
+    return item
+
+
 def run_service(sid, action="start"):
-    """在目标角色节点上执行某服务的启动/停止。
-    返回 {ok, results: [{node, ok, out}]}"""
+    """在目标角色节点上执行某服务的启动/停止（多节点并行）。
+    返回 {ok, results: [{node, ok, out}], skipped}"""
+    from concurrent.futures import ThreadPoolExecutor
     action = "start" if action != "stop" else "stop"
     svc = None
     for s in get_services():
@@ -88,27 +106,27 @@ def run_service(sid, action="start"):
     if not svc:
         return {"ok": False, "results": [], "msg": "未知服务：" + str(sid)}
     if not svc.get("enabled", True):
-        return {"ok": True, "results": [], "msg": "服务已禁用，跳过"}
+        return {"ok": True, "results": [], "skipped": True, "msg": "服务已禁用，跳过"}
 
     cmd = svc.get(action, "")
     check = svc.get("check", "")
     targets = _nodes_for_role(svc.get("target", []))
+    # 无目标节点 → 视为跳过成功（如没配 kdc 节点时，KDC 阶段直接跳过）
+    if not targets:
+        return {"ok": True, "results": [], "skipped": True,
+                "msg": "无匹配角色节点，跳过"}
+
     results = []
-    for n in targets:
-        ok, out = cluster.ssh_exec(n.get("host", ""), n.get("port", 22),
-                                   n.get("user", ""), n.get("pass", ""), cmd, timeout=60)
-        item = {"node": n.get("name"), "ok": ok, "out": out}
-        # 启动后自检：仅启动动作时验证（停止不需要）
-        if ok and check and action == "start":
-            cok, _ = cluster.ssh_exec(n.get("host", ""), n.get("port", 22),
-                                      n.get("user", ""), n.get("pass", ""),
-                                      "source /etc/profile 2>/dev/null; " + check,
-                                      timeout=30, use_exit_code=True)
-            item["verified"] = cok
-            if not cok:
-                item["ok"] = False   # 自检没过，标记失败
-        results.append(item)
-    all_ok = all(r["ok"] for r in results) if results else False
+    with ThreadPoolExecutor(max_workers=len(targets)) as pool:
+        futs = {pool.submit(_exec_one, n, cmd, check, action): n for n in targets}
+        for f in futs:
+            n = futs[f]
+            try:
+                results.append(f.result())
+            except Exception as e:
+                core.log("服务执行异常：" + str(n.get("name")) + " — " + str(e))
+                results.append({"node": n.get("name"), "ok": False, "out": str(e)})
+    all_ok = all(r["ok"] for r in results) if results else True
     return {"ok": all_ok, "results": results}
 
 

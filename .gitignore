@@ -11,6 +11,7 @@ settings.json
 aliases.json
 vms_cache.json
 nodes.json
+services_state.json
 error.log
 
 # 打包产物
