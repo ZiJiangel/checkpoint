@@ -656,6 +656,7 @@ async function loadNodes() {
   NODES = await window.pywebview.api.get_nodes();
   renderNodes();
   renderClusterCard();
+  renderClusterOverview();
   renderClusterSnap();
   refreshVmStatus();
 }
@@ -814,6 +815,46 @@ async function revertClusterSnap(name) {
   }
   res.innerHTML = '<span class="' + (fail === 0 ? 'ok' : 'err') + '">回滚：' + ok + ' 台成功' + (fail ? '，' + fail + ' 台失败' : '') + '</span>';
   await loadVms(false, true);
+}
+
+// 集群概览（vSphere 摘要式）：健康分布 / 异常节点 / 快照 / 角色分布
+function renderClusterOverview() {
+  const box = document.getElementById('clusterOverview');
+  if (!box) return;
+  if (NODES.length === 0) { box.innerHTML = ''; return; }
+
+  // 健康分布
+  const counts = { green: 0, yellow: 0, red: 0, off: 0, gray: 0 };
+  const bad = [];
+  NODES.forEach(n => {
+    const st = healthStatusOf(n.id);
+    counts[st] = (counts[st] || 0) + 1;
+    if (st === 'red' || st === 'yellow') bad.push({ name: n.name, st: st });
+  });
+  // 角色分布
+  const roles = {};
+  NODES.forEach(n => { const r = n.role || 'worker'; roles[r] = (roles[r] || 0) + 1; });
+  // 快照汇总
+  const snapNames = new Set();
+  NODES.forEach(n => {
+    const vm = VMS.find(v => normVmx(v.vmx) === normVmx(n.vmx));
+    if (vm) vm.snapshots.forEach(s => snapNames.add(s));
+  });
+
+  const part = (label, val, cls) =>
+    '<div class="ov-item"><div class="ov-num ' + (cls || '') + '">' + val + '</div>' +
+    '<div class="ov-label">' + label + '</div></div>';
+
+  box.innerHTML = '<div class="ov-row">' +
+    part(t('ov.nodes'), NODES.length, '') +
+    part(t('ov.ok'), counts.green, 'ok') +
+    part(t('ov.warn'), counts.yellow + counts.red, (counts.red || counts.yellow) ? 'err' : '') +
+    part(t('ov.off'), counts.off, '') +
+    part(t('ov.snaps'), snapNames.size, '') +
+    part(t('ov.roles'), Object.keys(roles).length, '') +
+    '</div>' +
+    (bad.length ? '<div class="svc-line err" style="margin-top:0.5rem">⚠ ' +
+      t('ov.alertNodes') + '：' + bad.map(b => b.name).join('、') + '</div>' : '');
 }
 
 function severityColor(s) {

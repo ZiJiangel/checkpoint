@@ -230,6 +230,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .node-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.8rem; border: 1px solid var(--line); border-radius: 7px; margin-bottom: 0.4rem; font-size: 0.85rem; cursor: pointer; background: var(--surface); }
 .node-row:hover { border-color: var(--muted); }
 .node-row.selected { border-color: var(--accent); background: var(--surface-2); }
+.ov-row { display: flex; gap: 0.5rem; margin: 0.6rem 0; }
+.ov-item { flex: 1; text-align: center; padding: 0.5rem 0.3rem; background: var(--surface); border: 1px solid var(--line); border-radius: 7px; }
+.ov-num { font-size: 1.3rem; font-weight: 650; }
+.ov-num.ok { color: #3ecf8e; }
+.ov-num.err { color: #e06c6c; }
+.ov-label { font-size: 0.72rem; color: var(--muted); margin-top: 0.15rem; }
 .snap-pick { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
 .snap-chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border: 1px solid var(--line); border-radius: 14px; font-size: 0.78rem; cursor: pointer; color: var(--ink-2); }
 .snap-chip.on { border-color: var(--accent); color: var(--ink); background: var(--surface-2); }
