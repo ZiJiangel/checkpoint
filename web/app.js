@@ -139,27 +139,214 @@ document.getElementById('minBtn').addEventListener('click', () => window.pywebvi
 document.getElementById('maxBtn').addEventListener('click', () => window.pywebview.api.maximize());
 document.getElementById('closeBtn').addEventListener('click', () => window.pywebview.api.close_win());
 
-// ============ 标签页 ============
+// ============ 视图导航（左栏 + 右区，vCenter 式）============
 let AUTO_CHECK = true;    // 由设置加载
 let CHECKED_ONCE = false;  // 避免反复体检
 
-document.querySelectorAll('.tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-    document.getElementById('page-' + t.dataset.tab).classList.remove('hidden');
-    // 进入「集群」页 → 刷新 VMware 状态
-    if (t.dataset.tab === 'cluster') {
-      loadVmware();
-      // 开启自动检查 → 自动体检一次
-      if (AUTO_CHECK && !CHECKED_ONCE && NODES.length) {
-        CHECKED_ONCE = true;
-        runHealthCheck();
-      }
-    }
+function showView(name) {
+  ['cluster', 'node', 'vm', 'settings'].forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.toggle('hidden', v !== name);
   });
-});
+  if (name === 'cluster') {
+    loadVmware();
+    if (AUTO_CHECK && !CHECKED_ONCE && NODES.length) {
+      CHECKED_ONCE = true;
+      runHealthCheck();
+    }
+  }
+}
+
+// 渲染左栏（集群列表 + 虚拟机列表）
+function renderSidebar() {
+  const cn = document.getElementById('clusterNav');
+  if (cn) {
+    cn.innerHTML = CLUSTERS.map(c =>
+      '<div class="nav-item' + (c === CURRENT_CLUSTER ? ' active' : '') + '" data-cluster="' + esc(c) + '">' +
+      '<span class="nav-ico">▌</span>' + c + '</div>'
+    ).join('');
+    cn.querySelectorAll('[data-cluster]').forEach(el => {
+      el.addEventListener('click', () => selectCluster(el.dataset.cluster));
+    });
+  }
+  const vn = document.getElementById('vmNav');
+  if (vn) {
+    vn.innerHTML = VMS.map(v =>
+      '<div class="nav-item' + (window._VM_SEL === v.vmx ? ' active' : '') + '" data-vm="' + esc(v.vmx) + '">' +
+      '<span class="status-dot ' + (v.running ? 'st-green' : 'st-gray') + '"></span>' + v.label + '</div>'
+    ).join('');
+    vn.querySelectorAll('[data-vm]').forEach(el => {
+      el.addEventListener('click', () => showVm(el.dataset.vm));
+    });
+  }
+}
+
+// 显示虚拟机视图
+function showVm(vmx) {
+  window._VM_SEL = vmx;
+  renderSidebar();
+  showView('vm');
+  renderVmView(vmx);
+}
+
+function renderVmView(vmx) {
+  const box = document.getElementById('vmDetail');
+  const v = VMS.find(x => x.vmx === vmx);
+  if (!v) { box.innerHTML = '<div class="empty">' + t('run.none') + '</div>'; return; }
+  const dotCls = v.running ? 'st-green' : 'st-gray';
+  const snaps = v.snapshots || [];
+  let html = '<div class="obj-head">' +
+    '<span class="status-dot ' + dotCls + '"></span>' +
+    '<span class="obj-title">' + v.label + '</span>' +
+    (v.note ? '<span class="obj-sub">' + v.note + '</span>' : '') +
+    '<span class="bar-spacer"></span>' +
+    '<span class="obj-badge">' + (v.running ? t('cl.vmOn') : t('cl.vmOff')) + '</span>' +
+    '</div>' +
+    '<div class="form-row" style="margin-bottom:0.8rem">' +
+    '<button class="primary" id="vmStartBtn">' + t('btn.start') + '</button>' +
+    '<button id="vmStopBtn">' + t('btn.stop') + '</button>' +
+    '</div>' +
+    '<div class="result" id="vmOpResult"></div>';
+  // 快照区
+  html += '<div class="card" style="margin-top:0.8rem">' +
+    '<div class="bar-title" style="margin-bottom:0.5rem">' + t('cl.snapshots') + '（' + snaps.length + '）</div>' +
+    '<div class="form-row">' +
+    '<input class="vm-snapname" placeholder="' + t('ph.snapName') + '" style="max-width:240px">' +
+    '<button class="primary" id="vmSnapCreate">' + t('btn.create') + '</button>' +
+    '</div>' +
+    '<div class="result" id="vmSnapResult"></div>';
+  html += snaps.length ? snaps.map(s =>
+    '<div class="svc-line" style="margin-top:0.5rem">' +
+    '<span class="snap">' + s + '</span><span class="bar-spacer"></span>' +
+    '<span class="svc-action" data-vm-snap-rev="' + s + '">' + t('btn.revert') + '</span>' +
+    '<span class="svc-action" data-vm-snap-del="' + s + '" style="color:#e06c6c">' + t('btn.delete') + '</span>' +
+    '</div>'
+  ).join('') : '<div class="empty">' + t('ov.empty') + '</div>';
+  html += '</div>';
+  // 关联节点配置（若该 VM 在某集群里是节点）
+  const linked = NODES.find(n => normVmx(n.vmx) === normVmx(vmx));
+  html += '<div class="card" style="margin-top:0.8rem">' +
+    '<div class="bar-title" style="margin-bottom:0.5rem">' + t('cl.nodeConfig') + '</div>';
+  if (linked) {
+    html += '<div class="form-row">' +
+      '<input class="vc-host" value="' + esc(linked.host) + '" placeholder="IP / 主机名">' +
+      '<input class="vc-port" value="' + (linked.port || 22) + '" placeholder="端口" style="max-width:90px">' +
+      '</div>' +
+      '<div class="form-row" style="margin-top:0.5rem">' +
+      '<input class="vc-user" value="' + esc(linked.user) + '" placeholder="用户名">' +
+      '<input class="vc-pass" type="password" value="' + esc(linked.pass) + '" placeholder="密码">' +
+      '<select class="vc-role">' +
+      ['master','worker','ntp','kdc'].map(r => '<option value="' + r + '"' + (linked.role === r ? ' selected' : '') + '>' + r + '</option>').join('') +
+      '</select>' +
+      '</div>' +
+      '<div class="form-row" style="margin-top:0.5rem">' +
+      '<input class="vc-note" value="' + esc(linked.note) + '" placeholder="备注">' +
+      '<select class="vc-cluster">' +
+      CLUSTERS.map(c => '<option value="' + esc(c) + '"' + (c === (linked.cluster || CURRENT_CLUSTER) ? ' selected' : '') + '>' + c + '</option>').join('') +
+      '</select>' +
+      '</div>' +
+      '<div class="form-row" style="margin-top:0.7rem">' +
+      '<button class="primary" id="vcSave">' + t('btn.save') + '</button>' +
+      '<button id="vcTest">' + t('cl.test') + '</button>' +
+      '</div>' +
+      '<div class="result" id="vcResult"></div>';
+  } else {
+    html += '<div class="empty">' + t('cl.notInCluster') + '</div>' +
+      '<button class="mini-btn" id="vcAddNode" style="margin-top:0.5rem">' + t('cl.addToCluster') + '</button>';
+  }
+  html += '</div>';
+  box.innerHTML = html;
+
+  // 绑定
+  document.getElementById('vmStartBtn').addEventListener('click', async () => {
+    const r = await window.pywebview.api.start_vm(vmx);
+    document.getElementById('vmOpResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.started') : r.out) + '</span>';
+    await loadVms();
+  });
+  document.getElementById('vmStopBtn').addEventListener('click', async () => {
+    const r = await window.pywebview.api.stop_vm(vmx);
+    document.getElementById('vmOpResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.stopped') : r.out) + '</span>';
+    await loadVms();
+  });
+  document.getElementById('vmSnapCreate').addEventListener('click', async () => {
+    const name = box.querySelector('.vm-snapname').value.trim();
+    const res = document.getElementById('vmSnapResult');
+    if (!name) { res.innerHTML = '<span class="err">' + t('ops.needName') + '</span>'; return; }
+    res.textContent = t('ops.running');
+    const r = await window.pywebview.api.snapshot(vmx, name);
+    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>';
+    await loadVms(false, true);
+    renderVmView(vmx);
+  });
+  box.querySelectorAll('[data-vm-snap-rev]').forEach(el => el.addEventListener('click', async () => {
+    const s = el.dataset.vmSnapRev;
+    if (!await uiConfirm(t('ops.revert') + '：' + s + ' ?')) return;
+    const r = await window.pywebview.api.revert(vmx, s);
+    document.getElementById('vmSnapResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>';
+    await loadVms(false, true);
+    renderVmView(vmx);
+  }));
+  box.querySelectorAll('[data-vm-snap-del]').forEach(el => el.addEventListener('click', async () => {
+    const s = el.dataset.vmSnapDel;
+    if (!await uiConfirm(t('ops.delete') + '：' + s + ' ?')) return;
+    const r = await window.pywebview.api.delete_snap(vmx, s);
+    document.getElementById('vmSnapResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.deleted') : r.out) + '</span>';
+    await loadVms(false, true);
+    renderVmView(vmx);
+  }));
+  // 节点配置：保存 / 测试
+  const vcSave = document.getElementById('vcSave');
+  if (vcSave) vcSave.addEventListener('click', async () => {
+    const g = (s) => (box.querySelector(s) || {}).value || '';
+    const node = Object.assign({}, linked, {
+      vmx: vmx,
+      host: g('.vc-host').trim(),
+      port: parseInt(g('.vc-port')) || 22,
+      user: g('.vc-user').trim(),
+      pass: g('.vc-pass'),
+      role: g('.vc-role'),
+      note: g('.vc-note').trim(),
+      cluster: g('.vc-cluster'),
+    });
+    await window.pywebview.api.save_node(node);
+    await loadClusters();
+    await loadNodes();
+    renderSidebar();
+    renderVmView(vmx);
+  });
+  const vcTest = document.getElementById('vcTest');
+  if (vcTest) vcTest.addEventListener('click', async () => {
+    const g = (s) => (box.querySelector(s) || {}).value || '';
+    const node = Object.assign({}, linked, {
+      host: g('.vc-host').trim(), port: parseInt(g('.vc-port')) || 22,
+      user: g('.vc-user').trim(), pass: g('.vc-pass'),
+    });
+    const r = await window.pywebview.api.test_node(node);
+    document.getElementById('vcResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + r.out + '</span>';
+  });
+  const vcAdd = document.getElementById('vcAddNode');
+  if (vcAdd) vcAdd.addEventListener('click', () => {
+    addNodeWithVm(v.label, vmx);
+  });
+}
+
+// 把某 VM 加为当前集群的节点
+async function addNodeWithVm(name, vmx) {
+  const node = await uiNodeForm(t('cl.add'), { name: name, vmx: vmx, user: 'root', role: 'worker', port: 22 });
+  if (!node) return;
+  node.cluster = CURRENT_CLUSTER;
+  const r = await window.pywebview.api.save_node(node);
+  await loadClusters();
+  await loadNodes();
+  renderSidebar();
+  renderVmView(vmx);
+}
+
+async function selectCluster(name) {
+  await switchCluster(name);
+  renderSidebar();
+  showView('cluster');
+}
 
 // ============ 数据 ============
 let VMS = [];
@@ -190,12 +377,8 @@ async function loadVms(force) {
 }
 
 function renderAll() {
-  renderOverview();
-  renderOpsTargets();
-  renderRuntime();
-  renderDelSelectors();
   renderAliasList();
-  renderRevSnaps();
+  renderSidebar();
 }
 
 function renderRevSnaps() {
@@ -393,34 +576,18 @@ async function saveAllAlias() {
 }
 
 // ============ 绑定 ============
-document.getElementById('refreshOverview').addEventListener('click', () => loadVms(false));
 document.getElementById('rescanVms').addEventListener('click', () => loadVms(true));
-document.getElementById('refreshRun').addEventListener('click', loadVms);
-document.getElementById('doSnap').addEventListener('click', doSnap);
-document.getElementById('doRev').addEventListener('click', doRev);
-document.getElementById('doDel').addEventListener('click', doDel);
-document.getElementById('doStart').addEventListener('click', doStart);
-document.getElementById('doStop').addEventListener('click', doStop);
+document.getElementById('clusterSnapCreate').addEventListener('click', createClusterSnap);
+document.getElementById('snapSelectAll').addEventListener('click', () => { SNAP_PICKED = null; renderSnapPick(); });
+document.getElementById('snapSelectNone').addEventListener('click', () => { SNAP_PICKED = new Set(); renderSnapPick(); });
 document.getElementById('saveVmrun').addEventListener('click', saveVmrun);
 document.getElementById('saveAllAlias').addEventListener('click', saveAllAlias);
-
-// 下拉复选框开关
-function bindDD(btnId, menuId) {
-  const btn = document.getElementById(btnId);
-  const menu = document.getElementById(menuId);
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const open = menu.classList.contains('open');
-    document.querySelectorAll('.dd-menu').forEach(m => m.classList.remove('open'));
-    if (!open) menu.classList.add('open');
-  });
-  menu.addEventListener('click', e => e.stopPropagation());
-}
-bindDD('snapDDBtn', 'snapDDMenu');
-bindDD('revDDBtn', 'revDDMenu');
-document.addEventListener('click', () => {
-  document.querySelectorAll('.dd-menu').forEach(m => m.classList.remove('open'));
-});
+const _navSet = document.getElementById('navSettings');
+if (_navSet) _navSet.addEventListener('click', () => showView('settings'));
+const _nodeBack = document.getElementById('nodeBack');
+if (_nodeBack) _nodeBack.addEventListener('click', () => showView('cluster'));
+const _vmBack = document.getElementById('vmBack');
+if (_vmBack) _vmBack.addEventListener('click', () => { window._VM_SEL = null; renderSidebar(); showView('cluster'); });
 
 // ============ 关于 / 检查更新 ============
 document.getElementById('checkUpdateBtn').addEventListener('click', async () => {
@@ -468,12 +635,6 @@ let CURRENT_CLUSTER = '';
 async function loadClusters() {
   CLUSTERS = await window.pywebview.api.get_clusters();
   CURRENT_CLUSTER = await window.pywebview.api.get_current_cluster();
-  const sel = document.getElementById('clusterSelect');
-  if (sel) {
-    sel.innerHTML = CLUSTERS.map(c =>
-      '<option value="' + c + '"' + (c === CURRENT_CLUSTER ? ' selected' : '') + '>' + c + '</option>'
-    ).join('');
-  }
 }
 
 async function switchCluster(name) {
@@ -481,6 +642,7 @@ async function switchCluster(name) {
   await window.pywebview.api.set_current_cluster(name);
   HEALTH = {};          // 切换集群后清空体检结果
   await loadNodes();
+  renderSidebar();
 }
 
 async function newCluster() {
@@ -494,11 +656,12 @@ async function loadNodes() {
   NODES = await window.pywebview.api.get_nodes();
   renderNodes();
   renderClusterCard();
+  renderClusterOverview();
+  renderClusterSnap();
   refreshVmStatus();
 }
 
-// 绑定集群选择器
-document.getElementById('clusterSelect').addEventListener('change', (e) => switchCluster(e.target.value));
+// 新建集群
 document.getElementById('clusterNew').addEventListener('click', newCluster);
 
 async function refreshVmStatus(force) {
@@ -512,6 +675,7 @@ async function refreshVmStatus(force) {
   if (changed || force) {
     renderNodes();
     renderClusterCard();
+    renderClusterSnap();
   }
 }
 
@@ -536,7 +700,6 @@ function renderClusterCard() {
   });
 
   const label = { green: '健康', yellow: '部分异常', red: '异常', gray: '未检查', off: '关机' }[worst];
-  const total = NODES.length;
   const parts = [];
   if (counts.green) parts.push('<span class="ok">' + counts.green + ' 正常</span>');
   if (counts.yellow) parts.push('<span style="color:#e0b34a">' + counts.yellow + ' 部分异常</span>');
@@ -544,14 +707,156 @@ function renderClusterCard() {
   if (counts.off) parts.push('<span class="vm-role">' + counts.off + ' 关机</span>');
   if (counts.gray) parts.push('<span class="vm-role">' + counts.gray + ' 未检查</span>');
 
+  // 紧凑状态条（一行）
   box.innerHTML =
-    '<div class="card" style="border-left:3px solid ' + severityColor(worst) + '">' +
-    '<div class="card-top"><div>' +
+    '<div class="bar" style="border-left:3px solid ' + severityColor(worst) + '">' +
     '<span class="status-dot st-' + worst + '"></span>' +
-    '<span class="vm-name">集群整体状态：' + label + '</span></div>' +
-    '<span class="vm-count">' + total + ' 台</span></div>' +
-    '<div style="margin-top:0.5rem;font-size:0.82rem;display:flex;gap:1rem">' + parts.join('') + '</div>' +
+    '<span class="bar-title">集群</span>' +
+    '<span class="bar-text">' + label + '</span>' +
+    '<span class="bar-spacer"></span>' +
+    '<span style="display:flex;gap:0.8rem;font-size:0.8rem">' + parts.join('') + '</span>' +
+    '<span class="vm-count">' + NODES.length + ' 台</span>' +
     '</div>';
+}
+
+// 集群快照：哪些节点被选中（默认全选）
+let SNAP_PICKED = null;   // null = 全选（未初始化）
+
+function snapPickedNodes() {
+  if (SNAP_PICKED === null) return NODES.filter(n => n.vmx);   // 默认全部（配了 vmx 的）
+  return NODES.filter(n => n.vmx && SNAP_PICKED.has(n.id));
+}
+
+function renderSnapPick() {
+  const box = document.getElementById('snapNodePick');
+  if (!box) return;
+  const withVmx = NODES.filter(n => n.vmx);
+  if (withVmx.length === 0) { box.innerHTML = ''; return; }
+  const sel = snapPickedNodes();
+  const selIds = new Set(sel.map(n => n.id));
+  box.innerHTML = withVmx.map(n =>
+    '<label class="snap-chip' + (selIds.has(n.id) ? ' on' : '') + '" data-snapnode="' + n.id + '">' +
+    '<span class="snap-tick">✓</span>' + n.name + '</label>'
+  ).join('');
+  box.querySelectorAll('[data-snapnode]').forEach(cb => {
+    cb.addEventListener('click', () => {
+      if (SNAP_PICKED === null) SNAP_PICKED = new Set(withVmx.map(n => n.id));   // 首次：从"全选"固化
+      const id = cb.dataset.snapnode;
+      const on = selIds.has(id);
+      if (on) SNAP_PICKED.delete(id); else SNAP_PICKED.add(id);
+      renderSnapPick();
+    });
+  });
+}
+
+// 集群快照：按节点列出各 VM 的快照 + 批量打
+function renderClusterSnap() {
+  renderSnapPick();
+  const box = document.getElementById('clusterSnapList');
+  if (!box) return;
+  if (NODES.length === 0) { box.innerHTML = ''; return; }
+  // 汇总：每个快照名 → 哪些节点有
+  const nameMap = {};   // snapName -> [nodeName...]
+  NODES.forEach(n => {
+    const vm = VMS.find(v => normVmx(v.vmx) === normVmx(n.vmx));
+    const snaps = vm ? vm.snapshots : [];
+    snaps.forEach(s => { (nameMap[s] = nameMap[s] || []).push(n.name); });
+  });
+  const names = Object.keys(nameMap).sort();
+  if (names.length === 0) { box.innerHTML = '<div class="empty">' + t('ov.empty') + '</div>'; return; }
+  box.innerHTML = names.map(s => {
+    const nodesWith = nameMap[s];
+    const all = nodesWith.length === NODES.length;
+    return '<div class="node-row">' +
+      '<span class="snap">' + s + '</span>' +
+      '<span class="vm-role">' + nodesWith.length + '/' + NODES.length + ' 台' + (all ? '（全集群）' : '') + '</span>' +
+      '<span class="bar-spacer"></span>' +
+      '<span class="svc-action" data-cluster-rev="' + esc(s) + '">' + t('btn.revert') + '</span>' +
+      '</div>';
+  }).join('');
+  box.querySelectorAll('[data-cluster-rev]').forEach(el => el.addEventListener('click', () => revertClusterSnap(el.dataset.clusterRev)));
+}
+
+async function createClusterSnap() {
+  const name = document.getElementById('clusterSnapName').value.trim();
+  const res = document.getElementById('clusterSnapResult');
+  if (!name) { res.innerHTML = '<span class="err">' + t('ops.needName') + '</span>'; return; }
+  const targets = snapPickedNodes();
+  if (targets.length === 0) { res.innerHTML = '<span class="err">' + t('cl.noVmxNodes') + '</span>'; return; }
+  res.textContent = t('ops.running');
+  let ok = 0, fail = 0;
+  for (const n of targets) {
+    try {
+      const r = await window.pywebview.api.snapshot(n.vmx, name);
+      if (r.ok) ok++; else fail++;
+    } catch (e) { fail++; }
+    res.textContent = t('ops.running') + ' (' + (ok + fail) + '/' + targets.length + ')';
+  }
+  res.innerHTML = '<span class="' + (fail === 0 ? 'ok' : 'err') + '">' +
+    ok + ' 台成功' + (fail ? '，' + fail + ' 台失败' : '') + '</span>';
+  await loadVms(false, true);
+  renderClusterSnap();
+}
+
+async function revertClusterSnap(name) {
+  if (!await uiConfirm(t('ops.revert') + '（整个集群）：' + name + ' ?')) return;
+  const res = document.getElementById('clusterSnapResult');
+  const targets = NODES.filter(n => n.vmx);
+  res.textContent = t('ops.running');
+  let ok = 0, fail = 0;
+  for (const n of targets) {
+    const vm = VMS.find(v => normVmx(v.vmx) === normVmx(n.vmx));
+    if (!vm || !vm.snapshots.includes(name)) continue;   // 该节点没这个快照，跳过
+    try {
+      const r = await window.pywebview.api.revert(n.vmx, name);
+      if (r.ok) ok++; else fail++;
+    } catch (e) { fail++; }
+    res.textContent = t('ops.running') + ' (' + (ok + fail) + ')';
+  }
+  res.innerHTML = '<span class="' + (fail === 0 ? 'ok' : 'err') + '">回滚：' + ok + ' 台成功' + (fail ? '，' + fail + ' 台失败' : '') + '</span>';
+  await loadVms(false, true);
+}
+
+// 集群概览（vSphere 摘要式）：健康分布 / 异常节点 / 快照 / 角色分布
+function renderClusterOverview() {
+  const box = document.getElementById('clusterOverview');
+  if (!box) return;
+  if (NODES.length === 0) { box.innerHTML = ''; return; }
+
+  // 健康分布
+  const counts = { green: 0, yellow: 0, red: 0, off: 0, gray: 0 };
+  const bad = [];
+  NODES.forEach(n => {
+    const st = healthStatusOf(n.id);
+    counts[st] = (counts[st] || 0) + 1;
+    if (st === 'red' || st === 'yellow') bad.push({ name: n.name, st: st });
+  });
+  // 角色分布
+  const roles = {};
+  NODES.forEach(n => { const r = n.role || 'worker'; roles[r] = (roles[r] || 0) + 1; });
+  // 快照汇总
+  const snapNames = new Set();
+  NODES.forEach(n => {
+    const vm = VMS.find(v => normVmx(v.vmx) === normVmx(n.vmx));
+    if (vm) vm.snapshots.forEach(s => snapNames.add(s));
+  });
+
+  const part = (label, val, cls) =>
+    '<div class="ov-item"><div class="ov-num ' + (cls || '') + '">' + val + '</div>' +
+    '<div class="ov-label">' + label + '</div></div>';
+
+  box.innerHTML = '<div class="ov-row">' +
+    part(t('ov.nodes'), NODES.length, '') +
+    part(t('ov.ok'), counts.green, 'ok') +
+    part(t('ov.warn'), counts.yellow + counts.red, (counts.red || counts.yellow) ? 'err' : '') +
+    part(t('ov.gray'), counts.gray, '') +
+    part(t('ov.off'), counts.off, '') +
+    part(t('ov.snaps'), snapNames.size, '') +
+    '</div>' +
+    (bad.length ? '<div class="svc-line err" style="margin-top:0.5rem">⚠ ' +
+      t('ov.alertNodes') + '：' + bad.map(b => b.name).join('、') + '</div>' :
+      (counts.gray === NODES.length ? '<div class="svc-line" style="margin-top:0.5rem;color:var(--muted)">' +
+        t('ov.notCheckedHint') + '</div>' : ''));
 }
 
 function severityColor(s) {
@@ -560,6 +865,8 @@ function severityColor(s) {
 
 function renderNodes() {
   const box = document.getElementById('nodeList');
+  const cnt = document.getElementById('nodeCount');
+  if (cnt) cnt.textContent = NODES.length;
   if (NODES.length === 0) {
     box.innerHTML = '<div class="card"><div class="empty">' + t('cl.empty') + '</div></div>';
     return;
@@ -580,19 +887,49 @@ function renderNodes() {
     } else if (vm && !vm.has_vmx) {
       vmBadge = '<span class="vm-power none">— ' + t('cl.noVmx') + '</span>';
     }
-    return '<div class="card" data-id="' + n.id + '" style="cursor:pointer">' +
-      '<div class="card-top"><div>' + dot +
-      '<span class="vm-name">' + n.name + '</span>' + role + host + note + '</div>' +
-      '<div style="display:flex;align-items:center;gap:0.5rem">' + vmBadge +
-      '<span class="vm-count" style="cursor:pointer" data-del="' + n.id + '">删除</span></div></div></div>';
+    const expanded = (window._DETAIL_ID === n.id);
+    let row = '<div class="node-row' + (expanded ? ' selected' : '') + '" data-id="' + n.id + '">' +
+      dot +
+      '<span class="vm-name">' + n.name + '</span>' + role + host + note +
+      '<span class="bar-spacer"></span>' + vmBadge +
+      '<span class="vm-count" style="cursor:pointer" data-del="' + n.id + '">删除</span>' +
+      '</div>';
+    // 就地展开：健康详情
+    if (expanded) row += '<div class="node-expand">' + renderHealthInline(n) + '</div>';
+    return row;
   }).join('');
-  // 点击卡片 → 详情；点击删除
-  box.querySelectorAll('.card').forEach(c => {
-    c.addEventListener('click', (e) => {
+  // 点击行 → 就地展开/收起健康；点击删除
+  box.querySelectorAll('.node-row').forEach(r => {
+    r.addEventListener('click', (e) => {
       if (e.target.dataset.del) { delNode(e.target.dataset.del); return; }
-      showDetail(c.dataset.id);
+      const id = r.dataset.id;
+      window._DETAIL_ID = (window._DETAIL_ID === id) ? null : id;
+      renderNodes();
+      if (window._DETAIL_ID === id) {
+        // 自动体检一次（若没结果）
+        if (!HEALTH[id]) runHealthCheck();
+      }
     });
   });
+}
+
+// 节点健康（就地展开，不用跳页）
+function renderHealthInline(n) {
+  const h = HEALTH[n.id];
+  const st = healthStatusOf(n.id);
+  if (!h) return '<div class="empty">' + t('cl.notChecked') + '</div>';
+  let html = '<div class="svc-line"><span class="vm-role">' + (h.detail || '') + '</span></div>';
+  if (h.missing && h.missing.length)
+    html += '<div class="svc-line err">缺进程：' + h.missing.join(', ') + '</div>';
+  if (h.svcs_missing && h.svcs_missing.length)
+    html += '<div class="svc-line err">缺服务：' + h.svcs_missing.join(', ') + '</div>';
+  if (h.ports_missing && h.ports_missing.length)
+    html += '<div class="svc-line err">缺端口：' + h.ports_missing.join(', ') + '</div>';
+  const noProb = (!h.missing || !h.missing.length)
+    && (!h.svcs_missing || !h.svcs_missing.length)
+    && (!h.ports_missing || !h.ports_missing.length);
+  if (noProb) html += '<div class="svc-line ok">全部检查通过</div>';
+  return html;
 }
 
 let DETAIL_TAB = 'config';    // 当前节点详情的选项卡
@@ -612,15 +949,17 @@ function showDetail(id) {
     '<button class="detail-tab' + (DETAIL_TAB === k ? ' active' : '') + '" data-dtab="' + k + '">' + label + '</button>'
   ).join('') + '</div>';
 
+  showView('node');
   document.getElementById('nodeDetail').innerHTML =
-    '<div class="card">' +
-    '<div class="card-top"><div><span class="status-dot st-' + st + '"></span>' +
-    '<span class="vm-name">' + n.name + '</span>' +
-    '<span class="vm-role">' + (n.role || '') + '</span></div>' +
-    '<span class="vm-count">' + statusText + '</span></div>' +
+    '<div class="obj-head">' +
+    '<span class="status-dot st-' + st + '"></span>' +
+    '<span class="obj-title">' + n.name + '</span>' +
+    '<span class="obj-sub">' + (n.role || '') + '</span>' +
+    '<span class="bar-spacer"></span>' +
+    '<span class="obj-badge st-' + st + '">' + statusText + '</span>' +
+    '</div>' +
     tabBar +
-    '<div id="detailBody"></div>' +
-    '</div>';
+    '<div id="detailBody"></div>';
 
   // 选项卡切换
   document.querySelectorAll('.detail-tab').forEach(b => {
@@ -1136,35 +1475,23 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.split-menu').forEach(m => m.classList.add('hidden'));
 });
 
+let VMWARE_EXPANDED = false;
+
 function renderVmwareCard() {
   const box = document.getElementById('vmwareCard');
   if (!box) return;
   if (!VMWARE_STATE) { box.innerHTML = ''; return; }
   const state = VMWARE_STATE.state;
   const meta = VMWARE_STATE_META[state] || VMWARE_STATE_META.gray;
-  const appLine = VMWARE_STATE.app_running
-    ? '<span class="ok">VMware 软件运行中</span>'
-    : '<span class="vm-role">VMware 软件未运行</span>';
+  const dotCls = state === 'green' ? 'green' : (state === 'red' ? 'red' : 'yellow');
 
-  const svcRows = VMWARE_STATE.services.map(s => {
-    const dot = s.running ? 'st-green' : (s.critical ? 'st-red' : 'st-gray');
-    const tag = s.critical ? '' : '<span class="vm-role">可选</span>';
-    const action = s.running
-      ? '<span class="svc-action" data-svc="' + s.name + '" data-act="stop">停止</span>'
-      : '<span class="svc-action" data-svc="' + s.name + '" data-act="start">启动</span>';
-    return '<div style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;margin-top:0.35rem">' +
-      '<span class="status-dot ' + dot + '"></span>' +
-      '<span>' + s.label + '</span>' + tag +
-      '<span class="vm-role" style="margin-left:auto">' + (s.running ? '运行中' : '已停止') + '</span>' +
-      action + '</div>';
-  }).join('');
-
-  box.innerHTML =
-    '<div class="card" style="border-left:3px solid ' + meta.color + '">' +
-    '<div class="card-top"><div>' +
-    '<span class="status-dot st-' + (state === 'green' ? 'green' : state === 'red' ? 'red' : 'yellow') + '"></span>' +
-    '<span class="vm-name">VMware 环境：' + meta.text.replace('VMware ', '') + '</span></div>' +
-    '<div style="display:flex;gap:0.4rem">' +
+  // 紧凑状态条（一行）
+  let html =
+    '<div class="bar" style="border-left:3px solid ' + meta.color + '">' +
+    '<span class="status-dot st-' + dotCls + '"></span>' +
+    '<span class="bar-title">VMware</span>' +
+    '<span class="bar-text">' + meta.text.replace('VMware ', '') + '（' + VMWARE_STATE.running_count + '/' + VMWARE_STATE.total_count + '）</span>' +
+    '<span class="bar-spacer"></span>' +
     splitBtn('vmwareStart', t('vm.start'), [
       { label: t('vm.startAll'), fn: () => startVmwareServices('all') },
       { label: t('vm.startCritical'), fn: () => startVmwareServices('critical') },
@@ -1173,18 +1500,37 @@ function renderVmwareCard() {
       { label: t('vm.stopOptional'), fn: () => stopVmwareServices('optional') },
       { label: t('vm.stopAll'), fn: () => stopVmwareServices('all') },
     ]) +
-    '<button class="mini-btn" id="vmwareLaunch">' + t('vm.launch') + '</button>' +
-    '</div></div>' +
-    '<div style="margin-top:0.4rem">' + appLine + '</div>' +
-    svcRows +
-    '<div class="hint-foot" style="margin-top:0.6rem">vmrun 依赖「授权服务」；虚拟机联网依赖「NAT/DHCP」。启动服务需管理员权限（会弹 UAC）。</div>' +
+    '<span class="svc-action" id="vmwareToggle">' + (VMWARE_EXPANDED ? t('cl.collapse') : t('cl.expand')) + '</span>' +
     '</div>';
 
+  // 展开：服务明细
+  if (VMWARE_EXPANDED) {
+    const appLine = VMWARE_STATE.app_running
+      ? '<span class="ok">VMware 软件运行中</span>'
+      : '<span class="vm-role">VMware 软件未运行</span>';
+    const svcRows = VMWARE_STATE.services.map(s => {
+      const dot = s.running ? 'st-green' : (s.critical ? 'st-red' : 'st-gray');
+      const tag = s.critical ? '' : '<span class="vm-role">可选</span>';
+      const action = s.running
+        ? '<span class="svc-action" data-svc="' + s.name + '" data-act="stop">停止</span>'
+        : '<span class="svc-action" data-svc="' + s.name + '" data-act="start">启动</span>';
+      return '<div class="svc-line">' +
+        '<span class="status-dot ' + dot + '"></span>' +
+        '<span>' + s.label + '</span>' + tag +
+        '<span class="bar-spacer"></span>' +
+        '<span class="vm-role">' + (s.running ? '运行中' : '已停止') + '</span>' +
+        action + '</div>';
+    }).join('');
+    html += '<div class="bar-detail">' + appLine + svcRows +
+      '<div class="hint-foot" style="margin-top:0.5rem">vmrun 依赖「授权服务」；联网依赖「NAT/DHCP」。启动服务需管理员权限（会弹 UAC）。</div>' +
+      '</div>';
+  }
+
+  box.innerHTML = html;
   bindSplitBtns(box);
-  const btnApp = document.getElementById('vmwareLaunch');
-  if (btnApp) btnApp.addEventListener('click', launchVmwareApp);
-  // 每个服务的单独 启动/停止
-  box.querySelectorAll('.svc-action').forEach(el => {
+  const tg = document.getElementById('vmwareToggle');
+  if (tg) tg.addEventListener('click', () => { VMWARE_EXPANDED = !VMWARE_EXPANDED; renderVmwareCard(); });
+  box.querySelectorAll('.svc-action[data-svc]').forEach(el => {
     el.addEventListener('click', () => toggleService(el.dataset.svc, el.dataset.act));
   });
 }
@@ -1242,12 +1588,8 @@ async function launchVmwareApp() {
 }
 
 document.getElementById('vmwareStatus').addEventListener('click', () => {
-  // 点击标题栏状态 → 跳到集群页
-  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-  const tab = document.querySelector('.tab[data-tab="cluster"]');
-  if (tab) tab.classList.add('active');
-  document.getElementById('page-cluster').classList.remove('hidden');
+  // 点击标题栏状态 → 跳到集群视图
+  showView('cluster');
   loadVmware();
 });
 
@@ -1264,8 +1606,10 @@ window.addEventListener('pywebviewready', async () => {
     document.getElementById('aboutVer').textContent = 'v' + meta.version;
     document.getElementById('aboutAuthor').textContent = t('about.author') + meta.author;
   } catch (e) {}
-  loadVms();
+  await loadVms();
   await loadClusters();
+  renderSidebar();
+  showView('cluster');
   loadNodes();
   loadVmware();
 });

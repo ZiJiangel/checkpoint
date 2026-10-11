@@ -32,141 +32,111 @@
   </header>
 
   <main class="content">
-    <nav class="tabs" id="tabs">
-      <button class="tab active" data-tab="overview" data-i18n="tab.overview">概览</button>
-      <button class="tab" data-tab="cluster" data-i18n="tab.cluster">集群</button>
-      <button class="tab" data-tab="ops" data-i18n="tab.ops">快照操作</button>
-      <button class="tab" data-tab="runtime" data-i18n="tab.runtime">运行状态</button>
-      <button class="tab" data-tab="settings" data-i18n="tab.settings">设置</button>
-    </nav>
-
-    <div class="page" id="page-overview">
-      <div class="sec-head"><span class="sec-title" data-i18n="ov.title">快照分布</span>
-        <button class="mini-btn" id="refreshOverview" style="margin-left:auto" data-i18n="btn.refresh">刷新</button>
-        <button class="mini-btn" id="rescanVms" data-i18n="btn.rescan">重新扫描</button>
-      </div>
-      <div id="vmList"></div>
-      <div class="hint-foot" data-i18n="ov.hint">虚拟机由软件自动扫描（读取 VMware 记录）。路径不对或没扫到？可在「设置」中配置。</div>
-    </div>
-
-    <div class="page hidden" id="page-cluster">
-      <div class="sec-head"><span class="sec-title" data-i18n="cl.clusterSel">集群</span>
-        <select id="clusterSelect" style="margin-left:auto;max-width:220px"></select>
-        <button class="mini-btn" id="clusterNew" data-i18n="cl.newCluster">新建集群</button>
-      </div>
-
-      <div id="vmwareCard"></div>
-
-      <div id="clusterCard"></div>
-
-      <div class="sec-head"><span class="sec-title" data-i18n="cl.nodes">集群节点</span>
-        <button class="mini-btn" id="clusterAdd" style="margin-left:auto" data-i18n="cl.add">添加节点</button>
-        <button class="mini-btn primary" id="clusterCheck" data-i18n="cl.check">一键体检</button>
-      </div>
-      <div id="nodeList"></div>
-      <div class="hint-foot" data-i18n="cl.hint">节点用于 SSH 连接集群（健康检查、启停等）。密码仅存本机，不上传。</div>
-
-      <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="cl.power">集群启停</span>
-        <button class="mini-btn primary" id="clusterStart" style="margin-left:auto" data-i18n="cl.startAll">一键启动</button>
-        <button class="mini-btn" id="clusterStop" data-i18n="cl.stopAll">一键停止</button>
-        <button class="mini-btn" id="vmShutdown" data-i18n="cl.shutdownVms">关闭所有虚拟机</button>
-      </div>
-      <div id="powerProgress"></div>
-
-      <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="cl.detail">节点详情</span></div>
-      <div id="nodeDetail"><div class="empty" data-i18n="cl.pick">点击上方节点查看详情</div></div>
-    </div>
-
-    <div class="page hidden" id="page-ops">
-      <div class="sec-head"><span class="sec-title" data-i18n="ops.snapTitle">打快照</span></div>
-      <div class="form-row">
-        <input id="snapName" data-i18n-ph="ph.snapName" placeholder="快照名（如 base_clean_1010）">
-        <div class="dd">
-          <div class="dd-btn" id="snapDDBtn"><span id="snapDDLabel" data-i18n="dd.select">选择虚拟机</span><span class="arrow">▼</span></div>
-          <div class="dd-menu" id="snapDDMenu"></div>
-        </div>
-        <button class="primary" id="doSnap" data-i18n="btn.create">创建</button>
-      </div>
-      <div class="result" id="snapResult"></div>
-
-      <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="ops.revTitle">切换分支</span></div>
-      <div class="form-row">
-        <select id="revName"><option value="" data-i18n="dd.selectBranch">选择分支…</option></select>
-        <div class="dd">
-          <div class="dd-btn" id="revDDBtn"><span id="revDDLabel" data-i18n="dd.select">选择虚拟机</span><span class="arrow">▼</span></div>
-          <div class="dd-menu" id="revDDMenu"></div>
-        </div>
-        <button class="primary" id="doRev" data-i18n="btn.revert">回滚</button>
-      </div>
-      <div class="result" id="revResult"></div>
-
-      <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="ops.delTitle">删除快照</span></div>
-      <div class="form-row">
-        <select id="delVm"></select>
-        <select id="delSnap"></select>
-        <button id="doDel" disabled data-i18n="btn.delete">删除</button>
-      </div>
-      <div class="result" id="delResult"></div>
-    </div>
-
-    <div class="page hidden" id="page-runtime">
-      <div class="sec-head"><span class="sec-title" data-i18n="run.title">运行中的虚拟机</span>
-        <button class="mini-btn" id="refreshRun" style="margin-left:auto" data-i18n="btn.refresh">刷新</button>
-      </div>
-      <div id="runList"></div>
-      <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="run.startStop">启动 / 停止</span></div>
-      <div class="form-row">
-        <select id="opVm"></select>
-        <button class="primary" id="doStart" data-i18n="btn.start">启动</button>
-        <button id="doStop" data-i18n="btn.stop">停止</button>
-      </div>
-      <div class="result" id="opResult"></div>
-    </div>
-
-    <div class="page hidden" id="page-settings">
-      <div class="sec-head"><span class="sec-title" data-i18n="set.general">通用</span></div>
-      <div class="form-row">
-        <span class="sec-note-inline" data-i18n="set.language">语言</span>
-        <select id="langSelect" style="max-width:200px">
-          <option value="zh">简体中文</option>
-          <option value="en">English</option>
-        </select>
-      </div>
-      <div class="form-row" style="margin-top:0.8rem">
-        <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;cursor:pointer">
-          <input type="checkbox" id="autoCheck" style="width:auto;min-width:0">
-          <span data-i18n="set.autoCheck">打开集群页时自动体检</span>
-        </label>
-      </div>
-
-      <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="set.vmware">VMware 路径</span></div>
-      <div class="form-row">
-        <input id="vmrunPath" data-i18n-ph="ph.vmrun" placeholder="vmrun.exe 路径">
-        <button class="primary" id="saveVmrun" data-i18n="btn.save">保存</button>
-      </div>
-
-      <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="set.vmNames">虚拟机名称</span>
-        <span class="sec-note-inline" data-i18n="set.vmNamesNote">显示名（大字）与备注（灰色小字）</span>
-      </div>
-      <div id="aliasList"></div>
-      <button class="primary" id="saveAllAlias" style="margin-top:1rem" data-i18n="btn.saveAll">保存全部</button>
-
-      <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="set.about">关于</span></div>
-      <div class="card" id="aboutCard">
-        <div class="card-top">
-          <div>
-            <span class="vm-name" data-i18n="app.name">集群快照管理器</span>
-            <span class="vm-role" id="aboutVer">v0.2.0</span>
+    <aside class="sidebar" id="sidebar">
+      <div class="side-scroll">
+        <div class="side-block">
+          <div class="side-title">
+            <span data-i18n="cl.clusterSel">集群</span>
+            <button class="side-add" id="clusterNew" title="新建集群">＋</button>
           </div>
-          <button class="mini-btn" id="checkUpdateBtn" data-i18n="btn.checkUpdate">检查更新</button>
+          <div id="clusterNav" class="side-list"></div>
         </div>
-        <div class="empty" id="aboutAuthor"></div>
-        <div class="empty" id="updateMsg"></div>
+        <div class="side-block">
+          <div class="side-title">
+            <span data-i18n="tab.vm">虚拟机</span>
+            <button class="side-add" id="rescanVms" title="重新扫描">↻</button>
+          </div>
+          <div id="vmNav" class="side-list"></div>
+        </div>
       </div>
-    </div>
+      <div class="side-footer">
+        <div class="nav-item" id="navSettings" data-i18n="tab.settings">设置</div>
+      </div>
+    </aside>
+
+    <section class="main" id="mainArea">
+      <div class="view" id="view-cluster">
+        <div class="toolbar">
+          <span class="bar-title" id="clusterTitle">集群</span>
+          <span class="bar-spacer"></span>
+          <button class="mini-btn" id="clusterAdd" data-i18n="cl.add">添加节点</button>
+          <button class="mini-btn" id="clusterCheck" data-i18n="cl.check">体检</button>
+          <button class="mini-btn primary" id="clusterStart" data-i18n="cl.startAll">一键启动</button>
+          <button class="mini-btn" id="clusterStop" data-i18n="cl.stopAll">一键停止</button>
+          <button class="mini-btn" id="vmShutdown" data-i18n="cl.shutdownVms">关闭虚拟机</button>
+        </div>
+        <div id="vmwareCard"></div>
+        <div id="clusterCard"></div>
+        <div id="clusterOverview"></div>
+        <div id="nodeList"></div>
+        <div id="powerProgress"></div>
+
+        <div class="sec-head" style="margin-top:1.4rem"><span class="sec-title" data-i18n="cl.clusterSnap">集群快照</span>
+          <span class="sec-note-inline" data-i18n="cl.clusterSnapHint">给整个集群的节点一次性打快照 / 回滚</span>
+        </div>
+        <div class="form-row">
+          <input id="clusterSnapName" data-i18n-ph="ph.snapName" placeholder="快照名（如 base_clean_1010）" style="max-width:260px">
+          <button class="primary" id="clusterSnapCreate" data-i18n="cl.snapSelected">给选中节点打快照</button>
+          <span class="svc-action" id="snapSelectAll" data-i18n="cl.selectAll">全选</span>
+          <span class="svc-action" id="snapSelectNone" data-i18n="cl.selectNone">全不选</span>
+        </div>
+        <div id="snapNodePick" class="snap-pick"></div>
+        <div class="result" id="clusterSnapResult"></div>
+        <div id="clusterSnapList"></div>
+      </div>
+
+      <div class="view hidden" id="view-node">
+        <div class="view-head"><span class="crumb" id="nodeBack">‹ 集群</span></div>
+        <div id="nodeDetail"></div>
+      </div>
+
+      <div class="view hidden" id="view-vm">
+        <div class="view-head"><span class="crumb" id="vmBack">‹ 集群</span></div>
+        <div id="vmDetail"></div>
+      </div>
+
+      <div class="view hidden" id="view-settings">
+        <div class="view-head"><span class="bar-title" data-i18n="tab.settings">设置</span></div>
+        <div class="sec-head"><span class="sec-title" data-i18n="set.general">通用</span></div>
+        <div class="form-row">
+          <span class="sec-note-inline" data-i18n="set.language">语言</span>
+          <select id="langSelect" style="max-width:200px">
+            <option value="zh">简体中文</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+        <div class="form-row" style="margin-top:0.8rem">
+          <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;cursor:pointer">
+            <input type="checkbox" id="autoCheck" style="width:auto;min-width:0">
+            <span data-i18n="set.autoCheck">打开集群页时自动体检</span>
+          </label>
+        </div>
+        <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="set.vmware">VMware 路径</span></div>
+        <div class="form-row">
+          <input id="vmrunPath" data-i18n-ph="ph.vmrun" placeholder="vmrun.exe 路径">
+          <button class="primary" id="saveVmrun" data-i18n="btn.save">保存</button>
+        </div>
+        <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="set.vmNames">虚拟机名称</span>
+          <span class="sec-note-inline" data-i18n="set.vmNamesNote">显示名（大字）与备注（灰色小字）</span>
+        </div>
+        <div id="aliasList"></div>
+        <button class="primary" id="saveAllAlias" style="margin-top:1rem" data-i18n="btn.saveAll">保存全部</button>
+        <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="set.about">关于</span></div>
+        <div class="card" id="aboutCard">
+          <div class="card-top">
+            <div>
+              <span class="vm-name" data-i18n="app.name">集群快照管理器</span>
+              <span class="vm-role" id="aboutVer">v0.6.0</span>
+            </div>
+            <button class="mini-btn" id="checkUpdateBtn" data-i18n="btn.checkUpdate">检查更新</button>
+          </div>
+          <div class="empty" id="aboutAuthor"></div>
+          <div class="empty" id="updateMsg"></div>
+        </div>
+      </div>
+    </section>
   </main>
 
-  <!-- 自绘对话框 -->
   <div class="modal-mask hidden" id="modalMask">
     <div class="modal">
       <div class="modal-title" id="modalTitle">提示</div>
