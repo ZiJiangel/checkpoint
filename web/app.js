@@ -235,7 +235,7 @@ function renderVmView(vmx) {
     '<button id="vmStopBtn">' + t('btn.stop') + '</button>' +
     '</div>' +
     '<div class="result" id="vmOpResult"></div>';
-  // 快照区
+  // 快照区（树状）
   html += '<div class="card" style="margin-top:0.8rem">' +
     '<div class="bar-title" style="margin-bottom:0.5rem">' + t('cl.snapshots') + '（' + snaps.length + '）</div>' +
     '<div class="form-row">' +

@@ -174,6 +174,9 @@ class Api:
     def nodes_vm_status(self):
         return cluster.nodes_vm_status()
 
+    def snapshot_tree(self, vmx):
+        return core.list_snapshots_tree(vmx)
+
     def get_vms(self, force=False, snaps=True):
         running = [os.path.basename(r) for r in core.list_running()] if snaps else []
         result = []

@@ -196,6 +196,30 @@ def list_snapshots(vmx):
             if l.strip() and not l.lower().startswith("total snapshots")]
 
 
+def list_snapshots_tree(vmx):
+    """返回树状快照 [{name, depth}]（用 -showtree 的缩进推断层级）。
+    失败则退回平铺（depth 全 0）。"""
+    if not vmx or not os.path.exists(vmx):
+        return []
+    ok, out = run_vmrun(["listSnapshots", vmx, "-showtree"])
+    if not ok:
+        ok2, out2 = run_vmrun(["listSnapshots", vmx])
+        if not ok2:
+            return []
+        return [{"name": l.strip(), "depth": 0} for l in out2.splitlines()
+                if l.strip() and not l.lower().startswith("total")]
+    result = []
+    for line in out.splitlines():
+        if not line.strip() or line.lower().startswith("total"):
+            continue
+        # 按前导空格/制表符算层级
+        stripped = line.lstrip()
+        indent = len(line) - len(stripped)
+        depth = indent // 3   # vmrun 每层缩进 3 空格
+        result.append({"name": stripped, "depth": depth})
+    return result
+
+
 def list_running():
     ok, out = run_vmrun(["list"])
     if not ok:
