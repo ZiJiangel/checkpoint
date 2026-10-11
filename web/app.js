@@ -689,6 +689,20 @@ async function loadNodes() {
   refreshVmStatus();
 }
 
+// 载入上次的体检结果（持久化，重开软件仍可见）
+async function loadHealthCache() {
+  try {
+    const cache = await window.pywebview.api.load_health_cache();
+    if (cache && cache.results) {
+      HEALTH = {};
+      cache.results.forEach(r => { HEALTH[r.id] = r; });
+      renderNodes();
+      renderClusterCard();
+      renderClusterOverview();
+    }
+  } catch (e) {}
+}
+
 // 新建集群
 document.getElementById('clusterNew').addEventListener('click', newCluster);
 document.getElementById('clusterTpl').addEventListener('click', createFromTemplate);
@@ -1724,6 +1738,7 @@ window.addEventListener('pywebviewready', async () => {
   await loadClusters();
   renderSidebar();
   showView('cluster');
-  loadNodes();
+  await loadNodes();
+  await loadHealthCache();   // 恢复上次体检结果
   loadVmware();
 });

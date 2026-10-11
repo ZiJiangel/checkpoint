@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import core
 
 NODES_FILE = os.path.join(core.BASE, "nodes.json")
+HEALTH_CACHE_FILE = os.path.join(core.BASE, "health_cache.json")
 DEFAULT_CLUSTER = "默认集群"
 
 
