@@ -232,8 +232,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .split-item:hover { background: var(--surface-2); }
 
 /* 服务行内 启动/停止 小链接 */
-.svc-action { color: #5b8def; cursor: pointer; font-size: 0.78rem; padding: 0 0.3rem; }
-.svc-action:hover { text-decoration: underline; }
+.svc-action { color: var(--ink-2); cursor: pointer; font-size: 0.78rem; padding: 0 0.3rem; opacity: 0.75; transition: opacity .12s; }
+.svc-action:hover { opacity: 1; text-decoration: underline; }
 /* 节点详情选项卡 */
 .detail-tabs { display: flex; gap: 1.2rem; border-bottom: 1px solid var(--line); margin: 0.9rem 0 1rem; }
 .detail-tab { background: none; border: none; padding: 0.4rem 0; font-size: 0.85rem; color: var(--muted); cursor: pointer; font-family: inherit; border-bottom: 2px solid transparent; }

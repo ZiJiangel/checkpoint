@@ -144,7 +144,7 @@ let AUTO_CHECK = true;    // 由设置加载
 let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
-  ['cluster', 'node', 'settings'].forEach(v => {
+  ['cluster', 'node', 'vm', 'settings'].forEach(v => {
     const el = document.getElementById('view-' + v);
     if (el) el.classList.toggle('hidden', v !== name);
   });
@@ -172,10 +172,95 @@ function renderSidebar() {
   const vn = document.getElementById('vmNav');
   if (vn) {
     vn.innerHTML = VMS.map(v =>
-      '<div class="nav-item" data-vm="' + esc(v.vmx) + '">' +
+      '<div class="nav-item' + (window._VM_SEL === v.vmx ? ' active' : '') + '" data-vm="' + esc(v.vmx) + '">' +
       '<span class="status-dot ' + (v.running ? 'st-green' : 'st-gray') + '"></span>' + v.label + '</div>'
     ).join('');
+    vn.querySelectorAll('[data-vm]').forEach(el => {
+      el.addEventListener('click', () => showVm(el.dataset.vm));
+    });
   }
+}
+
+// 显示虚拟机视图
+function showVm(vmx) {
+  window._VM_SEL = vmx;
+  renderSidebar();
+  showView('vm');
+  renderVmView(vmx);
+}
+
+function renderVmView(vmx) {
+  const box = document.getElementById('vmDetail');
+  const v = VMS.find(x => x.vmx === vmx);
+  if (!v) { box.innerHTML = '<div class="empty">' + t('run.none') + '</div>'; return; }
+  const dotCls = v.running ? 'st-green' : 'st-gray';
+  const snaps = v.snapshots || [];
+  let html = '<div class="card">' +
+    '<div class="card-top"><div><span class="status-dot ' + dotCls + '"></span>' +
+    '<span class="vm-name">' + v.label + '</span>' +
+    (v.note ? '<span class="vm-role">' + v.note + '</span>' : '') + '</div>' +
+    '<span class="vm-count">' + (v.running ? t('cl.vmOn') : t('cl.vmOff')) + '</span></div>' +
+    '<div class="form-row" style="margin-top:0.8rem">' +
+    '<button class="primary" id="vmStartBtn">' + t('btn.start') + '</button>' +
+    '<button id="vmStopBtn">' + t('btn.stop') + '</button>' +
+    '</div>' +
+    '<div class="result" id="vmOpResult"></div>' +
+    '</div>';
+  // 快照区
+  html += '<div class="card" style="margin-top:0.8rem">' +
+    '<div class="bar-title" style="margin-bottom:0.5rem">' + t('cl.snapshots') + '（' + snaps.length + '）</div>' +
+    '<div class="form-row">' +
+    '<input class="vm-snapname" placeholder="' + t('ph.snapName') + '" style="max-width:240px">' +
+    '<button class="primary" id="vmSnapCreate">' + t('btn.create') + '</button>' +
+    '</div>' +
+    '<div class="result" id="vmSnapResult"></div>';
+  html += snaps.length ? snaps.map(s =>
+    '<div class="svc-line" style="margin-top:0.5rem">' +
+    '<span class="snap">' + s + '</span><span class="bar-spacer"></span>' +
+    '<span class="svc-action" data-vm-snap-rev="' + s + '">' + t('btn.revert') + '</span>' +
+    '<span class="svc-action" data-vm-snap-del="' + s + '" style="color:#e06c6c">' + t('btn.delete') + '</span>' +
+    '</div>'
+  ).join('') : '<div class="empty">' + t('ov.empty') + '</div>';
+  html += '</div>';
+  box.innerHTML = html;
+
+  // 绑定
+  document.getElementById('vmStartBtn').addEventListener('click', async () => {
+    const r = await window.pywebview.api.start_vm(vmx);
+    document.getElementById('vmOpResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.started') : r.out) + '</span>';
+    await loadVms();
+  });
+  document.getElementById('vmStopBtn').addEventListener('click', async () => {
+    const r = await window.pywebview.api.stop_vm(vmx);
+    document.getElementById('vmOpResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.stopped') : r.out) + '</span>';
+    await loadVms();
+  });
+  document.getElementById('vmSnapCreate').addEventListener('click', async () => {
+    const name = box.querySelector('.vm-snapname').value.trim();
+    const res = document.getElementById('vmSnapResult');
+    if (!name) { res.innerHTML = '<span class="err">' + t('ops.needName') + '</span>'; return; }
+    res.textContent = t('ops.running');
+    const r = await window.pywebview.api.snapshot(vmx, name);
+    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>';
+    await loadVms(false, true);
+    renderVmView(vmx);
+  });
+  box.querySelectorAll('[data-vm-snap-rev]').forEach(el => el.addEventListener('click', async () => {
+    const s = el.dataset.vmSnapRev;
+    if (!await uiConfirm(t('ops.revert') + '：' + s + ' ?')) return;
+    const r = await window.pywebview.api.revert(vmx, s);
+    document.getElementById('vmSnapResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>';
+    await loadVms(false, true);
+    renderVmView(vmx);
+  }));
+  box.querySelectorAll('[data-vm-snap-del]').forEach(el => el.addEventListener('click', async () => {
+    const s = el.dataset.vmSnapDel;
+    if (!await uiConfirm(t('ops.delete') + '：' + s + ' ?')) return;
+    const r = await window.pywebview.api.delete_snap(vmx, s);
+    document.getElementById('vmSnapResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.deleted') : r.out) + '</span>';
+    await loadVms(false, true);
+    renderVmView(vmx);
+  }));
 }
 
 async function selectCluster(name) {
@@ -419,6 +504,8 @@ const _navSet = document.getElementById('navSettings');
 if (_navSet) _navSet.addEventListener('click', () => showView('settings'));
 const _nodeBack = document.getElementById('nodeBack');
 if (_nodeBack) _nodeBack.addEventListener('click', () => showView('cluster'));
+const _vmBack = document.getElementById('vmBack');
+if (_vmBack) _vmBack.addEventListener('click', () => { window._VM_SEL = null; renderSidebar(); showView('cluster'); });
 
 // ============ 关于 / 检查更新 ============
 document.getElementById('checkUpdateBtn').addEventListener('click', async () => {
