@@ -1356,17 +1356,17 @@ async function scanConfigDirs() {
     DIST_FOUND = r.dirs || [];
     if (!r.ok) { box.innerHTML = '<div class="err">' + (r.msg || '扫描失败') + '</div>'; return; }
     if (!DIST_FOUND.length) { box.innerHTML = '<div class="empty">' + t('cl.noConfigFound') + '</div>'; return; }
-    // 按软件分组
-    const bySw = {};
-    DIST_FOUND.forEach(d => { (bySw[d.software] = bySw[d.software] || []).push(d.path); });
-    box.innerHTML = Object.keys(bySw).map(sw =>
-      '<div style="margin-top:0.4rem"><span class="vm-role">' + sw + '</span>' +
-      bySw[sw].map(p => '<label class="snap-chip on" style="margin:0.2rem 0.3rem 0 0"><input type="checkbox" data-distpath="' + p + '" checked>' + p + '</label>').join('') +
-      '</div>'
+    // 行式列表（每行一个配置目录，含软件名 + 路径 + 勾选）
+    box.innerHTML = DIST_FOUND.map(d =>
+      '<label class="dist-row">' +
+      '<input type="checkbox" data-distpath="' + esc(d.path) + '" checked>' +
+      '<span class="dist-sw">' + d.software + '</span>' +
+      '<span class="dist-path">' + d.path + '</span>' +
+      '</label>'
     ).join('');
     box.querySelectorAll('[data-distpath]').forEach(cb => {
-      cb.parentElement.classList.toggle('on', cb.checked);
       cb.addEventListener('change', () => cb.parentElement.classList.toggle('on', cb.checked));
+      cb.parentElement.classList.toggle('on', cb.checked);
     });
     document.getElementById('distGo').disabled = false;
   } catch (e) {
@@ -1376,17 +1376,30 @@ async function scanConfigDirs() {
   }
 }
 
+// 源路径 → 目标路径：/etc/hosts 等单文件保持原路径；目录按"最后一级"挂到 root 下
+function mapTarget(root, src) {
+  // 常见的系统单文件：保持绝对路径（不能塞进 /root/app）
+  if (src === '/etc/hosts' || src === '/etc/krb5.conf' || src.endsWith('.conf')) {
+    return src;
+  }
+  const base = src.replace(/\/+$/, '').split('/').pop();
+  return root.replace(/\/+$/, '') + '/' + base;
+}
+
 async function distributeConfig() {
   if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }
   const res = document.getElementById('distResult');
   const picked = Array.from(document.querySelectorAll('[data-distpath]:checked')).map(cb => cb.dataset.distpath);
   if (!picked.length) { res.innerHTML = '<span class="err">' + t('cl.pickConfig') + '</span>'; return; }
-  if (!await uiConfirm('把选中的 ' + picked.length + ' 个配置目录分发到从节点？')) return;
+  const root = (document.getElementById('distTarget').value || '/root/app').trim();
+  if (!await uiConfirm('把选中的 ' + picked.length + ' 个配置目录分发到从节点的「' + root + '」下？')) return;
   res.textContent = t('ops.running');
   let html = '';
   for (const src of picked) {
-    const r = await window.pywebview.api.distribute_config(src, src, ['worker']);
-    html += '<div class="' + (r.ok ? 'ok' : 'err') + '">' + src + ' — ' +
+    // 目标 = 根目录 + 源目录的最后两级（如 /etc/krb5.conf → 特殊处理）
+    const dst = mapTarget(root, src);
+    const r = await window.pywebview.api.distribute_config(src, dst, ['worker']);
+    html += '<div class="' + (r.ok ? 'ok' : 'err') + '">' + src + ' → ' + dst + ' — ' +
       (r.skipped ? t('cl.svcSkipped') : (r.ok ? t('ops.done') : t('ops.fail'))) + '</div>';
   }
   res.innerHTML = html;
@@ -1816,7 +1829,7 @@ async function stopVmwareServices(mode) {
       runningCount = Object.values(st).filter(v => v.running).length;
     } catch (e) {}
     if (runningCount > 0) {
-      warn = '⚠️ 当前有 ' + runningCount + ' 台虚拟機在运行！\n\n' +
+      warn = '⚠️ 当前有 ' + runningCount + ' 台虚拟机在运行！\n\n' +
         '停止「授权/NAT/DHCP」服务会导致：\n' +
         '  • 虚拟机断网，SSH 连不上（集群失联）\n' +
         '  • vmrun 失效，无法再启停/快照虚拟机\n\n' +

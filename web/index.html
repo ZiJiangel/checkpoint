@@ -92,8 +92,14 @@
         </div>
         <div id="distList"></div>
         <div class="form-row" style="margin-top:0.5rem">
+          <input id="distManual" placeholder="手动添加路径（如 /opt/myapp/conf），回车添加" style="max-width:340px">
+        </div>
+        <div class="form-row" style="margin-top:0.5rem">
+          <span class="sec-note-inline" data-i18n="cl.distTarget">目标目录</span>
+          <input id="distTarget" value="/root/app" placeholder="从节点上的目标根目录（如 /root/app）" style="max-width:340px">
           <button class="primary" id="distGo" disabled data-i18n="cl.distGo">分发选中的配置</button>
         </div>
+        <div class="hint-foot" data-i18n="cl.distTargetHint">默认按"源目录最后两级"映射到目标根下；不确定时留默认 /root/app</div>
         <div class="result" id="distResult"></div>
       </div>
 

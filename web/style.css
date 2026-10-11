@@ -258,6 +258,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .snap-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.7rem 0.25rem 0.5rem; border: 1px solid var(--line); border-radius: 6px; font-size: 0.8rem; cursor: pointer; color: var(--muted); background: var(--surface); user-select: none; transition: all .12s; }
 .snap-chip:hover { border-color: var(--muted); color: var(--ink-2); }
 .snap-chip.on { border-color: var(--line); color: var(--ink); background: var(--surface-2); }
+.dist-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0.7rem; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 0.35rem; font-size: 0.82rem; cursor: pointer; background: var(--surface); }
+.dist-row:hover { border-color: var(--muted); }
+.dist-row.on { background: var(--surface-2); }
+.dist-row input { flex: none; }
+.dist-sw { flex: none; width: 90px; color: var(--muted); font-size: 0.78rem; }
+.dist-path { flex: 1; font-family: Consolas, monospace; font-size: 0.78rem; color: var(--ink-2); word-break: break-all; }
 .snap-chip .snap-tick { width: 15px; height: 15px; flex: none; border: 1.5px solid var(--muted); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: transparent; transition: all .12s; }
 .snap-chip.on .snap-tick { background: #3ecf8e; border-color: #3ecf8e; color: #16161a; }
 .node-expand { padding: 0.6rem 0.9rem; margin: -0.4rem 0 0.5rem; border: 1px solid var(--line); border-top: none; border-radius: 0 0 7px 7px; background: var(--surface); font-size: 0.82rem; }
