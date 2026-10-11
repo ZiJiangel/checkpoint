@@ -2,7 +2,7 @@
 
 A desktop tool for managing a **local VM cluster** — snapshots, health check, one-click start/stop, and diagnosis. Built for students running Hadoop / big-data cluster experiments on local virtual machines.
 
-> Current version: **v0.9.1**
+> Current version: **v0.9.2**
 
 ---
 
@@ -107,6 +107,7 @@ Generated at runtime **next to the program**:
 
 ## Changelog
 
+- **v0.9.2** (2026-10-11): First-use guide (3-step card when cluster is empty), in-app help (? button).
 - **v0.9.1** (2026-10-11): Config distribution overhaul (auto-scan + manual path + per-node root + plain-language failures), concurrency locks, skip powered-off nodes, faster startup (TCP probe), VMware pre-checks.
 - **v0.9.0** (2026-10-11): Config distribution (auto-scan), snapshot tree view, clone snapshot to VM, pre-deploy check, button tooltips.
 - **v0.8.0** (2026-10-11): Cluster templates, health-result persistence, UI animations, clone snapshot, pre-deploy check, config distribution, plain-language errors.
