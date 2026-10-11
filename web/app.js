@@ -156,6 +156,29 @@ document.getElementById('themeBtn').addEventListener('click', () => {
   applyTheme(theme);
 });
 
+// 使用帮助
+document.getElementById('helpBtn').addEventListener('click', () => {
+  const body = [
+    t('help.intro'),
+    '',
+    t('help.h1'),
+    '  ' + t('help.1'),
+    '  ' + t('help.2'),
+    '  ' + t('help.3'),
+    '',
+    t('help.h2'),
+    '  ' + t('help.4'),
+    '  ' + t('help.5'),
+    '  ' + t('help.6'),
+    '',
+    t('help.h3'),
+    '  ' + t('help.7'),
+    '  ' + t('help.8'),
+    '  ' + t('help.9'),
+  ].join('\n');
+  uiAlert(body, t('help.title'));
+});
+
 // ============ 窗口按钮 ============
 document.getElementById('minBtn').addEventListener('click', () => window.pywebview.api.minimize());
 document.getElementById('maxBtn').addEventListener('click', () => window.pywebview.api.maximize());
