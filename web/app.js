@@ -578,6 +578,8 @@ async function saveAllAlias() {
 // ============ 绑定 ============
 document.getElementById('rescanVms').addEventListener('click', () => loadVms(true));
 document.getElementById('clusterSnapCreate').addEventListener('click', createClusterSnap);
+document.getElementById('snapSelectAll').addEventListener('click', () => { SNAP_PICKED = null; renderSnapPick(); });
+document.getElementById('snapSelectNone').addEventListener('click', () => { SNAP_PICKED = new Set(); renderSnapPick(); });
 document.getElementById('saveVmrun').addEventListener('click', saveVmrun);
 document.getElementById('saveAllAlias').addEventListener('click', saveAllAlias);
 const _navSet = document.getElementById('navSettings');
@@ -716,8 +718,39 @@ function renderClusterCard() {
     '</div>';
 }
 
+// 集群快照：哪些节点被选中（默认全选）
+let SNAP_PICKED = null;   // null = 全选（未初始化）
+
+function snapPickedNodes() {
+  if (SNAP_PICKED === null) return NODES.filter(n => n.vmx);   // 默认全部（配了 vmx 的）
+  return NODES.filter(n => n.vmx && SNAP_PICKED.has(n.id));
+}
+
+function renderSnapPick() {
+  const box = document.getElementById('snapNodePick');
+  if (!box) return;
+  const withVmx = NODES.filter(n => n.vmx);
+  if (withVmx.length === 0) { box.innerHTML = ''; return; }
+  const sel = snapPickedNodes();
+  const selIds = new Set(sel.map(n => n.id));
+  box.innerHTML = withVmx.map(n =>
+    '<label class="snap-chip' + (selIds.has(n.id) ? ' on' : '') + '">' +
+    '<input type="checkbox" data-snapnode="' + n.id + '"' + (selIds.has(n.id) ? ' checked' : '') + '>' +
+    n.name + '</label>'
+  ).join('');
+  box.querySelectorAll('[data-snapnode]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (SNAP_PICKED === null) SNAP_PICKED = new Set(withVmx.map(n => n.id));   // 首次：从"全选"固化
+      const id = cb.dataset.snapnode;
+      if (cb.checked) SNAP_PICKED.add(id); else SNAP_PICKED.delete(id);
+      renderSnapPick();
+    });
+  });
+}
+
 // 集群快照：按节点列出各 VM 的快照 + 批量打
 function renderClusterSnap() {
+  renderSnapPick();
   const box = document.getElementById('clusterSnapList');
   if (!box) return;
   if (NODES.length === 0) { box.innerHTML = ''; return; }
@@ -747,7 +780,7 @@ async function createClusterSnap() {
   const name = document.getElementById('clusterSnapName').value.trim();
   const res = document.getElementById('clusterSnapResult');
   if (!name) { res.innerHTML = '<span class="err">' + t('ops.needName') + '</span>'; return; }
-  const targets = NODES.filter(n => n.vmx);
+  const targets = snapPickedNodes();
   if (targets.length === 0) { res.innerHTML = '<span class="err">' + t('cl.noVmxNodes') + '</span>'; return; }
   res.textContent = t('ops.running');
   let ok = 0, fail = 0;

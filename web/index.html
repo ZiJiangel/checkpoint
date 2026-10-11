@@ -75,8 +75,11 @@
         </div>
         <div class="form-row">
           <input id="clusterSnapName" data-i18n-ph="ph.snapName" placeholder="快照名（如 base_clean_1010）" style="max-width:260px">
-          <button class="primary" id="clusterSnapCreate" data-i18n="cl.snapAll">给所有节点打快照</button>
+          <button class="primary" id="clusterSnapCreate" data-i18n="cl.snapSelected">给选中节点打快照</button>
+          <span class="svc-action" id="snapSelectAll" data-i18n="cl.selectAll">全选</span>
+          <span class="svc-action" id="snapSelectNone" data-i18n="cl.selectNone">全不选</span>
         </div>
+        <div id="snapNodePick" class="snap-pick"></div>
         <div class="result" id="clusterSnapResult"></div>
         <div id="clusterSnapList"></div>
       </div>
