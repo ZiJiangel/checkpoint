@@ -29,6 +29,9 @@ dist_*/
 pyi*.log
 fspack*.log
 
+# archify 图产物（临时）
+.archify/
+
 # 系统
 .DS_Store
 Thumbs.db
