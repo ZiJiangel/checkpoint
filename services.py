@@ -76,8 +76,10 @@ def _nodes_for_role(roles):
     return [n for n in cluster.list_nodes() if n.get("role") in roles]
 
 
-def _exec_one(n, cmd, check, action):
-    """在单个节点执行 + 自检，返回结果项"""
+def _exec_one(n, cmd, check, action, running=None):
+    """在单个节点执行 + 自检，返回结果项（关机节点跳过）"""
+    if cluster.node_vm_off(n, running):
+        return {"node": n.get("name"), "ok": False, "out": "虚拟机关机（未开机）", "off": True}
     ok, out = cluster.ssh_exec(n.get("host", ""), n.get("port", 22),
                                n.get("user", ""), n.get("pass", ""), cmd, timeout=60)
     item = {"node": n.get("name"), "ok": ok, "out": out}
@@ -116,9 +118,10 @@ def run_service(sid, action="start"):
         return {"ok": True, "results": [], "skipped": True,
                 "msg": "无匹配角色节点，跳过"}
 
+    running = cluster._running_vmx_set()
     results = []
     with ThreadPoolExecutor(max_workers=len(targets)) as pool:
-        futs = {pool.submit(_exec_one, n, cmd, check, action): n for n in targets}
+        futs = {pool.submit(_exec_one, n, cmd, check, action, running): n for n in targets}
         for f in futs:
             n = futs[f]
             try:

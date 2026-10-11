@@ -301,6 +301,9 @@ def scan_config_dirs():
     for sw, plist in CONFIG_CANDIDATES.items():
         for p in plist:
             paths.append((sw, p))
+    # master 关机 → 秒判，不白等超时
+    if node_vm_off(master):
+        return {"ok": False, "dirs": [], "msg": "master 节点关机，请先开机"}
     cmds = "; ".join('test -e "%s" && echo "OK|%s|%s"' % (p, sw, p) for sw, p in paths)
     ok, out = ssh_exec(master.get("host", ""), master.get("port", 22),
                        master.get("user", ""), master.get("pass", ""), cmds, timeout=30)
@@ -329,15 +332,46 @@ def distribute_config(src_dir, dst_dir, roles=None):
     if not targets:
         return {"ok": True, "results": [], "skipped": True, "msg": "无目标节点"}
     mh = master.get("host", ""); mu = master.get("user", ""); mp = master.get("pass", "")
+    running = _running_vmx_set()
+    # master 关机 → 直接失败（要它执行 rsync）
+    if node_vm_off(master, running):
+        return {"ok": False, "results": [], "msg": "master 节点关机，无法分发"}
     results = []
     for t in targets:
+        # 目标从节点关机 → 跳过（不白等超时）
+        if node_vm_off(t, running):
+            results.append({"node": t.get("name"), "ok": True, "out": "虚拟机关机，跳过", "off": True})
+            continue
         th = t.get("host", ""); tu = t.get("user", "")
-        # 在 master 上执行 rsync 推送到目标
         cmd = "rsync -az --delete %s/ %s@%s:%s/" % (src_dir, tu, th, dst_dir)
         ok, out = ssh_exec(mh, master.get("port", 22), mu, mp, cmd, timeout=60)
         results.append({"node": t.get("name"), "ok": ok, "out": out})
     all_ok = all(r["ok"] for r in results) if results else True
     return {"ok": all_ok, "results": results}
+
+
+def _running_vmx_set():
+    """取当前运行中的 VM 集合（normcase 路径）"""
+    s = set()
+    try:
+        for r in core.list_running():
+            s.add(os.path.normcase(os.path.abspath(r)))
+    except Exception:
+        return None
+    return s
+
+
+def node_vm_off(node, running=None):
+    """判断节点对应的 VM 是否关机（配了 vmx 且不在运行列表）。
+    running=None 时会自己取一次。返回 True=关机"""
+    vmx = node.get("vmx", "")
+    if not vmx:
+        return False   # 没配 vmx，判断不了，当作可用
+    if running is None:
+        running = _running_vmx_set()
+    if running is None:
+        return False
+    return os.path.normcase(os.path.abspath(vmx)) not in running
 
 
 def node_reachable(node, timeout=8):
