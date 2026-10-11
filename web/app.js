@@ -1534,11 +1534,11 @@ function renderLine(text, state) {
 
 // 轮询等待节点 SSH 就绪（前端轮询，进度可见）。最长 150 秒
 async function waitNodesReady(onTick) {
-  const maxSec = 150, intervalMs = 5000;
+  const maxSec = 150, intervalMs = 2000;
   let waited = 0;
   while (waited < maxSec) {
     await new Promise(r => setTimeout(r, intervalMs));
-    waited += 5;
+    waited += 2;
     let res;
     try { res = await window.pywebview.api.check_nodes_ready(); } catch (e) { res = { ready: false }; }
     if (onTick) onTick(waited, maxSec, res.ready);

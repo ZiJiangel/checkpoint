@@ -377,11 +377,29 @@ def node_vm_off(node, running=None):
 
 
 def node_reachable(node, timeout=8):
-    """探测单个节点 SSH 是否可达（快速）"""
+    """探测单个节点 SSH 是否可达（完整 SSH 校验）"""
     ok, _ = ssh_exec(node.get("host", ""), node.get("port", 22),
                      node.get("user", ""), node.get("pass", ""),
                      "hostname", timeout=timeout)
     return ok
+
+
+def tcp_reachable(node, timeout=2):
+    """轻量探测：节点 SSH 端口是否打开（比完整 SSH 快几百倍）"""
+    import socket
+    host = node.get("host", "")
+    port = int(node.get("port", 22) or 22)
+    if not host:
+        return False
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(timeout)
+    try:
+        s.connect((host, port))
+        return True
+    except Exception:
+        return False
+    finally:
+        s.close()
 
 
 def nodes_vm_status():
@@ -409,7 +427,7 @@ def check_nodes_ready():
         return {"ready": True, "nodes": []}
     results = {}
     with ThreadPoolExecutor(max_workers=len(targets)) as pool:
-        fut = {pool.submit(node_reachable, n): n for n in targets}
+        fut = {pool.submit(tcp_reachable, n): n for n in targets}
         for f in as_completed(fut):
             n = fut[f]
             try:
