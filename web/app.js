@@ -536,7 +536,6 @@ function renderClusterCard() {
   });
 
   const label = { green: '健康', yellow: '部分异常', red: '异常', gray: '未检查', off: '关机' }[worst];
-  const total = NODES.length;
   const parts = [];
   if (counts.green) parts.push('<span class="ok">' + counts.green + ' 正常</span>');
   if (counts.yellow) parts.push('<span style="color:#e0b34a">' + counts.yellow + ' 部分异常</span>');
@@ -544,13 +543,15 @@ function renderClusterCard() {
   if (counts.off) parts.push('<span class="vm-role">' + counts.off + ' 关机</span>');
   if (counts.gray) parts.push('<span class="vm-role">' + counts.gray + ' 未检查</span>');
 
+  // 紧凑状态条（一行）
   box.innerHTML =
-    '<div class="card" style="border-left:3px solid ' + severityColor(worst) + '">' +
-    '<div class="card-top"><div>' +
+    '<div class="bar" style="border-left:3px solid ' + severityColor(worst) + '">' +
     '<span class="status-dot st-' + worst + '"></span>' +
-    '<span class="vm-name">集群整体状态：' + label + '</span></div>' +
-    '<span class="vm-count">' + total + ' 台</span></div>' +
-    '<div style="margin-top:0.5rem;font-size:0.82rem;display:flex;gap:1rem">' + parts.join('') + '</div>' +
+    '<span class="bar-title">集群</span>' +
+    '<span class="bar-text">' + label + '</span>' +
+    '<span class="bar-spacer"></span>' +
+    '<span style="display:flex;gap:0.8rem;font-size:0.8rem">' + parts.join('') + '</span>' +
+    '<span class="vm-count">' + NODES.length + ' 台</span>' +
     '</div>';
 }
 
@@ -580,17 +581,20 @@ function renderNodes() {
     } else if (vm && !vm.has_vmx) {
       vmBadge = '<span class="vm-power none">— ' + t('cl.noVmx') + '</span>';
     }
-    return '<div class="card" data-id="' + n.id + '" style="cursor:pointer">' +
-      '<div class="card-top"><div>' + dot +
-      '<span class="vm-name">' + n.name + '</span>' + role + host + note + '</div>' +
-      '<div style="display:flex;align-items:center;gap:0.5rem">' + vmBadge +
-      '<span class="vm-count" style="cursor:pointer" data-del="' + n.id + '">删除</span></div></div></div>';
+    const sel = (window._DETAIL_ID === n.id) ? ' selected' : '';
+    return '<div class="node-row' + sel + '" data-id="' + n.id + '">' +
+      dot +
+      '<span class="vm-name">' + n.name + '</span>' + role + host + note +
+      '<span class="bar-spacer"></span>' + vmBadge +
+      '<span class="vm-count" style="cursor:pointer" data-del="' + n.id + '">删除</span>' +
+      '</div>';
   }).join('');
-  // 点击卡片 → 详情；点击删除
-  box.querySelectorAll('.card').forEach(c => {
-    c.addEventListener('click', (e) => {
+  // 点击行 → 详情；点击删除
+  box.querySelectorAll('.node-row').forEach(r => {
+    r.addEventListener('click', (e) => {
       if (e.target.dataset.del) { delNode(e.target.dataset.del); return; }
-      showDetail(c.dataset.id);
+      showDetail(r.dataset.id);
+      renderNodes();   // 刷新选中态
     });
   });
 }
