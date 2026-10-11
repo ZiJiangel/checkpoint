@@ -109,6 +109,9 @@ class Api:
     def pre_deploy_check(self):
         return cluster.pre_deploy_check_all()
 
+    def load_health_cache(self):
+        return cluster.load_health_cache()
+
     def distribute_config(self, src, dst, roles):
         return cluster.distribute_config(src, dst, roles)
 

@@ -492,4 +492,22 @@ def health_check_all():
                                 "status": "red", "detail": str(e)})
     order = {n["id"]: i for i, n in enumerate(nodes)}
     results.sort(key=lambda r: order.get(r["id"], 999))
+    save_health_cache(results)
     return results
+
+
+def save_health_cache(results):
+    """把体检结果存盘（带时间戳）"""
+    try:
+        import time
+        core.save_json(HEALTH_CACHE_FILE, {"time": int(time.time()), "results": results})
+    except Exception as e:
+        core.log("保存体检缓存失败：" + str(e), exc=True)
+
+
+def load_health_cache():
+    """读体检缓存。返回 {time, results} 或 None"""
+    data = core.load_json(HEALTH_CACHE_FILE, None)
+    if data and isinstance(data, dict) and "results" in data:
+        return data
+    return None
