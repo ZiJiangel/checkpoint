@@ -190,7 +190,9 @@ def ssh_exec(host, port, user, password, cmd, timeout=15, use_exit_code=False):
 
 
 def test_node(node):
-    """测试节点连接：跑 hostname 验证"""
+    """测试节点连接：跑 hostname 验证（关机节点秒判，不白等超时）"""
+    if node_vm_off(node):
+        return False, "虚拟机关机（未开机）"
     ok, out = ssh_exec(node.get("host", ""), node.get("port", 22),
                        node.get("user", ""), node.get("pass", ""),
                        "hostname; whoami", timeout=10)
