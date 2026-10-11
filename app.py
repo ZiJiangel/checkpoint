@@ -81,6 +81,9 @@ class Api:
     def get_nodes(self):
         return cluster.list_nodes()
 
+    def known_vm_config(self, vmx):
+        return cluster.known_vm_config(vmx)
+
     def save_node(self, node):
         if node.get("id"):
             r = cluster.update_node(node)

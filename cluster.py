@@ -42,6 +42,20 @@ def list_nodes(cluster=None):
     return [n for n in nodes if n.get("cluster") == target]
 
 
+def known_vm_config(vmx):
+    """查所有集群里，关联该 vmx 的节点已知的 host/user/pass/port。
+    用于新建节点时自动带出配置。找不到返回 {}"""
+    if not vmx:
+        return {}
+    key = os.path.normcase(os.path.abspath(vmx))
+    for n in _all_nodes():
+        if n.get("vmx") and os.path.normcase(os.path.abspath(n["vmx"])) == key:
+            if n.get("host"):   # 只返回"填过 IP"的
+                return {"host": n.get("host", ""), "user": n.get("user", ""),
+                        "pass": n.get("pass", ""), "port": n.get("port", 22)}
+    return {}
+
+
 def list_clusters():
     """返回所有集群名（去重；含当前集群）"""
     names = []

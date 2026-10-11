@@ -49,12 +49,26 @@ function uiNodeForm(title, init) {
       field('f-role', t('cl.fRole'), '<select class="f-role">' + roleOpts + '</select>');
     cancelBtn.style.display = '';
     mask.classList.remove('hidden');
-    // 选 VM → 自动填名称
+    // 选 VM → 自动填名称 + 带出其他集群里该 VM 的 IP/密码
     const vmSel = bodyEl.querySelector('.f-vmx');
-    vmSel.addEventListener('change', () => {
-      const vm = VMS.find(v => v.vmx === vmSel.value);
+    vmSel.addEventListener('change', async () => {
+      const vmx = vmSel.value;
+      const vm = VMS.find(v => v.vmx === vmx);
       const ni = bodyEl.querySelector('.f-name');
       if (vm && ni && !ni.value.trim()) ni.value = vm.label;
+      // 查"其他集群里关联同一 VM 的节点"，带出 IP/密码
+      if (vmx) {
+        try {
+          const known = await window.pywebview.api.known_vm_config(vmx);
+          if (known && known.host) {
+            const set = (s, v) => { const el = bodyEl.querySelector(s); if (el) el.value = v; };
+            set('.f-host', known.host);
+            set('.f-user', known.user || 'root');
+            set('.f-pass', known.pass || '');
+            set('.f-port', known.port || 22);
+          }
+        } catch (e) {}
+      }
     });
     setTimeout(() => bodyEl.querySelector('.f-name').focus(), 50);
     const done = (val) => { mask.classList.add('hidden'); okBtn.onclick = null; cancelBtn.onclick = null; resolve(val); };
@@ -631,13 +645,26 @@ function renderDetailBody(n) {
     body.innerHTML = renderConfigTab(n);
     document.getElementById('ndSave').addEventListener('click', () => saveDetail(n.id));
     document.getElementById('ndTest').addEventListener('click', () => testDetail(n));
-    // 选虚拟机 → 若名称还是空的/默认的，自动填 VM 名
+    // 选虚拟机 → 自动填名称；IP 空着时带出已知配置
     const vmxSel = body.querySelector('.nd-vmx');
-    if (vmxSel) vmxSel.addEventListener('change', () => {
-      const vm = VMS.find(v => v.vmx === vmxSel.value);
+    if (vmxSel) vmxSel.addEventListener('change', async () => {
+      const vmx = vmxSel.value;
+      const vm = VMS.find(v => v.vmx === vmx);
       const nameInput = body.querySelector('.nd-name');
       if (vm && nameInput && (!nameInput.value.trim() || nameInput.value.trim() === '新节点')) {
         nameInput.value = vm.label;
+      }
+      const hostInput = body.querySelector('.nd-host');
+      if (vmx && hostInput && !hostInput.value.trim()) {
+        try {
+          const known = await window.pywebview.api.known_vm_config(vmx);
+          if (known && known.host) {
+            body.querySelector('.nd-host').value = known.host;
+            if (body.querySelector('.nd-user')) body.querySelector('.nd-user').value = known.user || 'root';
+            if (body.querySelector('.nd-pass')) body.querySelector('.nd-pass').value = known.pass || '';
+            if (body.querySelector('.nd-port')) body.querySelector('.nd-port').value = known.port || 22;
+          }
+        } catch (e) {}
       }
     });
   }
