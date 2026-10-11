@@ -47,6 +47,12 @@ const I18N = {
     "cl.nodes": "集群节点",
     "cl.add": "添加节点",
     "cl.check": "一键体检",
+    "tip.add": "添加一个集群节点（可关联虚拟机）",
+    "tip.check": "检查集群运行状态：进程 / 端口 / 服务",
+    "tip.deploy": "检查部署前环境：Java / hosts / SSH / 时间 / 防火墙",
+    "tip.start": "启动整个集群：开机 → 等就绪 → 起服务",
+    "tip.stop": "停止集群服务（不关虚拟机）",
+    "tip.shutdown": "关闭所有虚拟机（VMware 软件不受影响）",
     "cl.deployCheck": "部署自检",
     "cl.pickTemplate": "选择集群模板",
     "cl.templateClusterName": "新集群名",
@@ -203,6 +209,12 @@ const I18N = {
     "cl.nodes": "Cluster Nodes",
     "cl.add": "Add Node",
     "cl.check": "Health Check",
+    "tip.add": "Add a cluster node (optionally link a VM)",
+    "tip.check": "Check cluster runtime: processes / ports / services",
+    "tip.deploy": "Check pre-deploy env: Java / hosts / SSH / time / firewall",
+    "tip.start": "Start cluster: boot VMs → wait ready → start services",
+    "tip.stop": "Stop cluster services (VMs stay on)",
+    "tip.shutdown": "Shut down all VMs (VMware itself unaffected)",
     "cl.deployCheck": "Deploy Check",
     "cl.pickTemplate": "Pick a template",
     "cl.templateClusterName": "New cluster name",
@@ -327,5 +339,9 @@ function applyI18n() {
   document.querySelectorAll('[data-i18n-ph]').forEach(el => {
     const k = el.getAttribute('data-i18n-ph');
     el.placeholder = t(k);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const k = el.getAttribute('data-i18n-title');
+    el.title = t(k);
   });
 }
