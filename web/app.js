@@ -223,6 +223,38 @@ function renderVmView(vmx) {
     '</div>'
   ).join('') : '<div class="empty">' + t('ov.empty') + '</div>';
   html += '</div>';
+  // 关联节点配置（若该 VM 在某集群里是节点）
+  const linked = NODES.find(n => normVmx(n.vmx) === normVmx(vmx));
+  html += '<div class="card" style="margin-top:0.8rem">' +
+    '<div class="bar-title" style="margin-bottom:0.5rem">' + t('cl.nodeConfig') + '</div>';
+  if (linked) {
+    html += '<div class="form-row">' +
+      '<input class="vc-host" value="' + esc(linked.host) + '" placeholder="IP / 主机名">' +
+      '<input class="vc-port" value="' + (linked.port || 22) + '" placeholder="端口" style="max-width:90px">' +
+      '</div>' +
+      '<div class="form-row" style="margin-top:0.5rem">' +
+      '<input class="vc-user" value="' + esc(linked.user) + '" placeholder="用户名">' +
+      '<input class="vc-pass" type="password" value="' + esc(linked.pass) + '" placeholder="密码">' +
+      '<select class="vc-role">' +
+      ['master','worker','ntp','kdc'].map(r => '<option value="' + r + '"' + (linked.role === r ? ' selected' : '') + '>' + r + '</option>').join('') +
+      '</select>' +
+      '</div>' +
+      '<div class="form-row" style="margin-top:0.5rem">' +
+      '<input class="vc-note" value="' + esc(linked.note) + '" placeholder="备注">' +
+      '<select class="vc-cluster">' +
+      CLUSTERS.map(c => '<option value="' + esc(c) + '"' + (c === (linked.cluster || CURRENT_CLUSTER) ? ' selected' : '') + '>' + c + '</option>').join('') +
+      '</select>' +
+      '</div>' +
+      '<div class="form-row" style="margin-top:0.7rem">' +
+      '<button class="primary" id="vcSave">' + t('btn.save') + '</button>' +
+      '<button id="vcTest">' + t('cl.test') + '</button>' +
+      '</div>' +
+      '<div class="result" id="vcResult"></div>';
+  } else {
+    html += '<div class="empty">' + t('cl.notInCluster') + '</div>' +
+      '<button class="mini-btn" id="vcAddNode" style="margin-top:0.5rem">' + t('cl.addToCluster') + '</button>';
+  }
+  html += '</div>';
   box.innerHTML = html;
 
   // 绑定
@@ -262,6 +294,52 @@ function renderVmView(vmx) {
     await loadVms(false, true);
     renderVmView(vmx);
   }));
+  // 节点配置：保存 / 测试
+  const vcSave = document.getElementById('vcSave');
+  if (vcSave) vcSave.addEventListener('click', async () => {
+    const g = (s) => (box.querySelector(s) || {}).value || '';
+    const node = Object.assign({}, linked, {
+      vmx: vmx,
+      host: g('.vc-host').trim(),
+      port: parseInt(g('.vc-port')) || 22,
+      user: g('.vc-user').trim(),
+      pass: g('.vc-pass'),
+      role: g('.vc-role'),
+      note: g('.vc-note').trim(),
+      cluster: g('.vc-cluster'),
+    });
+    await window.pywebview.api.save_node(node);
+    await loadClusters();
+    await loadNodes();
+    renderSidebar();
+    renderVmView(vmx);
+  });
+  const vcTest = document.getElementById('vcTest');
+  if (vcTest) vcTest.addEventListener('click', async () => {
+    const g = (s) => (box.querySelector(s) || {}).value || '';
+    const node = Object.assign({}, linked, {
+      host: g('.vc-host').trim(), port: parseInt(g('.vc-port')) || 22,
+      user: g('.vc-user').trim(), pass: g('.vc-pass'),
+    });
+    const r = await window.pywebview.api.test_node(node);
+    document.getElementById('vcResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + r.out + '</span>';
+  });
+  const vcAdd = document.getElementById('vcAddNode');
+  if (vcAdd) vcAdd.addEventListener('click', () => {
+    addNodeWithVm(v.label, vmx);
+  });
+}
+
+// 把某 VM 加为当前集群的节点
+async function addNodeWithVm(name, vmx) {
+  const node = await uiNodeForm(t('cl.add'), { name: name, vmx: vmx, user: 'root', role: 'worker', port: 22 });
+  if (!node) return;
+  node.cluster = CURRENT_CLUSTER;
+  const r = await window.pywebview.api.save_node(node);
+  await loadClusters();
+  await loadNodes();
+  renderSidebar();
+  renderVmView(vmx);
 }
 
 async function selectCluster(name) {
@@ -733,22 +811,49 @@ function renderNodes() {
     } else if (vm && !vm.has_vmx) {
       vmBadge = '<span class="vm-power none">— ' + t('cl.noVmx') + '</span>';
     }
-    const sel = (window._DETAIL_ID === n.id) ? ' selected' : '';
-    return '<div class="node-row' + sel + '" data-id="' + n.id + '">' +
+    const expanded = (window._DETAIL_ID === n.id);
+    let row = '<div class="node-row' + (expanded ? ' selected' : '') + '" data-id="' + n.id + '">' +
       dot +
       '<span class="vm-name">' + n.name + '</span>' + role + host + note +
       '<span class="bar-spacer"></span>' + vmBadge +
       '<span class="vm-count" style="cursor:pointer" data-del="' + n.id + '">删除</span>' +
       '</div>';
+    // 就地展开：健康详情
+    if (expanded) row += '<div class="node-expand">' + renderHealthInline(n) + '</div>';
+    return row;
   }).join('');
-  // 点击行 → 详情；点击删除
+  // 点击行 → 就地展开/收起健康；点击删除
   box.querySelectorAll('.node-row').forEach(r => {
     r.addEventListener('click', (e) => {
       if (e.target.dataset.del) { delNode(e.target.dataset.del); return; }
-      showDetail(r.dataset.id);
-      renderNodes();   // 刷新选中态
+      const id = r.dataset.id;
+      window._DETAIL_ID = (window._DETAIL_ID === id) ? null : id;
+      renderNodes();
+      if (window._DETAIL_ID === id) {
+        // 自动体检一次（若没结果）
+        if (!HEALTH[id]) runHealthCheck();
+      }
     });
   });
+}
+
+// 节点健康（就地展开，不用跳页）
+function renderHealthInline(n) {
+  const h = HEALTH[n.id];
+  const st = healthStatusOf(n.id);
+  if (!h) return '<div class="empty">' + t('cl.notChecked') + '</div>';
+  let html = '<div class="svc-line"><span class="vm-role">' + (h.detail || '') + '</span></div>';
+  if (h.missing && h.missing.length)
+    html += '<div class="svc-line err">缺进程：' + h.missing.join(', ') + '</div>';
+  if (h.svcs_missing && h.svcs_missing.length)
+    html += '<div class="svc-line err">缺服务：' + h.svcs_missing.join(', ') + '</div>';
+  if (h.ports_missing && h.ports_missing.length)
+    html += '<div class="svc-line err">缺端口：' + h.ports_missing.join(', ') + '</div>';
+  const noProb = (!h.missing || !h.missing.length)
+    && (!h.svcs_missing || !h.svcs_missing.length)
+    && (!h.ports_missing || !h.ports_missing.length);
+  if (noProb) html += '<div class="svc-line ok">全部检查通过</div>';
+  return html;
 }
 
 let DETAIL_TAB = 'config';    // 当前节点详情的选项卡

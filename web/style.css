@@ -230,6 +230,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .node-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.8rem; border: 1px solid var(--line); border-radius: 7px; margin-bottom: 0.4rem; font-size: 0.85rem; cursor: pointer; background: var(--surface); }
 .node-row:hover { border-color: var(--muted); }
 .node-row.selected { border-color: var(--accent); background: var(--surface-2); }
+.node-expand { padding: 0.6rem 0.9rem; margin: -0.4rem 0 0.5rem; border: 1px solid var(--line); border-top: none; border-radius: 0 0 7px 7px; background: var(--surface); font-size: 0.82rem; }
 
 /* 分裂按钮（VSCode 风格） */
 .split-btn { position: relative; display: inline-flex; border: 1px solid var(--line); border-radius: 6px; }
