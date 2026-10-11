@@ -195,17 +195,18 @@ function renderVmView(vmx) {
   if (!v) { box.innerHTML = '<div class="empty">' + t('run.none') + '</div>'; return; }
   const dotCls = v.running ? 'st-green' : 'st-gray';
   const snaps = v.snapshots || [];
-  let html = '<div class="card">' +
-    '<div class="card-top"><div><span class="status-dot ' + dotCls + '"></span>' +
-    '<span class="vm-name">' + v.label + '</span>' +
-    (v.note ? '<span class="vm-role">' + v.note + '</span>' : '') + '</div>' +
-    '<span class="vm-count">' + (v.running ? t('cl.vmOn') : t('cl.vmOff')) + '</span></div>' +
-    '<div class="form-row" style="margin-top:0.8rem">' +
+  let html = '<div class="obj-head">' +
+    '<span class="status-dot ' + dotCls + '"></span>' +
+    '<span class="obj-title">' + v.label + '</span>' +
+    (v.note ? '<span class="obj-sub">' + v.note + '</span>' : '') +
+    '<span class="bar-spacer"></span>' +
+    '<span class="obj-badge">' + (v.running ? t('cl.vmOn') : t('cl.vmOff')) + '</span>' +
+    '</div>' +
+    '<div class="form-row" style="margin-bottom:0.8rem">' +
     '<button class="primary" id="vmStartBtn">' + t('btn.start') + '</button>' +
     '<button id="vmStopBtn">' + t('btn.stop') + '</button>' +
     '</div>' +
-    '<div class="result" id="vmOpResult"></div>' +
-    '</div>';
+    '<div class="result" id="vmOpResult"></div>';
   // 快照区
   html += '<div class="card" style="margin-top:0.8rem">' +
     '<div class="bar-title" style="margin-bottom:0.5rem">' + t('cl.snapshots') + '（' + snaps.length + '）</div>' +
@@ -699,14 +700,15 @@ function showDetail(id) {
 
   showView('node');
   document.getElementById('nodeDetail').innerHTML =
-    '<div class="card">' +
-    '<div class="card-top"><div><span class="status-dot st-' + st + '"></span>' +
-    '<span class="vm-name">' + n.name + '</span>' +
-    '<span class="vm-role">' + (n.role || '') + '</span></div>' +
-    '<span class="vm-count">' + statusText + '</span></div>' +
+    '<div class="obj-head">' +
+    '<span class="status-dot st-' + st + '"></span>' +
+    '<span class="obj-title">' + n.name + '</span>' +
+    '<span class="obj-sub">' + (n.role || '') + '</span>' +
+    '<span class="bar-spacer"></span>' +
+    '<span class="obj-badge st-' + st + '">' + statusText + '</span>' +
+    '</div>' +
     tabBar +
-    '<div id="detailBody"></div>' +
-    '</div>';
+    '<div id="detailBody"></div>';
 
   // 选项卡切换
   document.querySelectorAll('.detail-tab').forEach(b => {
