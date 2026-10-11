@@ -849,12 +849,14 @@ function renderClusterOverview() {
     part(t('ov.nodes'), NODES.length, '') +
     part(t('ov.ok'), counts.green, 'ok') +
     part(t('ov.warn'), counts.yellow + counts.red, (counts.red || counts.yellow) ? 'err' : '') +
+    part(t('ov.gray'), counts.gray, '') +
     part(t('ov.off'), counts.off, '') +
     part(t('ov.snaps'), snapNames.size, '') +
-    part(t('ov.roles'), Object.keys(roles).length, '') +
     '</div>' +
     (bad.length ? '<div class="svc-line err" style="margin-top:0.5rem">⚠ ' +
-      t('ov.alertNodes') + '：' + bad.map(b => b.name).join('、') + '</div>' : '');
+      t('ov.alertNodes') + '：' + bad.map(b => b.name).join('、') + '</div>' :
+      (counts.gray === NODES.length ? '<div class="svc-line" style="margin-top:0.5rem;color:var(--muted)">' +
+        t('ov.notCheckedHint') + '</div>' : ''));
 }
 
 function severityColor(s) {
