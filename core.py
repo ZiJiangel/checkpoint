@@ -13,7 +13,7 @@ from datetime import datetime
 # 版本信息（更新时改这里 + setup.iss 的 MyAppVersion）
 VERSION = "0.9.2"
 AUTHOR = "ZiJiangel"
-GITHUB_REPO = "ZiJiangel/snapshot-manager"
+GITHUB_REPO = "ZiJiangel/checkpoint"
 
 if getattr(sys, "frozen", False):
     # 打包后：配置文件放在 exe 旁边
@@ -312,7 +312,7 @@ def check_update():
         url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
         req = urllib.request.Request(url, headers={
             "Accept": "application/vnd.github+json",
-            "User-Agent": "snapshot-manager",
+            "User-Agent": "checkpoint",
         })
         data = json.loads(urllib.request.urlopen(req, timeout=6).read())
         latest = data.get("tag_name", "").lstrip("v")
