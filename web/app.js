@@ -1390,9 +1390,18 @@ function powerLog(html) {
   document.getElementById('powerProgress').innerHTML = html;
 }
 
+// 运行期间禁用启停相关按钮（避免并发操作打架）
+function setPowerBtns(disabled) {
+  ['clusterStart', 'clusterStop', 'vmShutdown'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.disabled = disabled;
+  });
+}
+
 async function runCluster(action) {
   if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }
   POWER_RUNNING = true;
+  setPowerBtns(true);
   const svcs = await window.pywebview.api.get_services();
   const enabled = svcs.filter(s => s.enabled);
   const stages = [...new Set(enabled.map(s => s.stage))].sort((a, b) => action === 'stop' ? b - a : a - b);
@@ -1406,6 +1415,7 @@ async function runCluster(action) {
     try { vmstate = await window.pywebview.api.vmware_state(); VMWARE_STATE = vmstate; } catch (e) {}
     if (vmstate && vmstate.state === 'red') {
       POWER_RUNNING = false;
+      setPowerBtns(false);
       powerLog('<div class="diag-box"><div class="diag-item diag-error">' +
         '<div class="diag-title">💡 VMware 授权服务未启动</div>' +
         '<div class="diag-meaning">vmrun 依赖「VMware 授权服务」，没启动就无法启停虚拟机</div>' +
@@ -1457,6 +1467,7 @@ async function runCluster(action) {
       powerLog(lines.join(''));
       lines.push('<div class="result err">✕ 节点未就绪，已停止（请检查虚拟机是否正常启动）</div>');
       POWER_RUNNING = false;
+      setPowerBtns(false);
       powerLog(lines.join(''));
       return;
     }
@@ -1503,6 +1514,7 @@ async function runCluster(action) {
     }
   }
   POWER_RUNNING = false;
+  setPowerBtns(false);
   if (!aborted) {
     lines.push('<div class="empty" style="margin-top:0.6rem">' + t('cl.powerDone') + '</div>');
     powerLog(lines.join(''));
@@ -1551,11 +1563,13 @@ document.getElementById('clusterStart').addEventListener('click', () => runClust
 document.getElementById('clusterStop').addEventListener('click', () => runCluster('stop'));
 
 async function shutdownVms() {
+  if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }   // 有其他操作进行中 → 拒绝
   if (!await uiConfirm(t('cl.confirmShutdown'))) return;
   // 并发逐台关机，每台一行进度
   const targets = NODES.filter(n => (VM_STATUS[n.id] || {}).has_vmx);
   if (targets.length === 0) { powerLog('<div class="empty">' + t('cl.noVmxNodes') + '</div>'); return; }
   POWER_RUNNING = true;
+  setPowerBtns(true);
   const rows = {};   // id -> 状态
   targets.forEach(n => { rows[n.id] = { name: n.name, state: 'running', text: t('cl.shutdownWait') }; });
   const paint = () => {
@@ -1584,6 +1598,7 @@ async function shutdownVms() {
     paint();
   }));
   POWER_RUNNING = false;
+  setPowerBtns(false);
   const allOk = targets.every(n => rows[n.id].state === 'done');
   paint();
   powerLog(targets.map(n => {
