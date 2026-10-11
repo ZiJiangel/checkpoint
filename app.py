@@ -177,6 +177,10 @@ class Api:
     def snapshot_tree(self, vmx):
         return core.list_snapshots_tree(vmx)
 
+    def clone_vm(self, src, dst, snapshot, mode):
+        ok, out = core.clone_vm(src, dst, snapshot, mode)
+        return {"ok": ok, "out": out}
+
     def get_vms(self, force=False, snaps=True):
         running = [os.path.basename(r) for r in core.list_running()] if snaps else []
         result = []

@@ -240,6 +240,15 @@ def delete_snapshot(vmx, name):
     return run_vmrun(["deleteSnapshot", vmx, name])
 
 
+def clone_vm(src_vmx, dst_vmx, snapshot=None, mode="full"):
+    """克隆虚拟机。mode: full(完整) / linked(链接克隆，省空间)。
+    snapshot: 基于哪个快照克隆（可选）。"""
+    args = ["clone", src_vmx, dst_vmx, mode]
+    if snapshot:
+        args += ["-snapshot=" + snapshot]
+    return run_vmrun(args, timeout=300)
+
+
 def start_vm(vmx):
     return run_vmrun(["start", vmx, "nogui"])
 

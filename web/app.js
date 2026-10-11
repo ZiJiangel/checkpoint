@@ -247,6 +247,7 @@ function renderVmView(vmx) {
     '<div class="svc-line" style="margin-top:0.5rem">' +
     '<span class="snap">' + s + '</span><span class="bar-spacer"></span>' +
     '<span class="svc-action" data-vm-snap-rev="' + s + '">' + t('btn.revert') + '</span>' +
+    '<span class="svc-action" data-vm-snap-clone="' + s + '">' + t('cl.clone') + '</span>' +
     '<span class="svc-action" data-vm-snap-del="' + s + '" style="color:#e06c6c">' + t('btn.delete') + '</span>' +
     '</div>'
   ).join('') : '<div class="empty">' + t('ov.empty') + '</div>';
@@ -321,6 +322,16 @@ function renderVmView(vmx) {
     document.getElementById('vmSnapResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.deleted') : r.out) + '</span>';
     await loadVms(false, true);
     renderVmView(vmx);
+  }));
+  box.querySelectorAll('[data-vm-snap-clone]').forEach(el => el.addEventListener('click', async () => {
+    const s = el.dataset.vmSnapClone;
+    if (!await uiConfirm('基于快照「' + s + '」克隆一台新虚拟机？（需该 VM 已关机/挂起）')) return;
+    const dst = await uiPrompt('新虚拟机 .vmx 完整路径', vmx.replace(/\.vmx$/i, '_clone.vmx'));
+    if (!dst) return;
+    document.getElementById('vmSnapResult').textContent = '克隆中…（可能较慢）';
+    const r = await window.pywebview.api.clone_vm(vmx, dst, s, 'full');
+    document.getElementById('vmSnapResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? '克隆完成：' + dst : r.out) + '</span>';
+    await loadVms(true);
   }));
   // 节点配置：保存 / 测试
   const vcSave = document.getElementById('vcSave');
