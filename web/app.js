@@ -24,6 +24,30 @@ function showModal(opts) {
 function uiAlert(body, title) { return showModal({ body: body, title: title, confirm: false }); }
 function uiConfirm(body, title) { return showModal({ body: body, title: title, confirm: true }); }
 
+// 带下拉选择的弹窗（返回选中值，取消返回 null，空值返回 ""）
+function uiPick(title, optionsHtml) {
+  return new Promise((resolve) => {
+    const mask = document.getElementById('modalMask');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const okBtn = document.getElementById('modalOk');
+    const cancelBtn = document.getElementById('modalCancel');
+    titleEl.textContent = title || '';
+    bodyEl.innerHTML = '<select class="prompt-input" style="width:100%">' + optionsHtml + '</select>';
+    cancelBtn.style.display = '';
+    mask.classList.remove('hidden');
+    const sel = bodyEl.querySelector('.prompt-input');
+    setTimeout(() => sel.focus(), 50);
+    const done = (val) => {
+      mask.classList.add('hidden');
+      okBtn.onclick = null; cancelBtn.onclick = null;
+      resolve(val);
+    };
+    okBtn.onclick = () => done(sel.value);
+    cancelBtn.onclick = () => done(null);
+  });
+}
+
 // 带输入框的弹窗（返回输入的字符串，取消返回 null）
 function uiPrompt(title, defaultVal) {
   return new Promise((resolve) => {
@@ -577,6 +601,15 @@ function renderDetailBody(n) {
     body.innerHTML = renderConfigTab(n);
     document.getElementById('ndSave').addEventListener('click', () => saveDetail(n.id));
     document.getElementById('ndTest').addEventListener('click', () => testDetail(n));
+    // 选虚拟机 → 若名称还是空的/默认的，自动填 VM 名
+    const vmxSel = body.querySelector('.nd-vmx');
+    if (vmxSel) vmxSel.addEventListener('change', () => {
+      const vm = VMS.find(v => v.vmx === vmxSel.value);
+      const nameInput = body.querySelector('.nd-name');
+      if (vm && nameInput && (!nameInput.value.trim() || nameInput.value.trim() === '新节点')) {
+        nameInput.value = vm.label;
+      }
+    });
   }
 }
 
@@ -658,7 +691,15 @@ function bindSnapshotTab(n) {
 }
 
 function renderConfigTab(n) {
+  // 虚拟机选择（从已扫描的 VM 里选）
+  const vmOpts = '<option value="">' + t('cl.noVmLink') + '</option>' +
+    VMS.map(v => '<option value="' + v.vmx.replace(/"/g, '&quot;') + '"' +
+      (normVmx(v.vmx) === normVmx(n.vmx) ? ' selected' : '') + '>' + v.label + '</option>').join('');
   return '<div class="form-row" style="margin-top:0.8rem">' +
+    '<span class="sec-note-inline">' + t('cl.linkVm') + '</span>' +
+    '<select class="nd-vmx" style="max-width:320px;flex:1">' + vmOpts + '</select>' +
+    '</div>' +
+    '<div class="form-row" style="margin-top:0.8rem">' +
     '<input class="nd-name" value="' + (n.name || '') + '" placeholder="名称">' +
     '<input class="nd-host" value="' + (n.host || '') + '" placeholder="IP / 主机名">' +
     '<input class="nd-port" value="' + (n.port || 22) + '" placeholder="端口" style="max-width:90px">' +
@@ -697,6 +738,7 @@ function readDetailForm(base) {
     role: q('.nd-role').value,
     note: q('.nd-note') ? q('.nd-note').value.trim() : (base.note || ''),
     cluster: q('.nd-cluster') ? q('.nd-cluster').value : (base.cluster || CURRENT_CLUSTER),
+    vmx: q('.nd-vmx') ? q('.nd-vmx').value : (base.vmx || ''),
   });
 }
 
@@ -729,7 +771,20 @@ async function delNode(id) {
 }
 
 async function addNode() {
-  await window.pywebview.api.save_node({ name: '新节点', host: '', user: 'root', pass: '', role: 'worker' });
+  // 让用户从已扫描的 VM 里选一个（也可跳过）
+  let vmx = '', name = '新节点';
+  if (VMS.length) {
+    const opts = '<option value="">' + t('cl.noVmLink') + '</option>' +
+      VMS.map(v => '<option value="' + v.vmx.replace(/"/g, '&quot;') + '">' + v.label + '</option>').join('');
+    const pick = await uiPick(t('cl.pickVm'), opts);
+    if (pick === null) return;   // 取消
+    if (pick) {
+      const vm = VMS.find(v => v.vmx === pick);
+      vmx = pick;
+      name = vm ? vm.label : '新节点';
+    }
+  }
+  const node = await window.pywebview.api.save_node({ name: name, host: '', user: 'root', pass: '', role: 'worker', vmx: vmx });
   await loadNodes();
   if (NODES.length) showDetail(NODES[NODES.length - 1].id);
 }
