@@ -78,30 +78,6 @@ function field(cls, label, ctrl) {
 }
 function esc(s) { return String(s == null ? '' : s).replace(/"/g, '&quot;'); }
 
-// 带下拉选择的弹窗（返回选中值，取消返回 null，空值返回 ""）
-function uiPick(title, optionsHtml) {
-  return new Promise((resolve) => {
-    const mask = document.getElementById('modalMask');
-    const titleEl = document.getElementById('modalTitle');
-    const bodyEl = document.getElementById('modalBody');
-    const okBtn = document.getElementById('modalOk');
-    const cancelBtn = document.getElementById('modalCancel');
-    titleEl.textContent = title || '';
-    bodyEl.innerHTML = '<select class="prompt-input" style="width:100%">' + optionsHtml + '</select>';
-    cancelBtn.style.display = '';
-    mask.classList.remove('hidden');
-    const sel = bodyEl.querySelector('.prompt-input');
-    setTimeout(() => sel.focus(), 50);
-    const done = (val) => {
-      mask.classList.add('hidden');
-      okBtn.onclick = null; cancelBtn.onclick = null;
-      resolve(val);
-    };
-    okBtn.onclick = () => done(sel.value);
-    cancelBtn.onclick = () => done(null);
-  });
-}
-
 // 带输入框的弹窗（返回输入的字符串，取消返回 null）
 function uiPrompt(title, defaultVal) {
   return new Promise((resolve) => {
