@@ -232,6 +232,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .bar-spacer { flex: 1; }
 .bar-detail { padding: 0.4rem 0.8rem 0.2rem; border: 1px solid var(--line); border-top: none; border-radius: 0 0 8px 8px; margin-top: -0.6rem; margin-bottom: 0.6rem; background: var(--surface); }
 .svc-line { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; margin-top: 0.4rem; }
+/* 首次使用引导 */
+.guide-step { display: flex; align-items: flex-start; gap: 0.6rem; margin-top: 0.45rem; font-size: 0.85rem; color: var(--ink-2); line-height: 1.5; }
+.guide-num { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); font-size: 0.72rem; display: flex; align-items: center; justify-content: center; margin-top: 0.1rem; }
+
 /* 工具栏 */
 .toolbar { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; margin: 0.6rem 0; }
 .toolbar .bar-title { font-weight: 640; }

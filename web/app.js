@@ -974,7 +974,21 @@ function renderNodes() {
   const cnt = document.getElementById('nodeCount');
   if (cnt) cnt.textContent = NODES.length;
   if (NODES.length === 0) {
-    box.innerHTML = '<div class="card"><div class="empty">' + t('cl.empty') + '</div></div>';
+    // 首次使用引导（空状态）
+    box.innerHTML =
+      '<div class="card" style="padding:1.1rem 1.3rem">' +
+      '<div class="bar-title" style="margin-bottom:0.7rem">' + t('guide.title') + '</div>' +
+      '<div class="guide-step"><span class="guide-num">1</span>' + t('guide.s1') + '</div>' +
+      '<div class="guide-step"><span class="guide-num">2</span>' + t('guide.s2') + '</div>' +
+      '<div class="guide-step"><span class="guide-num">3</span>' + t('guide.s3') + '</div>' +
+      '<div class="form-row" style="margin-top:0.9rem">' +
+      '<button class="primary" id="guideTpl">' + t('guide.tpl') + '</button>' +
+      '<button id="guideAdd">' + t('guide.add') + '</button>' +
+      '</div></div>';
+    const gt = document.getElementById('guideTpl');
+    if (gt) gt.addEventListener('click', createFromTemplate);
+    const ga = document.getElementById('guideAdd');
+    if (ga) ga.addEventListener('click', addNode);
     return;
   }
   box.innerHTML = NODES.map(n => {
