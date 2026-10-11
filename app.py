@@ -66,6 +66,17 @@ class Api:
     def close_win(self):
         webview.windows[0].destroy()
 
+    # ===== 集群 =====
+    def get_clusters(self):
+        return cluster.list_clusters()
+
+    def get_current_cluster(self):
+        return cluster.get_current_cluster()
+
+    def set_current_cluster(self, name):
+        cluster.set_current_cluster(name)
+        return {"ok": True}
+
     # ===== 集群节点 =====
     def get_nodes(self):
         return cluster.list_nodes()

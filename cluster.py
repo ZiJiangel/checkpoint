@@ -7,14 +7,52 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import core
 
 NODES_FILE = os.path.join(core.BASE, "nodes.json")
+DEFAULT_CLUSTER = "默认集群"
 
 
 # ============ 数据层：节点读写 ============
 
-def list_nodes():
-    """返回节点列表"""
+def get_current_cluster():
+    """当前选中的集群名"""
+    return core.load_json(core.SETTINGS_FILE, {}).get("current_cluster", DEFAULT_CLUSTER)
+
+
+def set_current_cluster(name):
+    s = core.load_json(core.SETTINGS_FILE, {})
+    s["current_cluster"] = name
+    core.save_json(core.SETTINGS_FILE, s)
+
+
+def _all_nodes():
+    """全部节点（不按集群过滤），并兼容旧数据（补 cluster 字段）"""
     data = core.load_json(NODES_FILE, {"nodes": []})
-    return data.get("nodes", [])
+    nodes = data.get("nodes", [])
+    for n in nodes:
+        n.setdefault("cluster", DEFAULT_CLUSTER)
+    return nodes
+
+
+def list_nodes(cluster=None):
+    """返回节点列表。
+    cluster=None → 当前集群；cluster='*' → 全部"""
+    nodes = _all_nodes()
+    if cluster == "*":
+        return nodes
+    target = cluster if cluster is not None else get_current_cluster()
+    return [n for n in nodes if n.get("cluster") == target]
+
+
+def list_clusters():
+    """返回所有集群名（去重；含当前集群）"""
+    names = []
+    for n in _all_nodes():
+        c = n.get("cluster", DEFAULT_CLUSTER)
+        if c not in names:
+            names.append(c)
+    cur = get_current_cluster()
+    if cur not in names:
+        names.insert(0, cur)
+    return names
 
 
 def save_nodes(nodes):
@@ -22,14 +60,15 @@ def save_nodes(nodes):
 
 
 def add_node(node):
-    """新增节点，自动补 id 与默认字段"""
-    nodes = list_nodes()
+    """新增节点，自动补 id 与默认字段（默认归入当前集群）"""
+    nodes = list_nodes("*")   # 全量，避免覆盖其他集群
     if not node.get("id"):
         node["id"] = "n_" + uuid.uuid4().hex[:8]
     node.setdefault("port", 22)
     node.setdefault("role", "worker")
     node.setdefault("tags", {})
     node.setdefault("enabled", True)
+    node.setdefault("cluster", get_current_cluster())
     nodes.append(node)
     save_nodes(nodes)
     return node
@@ -37,7 +76,7 @@ def add_node(node):
 
 def update_node(node):
     """按 id 更新节点"""
-    nodes = list_nodes()
+    nodes = list_nodes("*")   # 全量
     for i, n in enumerate(nodes):
         if n.get("id") == node.get("id"):
             nodes[i] = node
@@ -48,7 +87,7 @@ def update_node(node):
 
 def delete_node(nid):
     """按 id 删除节点"""
-    nodes = [n for n in list_nodes() if n.get("id") != nid]
+    nodes = [n for n in list_nodes("*") if n.get("id") != nid]   # 全量
     save_nodes(nodes)
 
 
