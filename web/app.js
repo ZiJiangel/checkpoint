@@ -874,9 +874,11 @@ function renderClusterSnap() {
 }
 
 async function createClusterSnap() {
+  if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }
   const name = document.getElementById('clusterSnapName').value.trim();
   const res = document.getElementById('clusterSnapResult');
   if (!name) { res.innerHTML = '<span class="err">' + t('ops.needName') + '</span>'; return; }
+  POWER_RUNNING = true; setPowerBtns(true);
   const targets = snapPickedNodes();
   if (targets.length === 0) { res.innerHTML = '<span class="err">' + t('cl.noVmxNodes') + '</span>'; return; }
   res.textContent = t('ops.running');
@@ -890,12 +892,15 @@ async function createClusterSnap() {
   }
   res.innerHTML = '<span class="' + (fail === 0 ? 'ok' : 'err') + '">' +
     ok + ' 台成功' + (fail ? '，' + fail + ' 台失败' : '') + '</span>';
+  POWER_RUNNING = false; setPowerBtns(false);
   await loadVms(false, true);
   renderClusterSnap();
 }
 
 async function revertClusterSnap(name) {
+  if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }
   if (!await uiConfirm(t('ops.revert') + '（整个集群）：' + name + ' ?')) return;
+  POWER_RUNNING = true; setPowerBtns(true);
   const res = document.getElementById('clusterSnapResult');
   const targets = NODES.filter(n => n.vmx);
   res.textContent = t('ops.running');
@@ -910,6 +915,7 @@ async function revertClusterSnap(name) {
     res.textContent = t('ops.running') + ' (' + (ok + fail) + ')';
   }
   res.innerHTML = '<span class="' + (fail === 0 ? 'ok' : 'err') + '">回滚：' + ok + ' 台成功' + (fail ? '，' + fail + ' 台失败' : '') + '</span>';
+  POWER_RUNNING = false; setPowerBtns(false);
   await loadVms(false, true);
 }
 
@@ -1367,6 +1373,7 @@ async function scanConfigDirs() {
 }
 
 async function distributeConfig() {
+  if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }
   const res = document.getElementById('distResult');
   const picked = Array.from(document.querySelectorAll('[data-distpath]:checked')).map(cb => cb.dataset.distpath);
   if (!picked.length) { res.innerHTML = '<span class="err">' + t('cl.pickConfig') + '</span>'; return; }
@@ -1392,7 +1399,7 @@ function powerLog(html) {
 
 // 运行期间禁用启停相关按钮（避免并发操作打架）
 function setPowerBtns(disabled) {
-  ['clusterStart', 'clusterStop', 'vmShutdown'].forEach(id => {
+  ['clusterStart', 'clusterStop', 'vmShutdown', 'clusterSnapCreate', 'distGo'].forEach(id => {
     const b = document.getElementById(id);
     if (b) b.disabled = disabled;
   });
