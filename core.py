@@ -11,7 +11,7 @@ import traceback
 from datetime import datetime
 
 # 版本信息（更新时改这里 + setup.iss 的 MyAppVersion）
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 AUTHOR = "ZiJiangel"
 GITHUB_REPO = "ZiJiangel/snapshot-manager"
 
