@@ -188,6 +188,14 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .vm-power.on { color: #3ecf8e; border-color: #3ecf8e; }
 .vm-power.off { color: var(--muted); }
 .vm-power.none { color: var(--muted); opacity: 0.6; border-style: dashed; }
+/* 紧凑状态条 */
+.bar { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.8rem; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 0.6rem; font-size: 0.85rem; }
+.bar-title { font-weight: 640; }
+.bar-text { color: var(--muted); font-size: 0.82rem; }
+.bar-spacer { flex: 1; }
+.bar-detail { padding: 0.4rem 0.8rem 0.2rem; border: 1px solid var(--line); border-top: none; border-radius: 0 0 8px 8px; margin-top: -0.6rem; margin-bottom: 0.6rem; background: var(--surface); }
+.svc-line { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; margin-top: 0.4rem; }
+
 /* 分裂按钮（VSCode 风格） */
 .split-btn { position: relative; display: inline-flex; border: 1px solid var(--line); border-radius: 6px; }
 .split-btn:hover { border-color: var(--muted); }

@@ -1136,35 +1136,23 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.split-menu').forEach(m => m.classList.add('hidden'));
 });
 
+let VMWARE_EXPANDED = false;
+
 function renderVmwareCard() {
   const box = document.getElementById('vmwareCard');
   if (!box) return;
   if (!VMWARE_STATE) { box.innerHTML = ''; return; }
   const state = VMWARE_STATE.state;
   const meta = VMWARE_STATE_META[state] || VMWARE_STATE_META.gray;
-  const appLine = VMWARE_STATE.app_running
-    ? '<span class="ok">VMware 软件运行中</span>'
-    : '<span class="vm-role">VMware 软件未运行</span>';
+  const dotCls = state === 'green' ? 'green' : (state === 'red' ? 'red' : 'yellow');
 
-  const svcRows = VMWARE_STATE.services.map(s => {
-    const dot = s.running ? 'st-green' : (s.critical ? 'st-red' : 'st-gray');
-    const tag = s.critical ? '' : '<span class="vm-role">可选</span>';
-    const action = s.running
-      ? '<span class="svc-action" data-svc="' + s.name + '" data-act="stop">停止</span>'
-      : '<span class="svc-action" data-svc="' + s.name + '" data-act="start">启动</span>';
-    return '<div style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;margin-top:0.35rem">' +
-      '<span class="status-dot ' + dot + '"></span>' +
-      '<span>' + s.label + '</span>' + tag +
-      '<span class="vm-role" style="margin-left:auto">' + (s.running ? '运行中' : '已停止') + '</span>' +
-      action + '</div>';
-  }).join('');
-
-  box.innerHTML =
-    '<div class="card" style="border-left:3px solid ' + meta.color + '">' +
-    '<div class="card-top"><div>' +
-    '<span class="status-dot st-' + (state === 'green' ? 'green' : state === 'red' ? 'red' : 'yellow') + '"></span>' +
-    '<span class="vm-name">VMware 环境：' + meta.text.replace('VMware ', '') + '</span></div>' +
-    '<div style="display:flex;gap:0.4rem">' +
+  // 紧凑状态条（一行）
+  let html =
+    '<div class="bar" style="border-left:3px solid ' + meta.color + '">' +
+    '<span class="status-dot st-' + dotCls + '"></span>' +
+    '<span class="bar-title">VMware</span>' +
+    '<span class="bar-text">' + meta.text.replace('VMware ', '') + '（' + VMWARE_STATE.running_count + '/' + VMWARE_STATE.total_count + '）</span>' +
+    '<span class="bar-spacer"></span>' +
     splitBtn('vmwareStart', t('vm.start'), [
       { label: t('vm.startAll'), fn: () => startVmwareServices('all') },
       { label: t('vm.startCritical'), fn: () => startVmwareServices('critical') },
@@ -1173,18 +1161,37 @@ function renderVmwareCard() {
       { label: t('vm.stopOptional'), fn: () => stopVmwareServices('optional') },
       { label: t('vm.stopAll'), fn: () => stopVmwareServices('all') },
     ]) +
-    '<button class="mini-btn" id="vmwareLaunch">' + t('vm.launch') + '</button>' +
-    '</div></div>' +
-    '<div style="margin-top:0.4rem">' + appLine + '</div>' +
-    svcRows +
-    '<div class="hint-foot" style="margin-top:0.6rem">vmrun 依赖「授权服务」；虚拟机联网依赖「NAT/DHCP」。启动服务需管理员权限（会弹 UAC）。</div>' +
+    '<span class="svc-action" id="vmwareToggle">' + (VMWARE_EXPANDED ? t('cl.collapse') : t('cl.expand')) + '</span>' +
     '</div>';
 
+  // 展开：服务明细
+  if (VMWARE_EXPANDED) {
+    const appLine = VMWARE_STATE.app_running
+      ? '<span class="ok">VMware 软件运行中</span>'
+      : '<span class="vm-role">VMware 软件未运行</span>';
+    const svcRows = VMWARE_STATE.services.map(s => {
+      const dot = s.running ? 'st-green' : (s.critical ? 'st-red' : 'st-gray');
+      const tag = s.critical ? '' : '<span class="vm-role">可选</span>';
+      const action = s.running
+        ? '<span class="svc-action" data-svc="' + s.name + '" data-act="stop">停止</span>'
+        : '<span class="svc-action" data-svc="' + s.name + '" data-act="start">启动</span>';
+      return '<div class="svc-line">' +
+        '<span class="status-dot ' + dot + '"></span>' +
+        '<span>' + s.label + '</span>' + tag +
+        '<span class="bar-spacer"></span>' +
+        '<span class="vm-role">' + (s.running ? '运行中' : '已停止') + '</span>' +
+        action + '</div>';
+    }).join('');
+    html += '<div class="bar-detail">' + appLine + svcRows +
+      '<div class="hint-foot" style="margin-top:0.5rem">vmrun 依赖「授权服务」；联网依赖「NAT/DHCP」。启动服务需管理员权限（会弹 UAC）。</div>' +
+      '</div>';
+  }
+
+  box.innerHTML = html;
   bindSplitBtns(box);
-  const btnApp = document.getElementById('vmwareLaunch');
-  if (btnApp) btnApp.addEventListener('click', launchVmwareApp);
-  // 每个服务的单独 启动/停止
-  box.querySelectorAll('.svc-action').forEach(el => {
+  const tg = document.getElementById('vmwareToggle');
+  if (tg) tg.addEventListener('click', () => { VMWARE_EXPANDED = !VMWARE_EXPANDED; renderVmwareCard(); });
+  box.querySelectorAll('.svc-action[data-svc]').forEach(el => {
     el.addEventListener('click', () => toggleService(el.dataset.svc, el.dataset.act));
   });
 }
