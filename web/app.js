@@ -24,6 +24,60 @@ function showModal(opts) {
 function uiAlert(body, title) { return showModal({ body: body, title: title, confirm: false }); }
 function uiConfirm(body, title) { return showModal({ body: body, title: title, confirm: true }); }
 
+// 节点表单弹窗（新建/编辑节点，一步填全）
+function uiNodeForm(title, init) {
+  init = init || {};
+  return new Promise((resolve) => {
+    const mask = document.getElementById('modalMask');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const okBtn = document.getElementById('modalOk');
+    const cancelBtn = document.getElementById('modalCancel');
+    titleEl.textContent = title || '';
+    const vmOpts = '<option value="">' + t('cl.noVmLink') + '</option>' +
+      VMS.map(v => '<option value="' + v.vmx.replace(/"/g, '&quot;') + '"' +
+        (v.vmx === init.vmx ? ' selected' : '') + '>' + v.label + '</option>').join('');
+    const roleOpts = ['master', 'worker', 'ntp', 'kdc'].map(r =>
+      '<option value="' + r + '"' + ((init.role || 'worker') === r ? ' selected' : '') + '>' + r + '</option>').join('');
+    bodyEl.innerHTML =
+      field('f-vmx', t('cl.linkVm'), '<select class="f-vmx">' + vmOpts + '</select>') +
+      field('f-name', t('cl.fName'), '<input class="f-name" value="' + esc(init.name) + '">') +
+      field('f-host', t('cl.fHost'), '<input class="f-host" value="' + esc(init.host) + '">') +
+      field('f-port', t('cl.fPort'), '<input class="f-port" value="' + (init.port || 22) + '">') +
+      field('f-user', t('cl.fUser'), '<input class="f-user" value="' + esc(init.user || 'root') + '">') +
+      field('f-pass', t('cl.fPass'), '<input class="f-pass" type="password" value="' + esc(init.pass) + '">') +
+      field('f-role', t('cl.fRole'), '<select class="f-role">' + roleOpts + '</select>');
+    cancelBtn.style.display = '';
+    mask.classList.remove('hidden');
+    // 选 VM → 自动填名称
+    const vmSel = bodyEl.querySelector('.f-vmx');
+    vmSel.addEventListener('change', () => {
+      const vm = VMS.find(v => v.vmx === vmSel.value);
+      const ni = bodyEl.querySelector('.f-name');
+      if (vm && ni && !ni.value.trim()) ni.value = vm.label;
+    });
+    setTimeout(() => bodyEl.querySelector('.f-name').focus(), 50);
+    const done = (val) => { mask.classList.add('hidden'); okBtn.onclick = null; cancelBtn.onclick = null; resolve(val); };
+    okBtn.onclick = () => {
+      const g = (s) => (bodyEl.querySelector(s) || {}).value || '';
+      done(Object.assign({}, init, {
+        vmx: g('.f-vmx'),
+        name: g('.f-name').trim(),
+        host: g('.f-host').trim(),
+        port: parseInt(g('.f-port')) || 22,
+        user: g('.f-user').trim(),
+        pass: g('.f-pass'),
+        role: g('.f-role'),
+      }));
+    };
+    cancelBtn.onclick = () => done(null);
+  });
+}
+function field(cls, label, ctrl) {
+  return '<div class="form-row" style="margin-top:0.5rem"><span class="ff-label">' + label + '</span>' + ctrl + '</div>';
+}
+function esc(s) { return String(s == null ? '' : s).replace(/"/g, '&quot;'); }
+
 // 带下拉选择的弹窗（返回选中值，取消返回 null，空值返回 ""）
 function uiPick(title, optionsHtml) {
   return new Promise((resolve) => {
@@ -771,22 +825,14 @@ async function delNode(id) {
 }
 
 async function addNode() {
-  // 让用户从已扫描的 VM 里选一个（也可跳过）
-  let vmx = '', name = '新节点';
-  if (VMS.length) {
-    const opts = '<option value="">' + t('cl.noVmLink') + '</option>' +
-      VMS.map(v => '<option value="' + v.vmx.replace(/"/g, '&quot;') + '">' + v.label + '</option>').join('');
-    const pick = await uiPick(t('cl.pickVm'), opts);
-    if (pick === null) return;   // 取消
-    if (pick) {
-      const vm = VMS.find(v => v.vmx === pick);
-      vmx = pick;
-      name = vm ? vm.label : '新节点';
-    }
-  }
-  const node = await window.pywebview.api.save_node({ name: name, host: '', user: 'root', pass: '', role: 'worker', vmx: vmx });
+  const node = await uiNodeForm(t('cl.add'), { user: 'root', role: 'worker', port: 22 });
+  if (!node) return;
+  node.cluster = CURRENT_CLUSTER;
+  const r = await window.pywebview.api.save_node(node);
+  await loadClusters();
   await loadNodes();
-  if (NODES.length) showDetail(NODES[NODES.length - 1].id);
+  const newId = r && r.node && r.node.id;
+  if (newId && NODES.find(x => x.id === newId)) showDetail(newId);
 }
 
 async function runHealthCheck() {

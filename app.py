@@ -83,10 +83,10 @@ class Api:
 
     def save_node(self, node):
         if node.get("id"):
-            cluster.update_node(node)
+            r = cluster.update_node(node)
         else:
-            cluster.add_node(node)
-        return {"ok": True}
+            r = cluster.add_node(node)
+        return {"ok": True, "node": r}
 
     def delete_node(self, nid):
         cluster.delete_node(nid)

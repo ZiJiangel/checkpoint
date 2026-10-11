@@ -179,6 +179,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .modal-foot { display: flex; gap: 0.6rem; justify-content: flex-end; }
 .prompt-input { padding: 0.5rem 0.7rem; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-size: 0.9rem; font-family: inherit; outline: none; }
 .prompt-input:focus { border-color: var(--muted); }
+.ff-label { font-size: 0.82rem; color: var(--muted); width: 84px; flex: none; }
+#modalBody input, #modalBody select { flex: 1; }
+#modalBody .form-row { flex-wrap: nowrap; }
 
 /* VM 开/关机徽标 */
 .vm-power { font-size: 0.72rem; padding: 0.1rem 0.5rem; border-radius: 12px; border: 1px solid var(--line); }
