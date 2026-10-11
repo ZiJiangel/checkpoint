@@ -1,0 +1,255 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "配置分发工作流",
+    "subtitle": "扫描 master 配置目录 → 勾选 → rsync 到从节点",
+    "output": ".archify/workflow-config-distribute-20261011-150000/config-distribute.html",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1050,
+      660
+    ]
+  },
+  "lanes": [
+    {
+      "id": "ui",
+      "label": "用户界面"
+    },
+    {
+      "id": "backend",
+      "label": "后端逻辑"
+    },
+    {
+      "id": "master",
+      "label": "master 节点"
+    },
+    {
+      "id": "worker",
+      "label": "worker 从节点"
+    }
+  ],
+  "phases": [
+    {
+      "id": "scan",
+      "label": "① 扫描",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "pick",
+      "label": "② 选择",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "dist",
+      "label": "③ 分发",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": [
+    "u1",
+    "b1",
+    "m1",
+    "u2",
+    "u3",
+    "b2",
+    "b3",
+    "m2",
+    "w1",
+    "u4"
+  ],
+  "nodes": [
+    {
+      "id": "u1",
+      "lane": "ui",
+      "col": 0,
+      "type": "external",
+      "label": "点「扫描配置目录」",
+      "sublabel": "开始",
+      "width": 150
+    },
+    {
+      "id": "u2",
+      "lane": "ui",
+      "col": 2,
+      "type": "frontend",
+      "label": "列出配置目录",
+      "sublabel": "软件名 + 路径 + 勾选",
+      "width": 155
+    },
+    {
+      "id": "u3",
+      "lane": "ui",
+      "col": 3,
+      "type": "frontend",
+      "label": "勾选 + 设目标",
+      "sublabel": "可手动加路径",
+      "width": 150
+    },
+    {
+      "id": "u4",
+      "lane": "ui",
+      "col": 5,
+      "type": "backend",
+      "label": "显示结果",
+      "sublabel": "源→目标—完成/失败",
+      "width": 155
+    },
+    {
+      "id": "b1",
+      "lane": "backend",
+      "col": 1,
+      "type": "backend",
+      "label": "scan_config_dirs()",
+      "sublabel": "拼探测命令",
+      "width": 150
+    },
+    {
+      "id": "b2",
+      "lane": "backend",
+      "col": 3,
+      "type": "backend",
+      "label": "distribute_config()",
+      "sublabel": "逐配置 × 逐节点",
+      "width": 150
+    },
+    {
+      "id": "b3",
+      "lane": "backend",
+      "col": 4,
+      "type": "backend",
+      "label": "算目标路径",
+      "sublabel": "_map_target：cfg_root 优先",
+      "width": 155
+    },
+    {
+      "id": "m1",
+      "lane": "master",
+      "col": 1,
+      "type": "cloud",
+      "label": "test -e 探测",
+      "sublabel": "常见软件配置目录",
+      "tag": "Hadoop/Hive/Spark…",
+      "width": 155
+    },
+    {
+      "id": "m2",
+      "lane": "master",
+      "col": 4,
+      "type": "cloud",
+      "label": "rsync 推送",
+      "sublabel": "rsync -az 源/ root@从:目标/",
+      "width": 165
+    },
+    {
+      "id": "w1",
+      "lane": "worker",
+      "col": 5,
+      "type": "cloud",
+      "label": "接收配置",
+      "sublabel": "user1 / user2",
+      "width": 145
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "u1",
+      "to": "b1",
+      "label": "点扫描",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e2",
+      "from": "b1",
+      "to": "m1",
+      "label": "SSH",
+      "variant": "default"
+    },
+    {
+      "id": "e3",
+      "from": "m1",
+      "to": "u2",
+      "label": "存在的目录",
+      "variant": "default",
+      "role": "return"
+    },
+    {
+      "id": "e4",
+      "from": "u2",
+      "to": "u3",
+      "variant": "default"
+    },
+    {
+      "id": "e5",
+      "from": "u3",
+      "to": "b2",
+      "label": "分发",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e6",
+      "from": "b2",
+      "to": "b3",
+      "variant": "default"
+    },
+    {
+      "id": "e7",
+      "from": "b3",
+      "to": "m2",
+      "label": "SSH 执行",
+      "variant": "default"
+    },
+    {
+      "id": "e8",
+      "from": "m2",
+      "to": "w1",
+      "label": "rsync 传输",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e9",
+      "from": "w1",
+      "to": "u4",
+      "label": "逐条结果",
+      "variant": "dashed",
+      "role": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "扫描",
+      "items": [
+        "在 master 上 test -e 探测",
+        "预置 Hadoop/Hive/Spark/Flume 等",
+        "以实际存在为准，不写死"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "目标路径",
+      "items": [
+        "节点 cfg_root 优先",
+        "否则全局目标覆盖",
+        "否则同路径（推荐）",
+        "系统路径 /etc 不动"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "前提",
+      "items": [
+        "master→从节点 SSH 免密",
+        "从节点装了 rsync",
+        "失败给人话诊断"
+      ]
+    }
+  ]
+}

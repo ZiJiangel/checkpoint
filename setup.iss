@@ -1,6 +1,6 @@
 ﻿; 集群快照管理器 安装脚本
 #define MyAppName "集群快照管理器"
-#define MyAppVersion "0.9.0"
+#define MyAppVersion "0.9.1"
 #define MyAppExeName "集群快照管理器.exe"
 
 [Setup]
