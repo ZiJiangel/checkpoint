@@ -1337,12 +1337,8 @@ async function launchVmwareApp() {
 }
 
 document.getElementById('vmwareStatus').addEventListener('click', () => {
-  // 点击标题栏状态 → 跳到集群页
-  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-  const tab = document.querySelector('.tab[data-tab="cluster"]');
-  if (tab) tab.classList.add('active');
-  document.getElementById('page-cluster').classList.remove('hidden');
+  // 点击标题栏状态 → 跳到集群视图
+  showView('cluster');
   loadVmware();
 });
 
