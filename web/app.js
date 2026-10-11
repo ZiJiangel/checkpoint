@@ -1405,6 +1405,21 @@ async function distributeConfig() {
   res.innerHTML = html;
 }
 document.getElementById('distScan').addEventListener('click', scanConfigDirs);
+// 手动添加配置路径（扫描不到时用）
+document.getElementById('distManual').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const p = e.target.value.trim();
+  if (!p) return;
+  const box = document.getElementById('distList');
+  if (box.querySelector('[data-distpath="' + p + '"]')) { e.target.value = ''; return; }
+  const row = document.createElement('label');
+  row.className = 'dist-row on';
+  row.innerHTML = '<input type="checkbox" data-distpath="' + p + '" checked>' +
+    '<span class="dist-sw">手动</span><span class="dist-path">' + p + '</span>';
+  box.appendChild(row);
+  e.target.value = '';
+  document.getElementById('distGo').disabled = false;
+});
 document.getElementById('distGo').addEventListener('click', distributeConfig);
 
 // ============ 集群启停编排 ============
