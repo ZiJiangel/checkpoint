@@ -46,7 +46,8 @@ function uiNodeForm(title, init) {
       field('f-port', t('cl.fPort'), '<input class="f-port" value="' + (init.port || 22) + '">') +
       field('f-user', t('cl.fUser'), '<input class="f-user" value="' + esc(init.user || 'root') + '">') +
       field('f-pass', t('cl.fPass'), '<input class="f-pass" type="password" value="' + esc(init.pass) + '">') +
-      field('f-role', t('cl.fRole'), '<select class="f-role">' + roleOpts + '</select>');
+      field('f-role', t('cl.fRole'), '<select class="f-role">' + roleOpts + '</select>') +
+      field('f-cfgroot', t('cl.fCfgRoot'), '<input class="f-cfgroot" value="' + esc(init.cfg_root) + '" placeholder="' + t('ph.cfgRoot') + '">');
     cancelBtn.style.display = '';
     mask.classList.remove('hidden');
     // 选 VM → 自动填名称 + 带出其他集群里该 VM 的 IP/密码
@@ -82,6 +83,7 @@ function uiNodeForm(title, init) {
         user: g('.f-user').trim(),
         pass: g('.f-pass'),
         role: g('.f-role'),
+        cfg_root: g('.f-cfgroot').trim(),
       }));
     };
     cancelBtn.onclick = () => done(null);
@@ -1224,6 +1226,9 @@ function renderConfigTab(n) {
     '<input class="nd-note" value="' + (n.note || '') + '" placeholder="备注（如：主节点 / Kerberos 客户端）">' +
     '</div>' +
     '<div class="form-row" style="margin-top:0.6rem">' +
+    '<input class="nd-cfgroot" value="' + (n.cfg_root || '') + '" placeholder="配置根目录（留空=同路径；如 /opt）">' +
+    '</div>' +
+    '<div class="form-row" style="margin-top:0.6rem">' +
     '<span class="sec-note-inline">' + t('cl.belongCluster') + '</span>' +
     '<select class="nd-cluster" style="max-width:220px">' +
     CLUSTERS.map(c => '<option value="' + c + '"' + (c === (n.cluster || CURRENT_CLUSTER) ? ' selected' : '') + '>' + c + '</option>').join('') +
@@ -1248,6 +1253,7 @@ function readDetailForm(base) {
     note: q('.nd-note') ? q('.nd-note').value.trim() : (base.note || ''),
     cluster: q('.nd-cluster') ? q('.nd-cluster').value : (base.cluster || CURRENT_CLUSTER),
     vmx: q('.nd-vmx') ? q('.nd-vmx').value : (base.vmx || ''),
+    cfg_root: q('.nd-cfgroot') ? q('.nd-cfgroot').value.trim() : (base.cfg_root || ''),
   });
 }
 

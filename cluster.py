@@ -320,10 +320,22 @@ def scan_config_dirs():
     return {"ok": True, "dirs": found, "msg": ""}
 
 
+def _map_target(node, src_dir, global_dst):
+    """算某节点的目标路径：
+    ① 节点有 cfg_root → 源路径最后一段挂到 cfg_root 下
+    ② 否则用 global_dst（前端算好的，通常 = src_dir 同路径）
+    """
+    root = (node.get("cfg_root") or "").strip()
+    if root:
+        base = src_dir.rstrip("/").split("/")[-1]
+        return root.rstrip("/") + "/" + base
+    return global_dst
+
+
 def distribute_config(src_dir, dst_dir, roles=None):
     """从 master 节点把配置目录分发到目标角色节点（需 SSH 免密）。
-    src_dir/dst_dir：源/目标目录；roles：目标角色（默认 worker）。
-    返回 {ok, results: [{node, ok, out}]}"""
+    src_dir/dst_dir：源/全局目标目录；roles：目标角色（默认 worker）。
+    每个节点可用自己的 cfg_root 覆盖目标。"""
     from concurrent.futures import ThreadPoolExecutor
     nodes = list_nodes()
     master = next((n for n in nodes if n.get("role") == "master"), None)
@@ -345,10 +357,12 @@ def distribute_config(src_dir, dst_dir, roles=None):
             results.append({"node": t.get("name"), "ok": True, "out": "虚拟机关机，跳过", "off": True})
             continue
         th = t.get("host", ""); tu = t.get("user", "")
+        # 每个节点可用自己的 cfg_root 覆盖目标路径
+        dst = _map_target(t, src_dir, dst_dir)
         # 不用 --delete（避免目标路径出错时误删文件）；配置分发只覆盖更新
-        cmd = "rsync -az %s/ %s@%s:%s/" % (src_dir, tu, th, dst_dir)
+        cmd = "rsync -az %s/ %s@%s:%s/" % (src_dir, tu, th, dst)
         ok, out = ssh_exec(mh, master.get("port", 22), mu, mp, cmd, timeout=60)
-        results.append({"node": t.get("name"), "ok": ok, "out": out})
+        results.append({"node": t.get("name"), "ok": ok, "out": out, "dst": dst})
     all_ok = all(r["ok"] for r in results) if results else True
     return {"ok": all_ok, "results": results}
 
