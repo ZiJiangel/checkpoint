@@ -320,16 +320,23 @@ def scan_config_dirs():
     return {"ok": True, "dirs": found, "msg": ""}
 
 
-def _map_target(node, src_dir, global_dst):
-    """算某节点的目标路径：
-    ① 节点有 cfg_root → 源路径最后一段挂到 cfg_root 下
-    ② 否则用 global_dst（前端算好的，通常 = src_dir 同路径）
+def _map_target(node, src_dir, global_root):
+    """算某节点的目标路径。
+    规则（可预测）：把源路径里的 **应用根 /root/app** 替换成"根"（节点 cfg_root 优先，否则全局）。
+    - 没配任何根 → 同路径
+    - 源是系统路径（/etc /usr /var）→ 不动
+    - 源在 /root/app 下（教程默认）→ 把 /root/app 换成根
+    - 其他 → 同路径（安全兜底）
     """
-    root = (node.get("cfg_root") or "").strip()
-    if root:
-        base = src_dir.rstrip("/").split("/")[-1]
-        return root.rstrip("/") + "/" + base
-    return global_dst
+    root = (node.get("cfg_root") or "").strip() or (global_root or "").strip()
+    if not root:
+        return src_dir
+    if src_dir.startswith(("/etc", "/usr", "/var")):
+        return src_dir
+    if src_dir == "/root/app" or src_dir.startswith("/root/app/"):
+        rel = src_dir[len("/root/app"):]
+        return root.rstrip("/") + rel
+    return src_dir
 
 
 def distribute_config(src_dir, dst_dir, roles=None):

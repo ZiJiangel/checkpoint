@@ -1382,13 +1382,6 @@ async function scanConfigDirs() {
   }
 }
 
-// 源路径 → 目标路径。默认同路径分发（最安全）；仅在填了 root 时覆盖
-function mapTarget(root, src) {
-  if (!root || !root.trim()) return src;   // 留空 = 同路径（推荐）
-  const base = src.replace(/\/+$/, '').split('/').pop();
-  return root.replace(/\/+$/, '') + '/' + base;
-}
-
 async function distributeConfig() {
   if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }
   const res = document.getElementById('distResult');
@@ -1401,12 +1394,13 @@ async function distributeConfig() {
   let html = '';
   let anyFail = '';
   for (const src of picked) {
-    // 目标 = 根目录 + 源目录的最后两级（如 /etc/krb5.conf → 特殊处理）
-    const dst = mapTarget(root, src);
-    const r = await window.pywebview.api.distribute_config(src, dst, ['worker']);
+    // 目标路径由后端按"节点 cfg_root 优先 / 否则全局 root / 否则同路径"算，返回在 results[].dst
+    const r = await window.pywebview.api.distribute_config(src, root, ['worker']);
     const failOut = (r.results || []).filter(x => !x.ok).map(x => x.out || '').join(' ');
     if (failOut && !anyFail) anyFail = failOut;
-    html += '<div class="' + (r.ok ? 'ok' : 'err') + '">' + src + ' → ' + dst + ' — ' +
+    const dsts = [...new Set((r.results || []).map(x => x.dst).filter(Boolean))];
+    const dstShow = dsts.length ? dsts.join(' | ') : src;
+    html += '<div class="' + (r.ok ? 'ok' : 'err') + '">' + src + ' → ' + dstShow + ' — ' +
       (r.skipped ? t('cl.svcSkipped') : (r.ok ? t('ops.done') : t('ops.fail'))) + '</div>';
   }
   // 失败 → 附人话诊断（rsync 缺失 / 免密没配）
