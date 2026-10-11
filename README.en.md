@@ -1,8 +1,27 @@
 # Checkpoint
 
-A desktop tool for managing a **local VM cluster** — snapshots, health check, one-click start/stop, and diagnosis. Built for students running Hadoop / big-data cluster experiments on local virtual machines.
+The **"diagnose + rescue" tool** for a **local VM cluster** — built for students running Hadoop / big-data experiments on local virtual machines.
 
-> Current version: **v0.9.2**
+It bundles snapshot rollback, health check, one-click start/stop, fault diagnosis, and config distribution into one UI: **snapshot before experiments, plain-language health checks when things go wrong, one-click revert when it breaks.**
+
+> **Simple to operate, but it won't think for you** — one-click actions and plain-language errors, but only advice, never auto-fix. Learning preserved.
+
+> Current version: **v0.9.4**
+
+---
+
+## Why this tool
+
+Students learning big data often build clusters (Hadoop / Hive / Spark / Kerberos…) from several local VMs. A few pain points keep coming up:
+
+1. **Fragile, hard to recover** — one wrong config and the whole cluster won't start; only a reinstall (hours) fixes it
+2. **Unreadable errors** — `Connection refused`, `command not found`… beginners don't know what's wrong or how to fix it
+3. **Tedious operations** — starting a cluster means memorizing a pile of commands, one node at a time
+4. **Environment is not reusable** — once Kerberos is installed, the environment is "specialized" and awkward for other experiments
+
+Enterprise cluster-management tools (built for server ops) are too heavy; general open-source tools are too geeky; snapshot tools do only one thing — **none fits the "local VMs + student experiments" scenario**. Checkpoint fills that gap: lightweight (pywebview, ~18MB exe), beginner-friendly (traffic lights + plain-language errors + one-click), but it only does **diagnosis and rescue** — it won't think for the student.
+
+> Docs tell you the "steps"; this tool covers the blind spot: **when something breaks, it helps you find and fix it.**
 
 ---
 
@@ -29,6 +48,9 @@ A desktop tool for managing a **local VM cluster** — snapshots, health check, 
 - **Skip powered-off nodes**: instant, no timeout wait
 - **Concurrency lock**: buttons disabled during operations
 - **UI**: vCenter-style (left nav + right pane), light/dark theme, ZH/EN, animations
+- **UI style themes**: switchable Dashboard / Terminal / Blueprint styles (a theming system that can customize layout & fonts)
+- **UI zoom**: Ctrl + / Ctrl - / Ctrl 0, remembered
+- **Frameless window edge-resize**: drag window edges to resize
 - **Update check** + global exception capture (\`error.log\`)
 
 ---
@@ -68,7 +90,7 @@ This tool is for **local VM cluster experiments**. You need:
 
 ### Option 1: Installer (recommended)
 
-1. Download \`集群快照管理器-安装包.exe\`
+1. Download `Checkpoint-Setup.exe`
 2. Double-click, choose install location
 3. Launch from the desktop shortcut
 
@@ -107,6 +129,8 @@ Generated at runtime **next to the program**:
 
 ## Changelog
 
+- **v0.9.4** (2026-10-11): Fixed theme-switch bug (switching back to "Default" left stale theme DOM, losing rounded corners).
+- **v0.9.3** (2026-10-11): **UI style themes** (Dashboard / Terminal / Blueprint, each with its own layout & colors), **UI zoom** (Ctrl +/-/0), **frameless window edge-resize**, **scrollbar polish** (hidden until scrolling).
 - **v0.9.2** (2026-10-11): First-use guide (3-step card when cluster is empty), in-app help (? button).
 - **v0.9.1** (2026-10-11): Config distribution overhaul (auto-scan + manual path + per-node root + plain-language failures), concurrency locks, skip powered-off nodes, faster startup (TCP probe), VMware pre-checks.
 - **v0.9.0** (2026-10-11): Config distribution (auto-scan), snapshot tree view, clone snapshot to VM, pre-deploy check, button tooltips.
