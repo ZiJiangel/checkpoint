@@ -62,10 +62,52 @@ class Api:
         webview.windows[0].minimize()
 
     def maximize(self):
-        webview.windows[0].toggle_fullscreen()
+        w = webview.windows[0]
+        try:
+            if getattr(w, "_ck_maxed", False):
+                w.restore()
+                w._ck_maxed = False
+            else:
+                w.maximize()
+                w._ck_maxed = True
+        except Exception:
+            w.toggle_fullscreen()
 
     def close_win(self):
         webview.windows[0].destroy()
+
+    def enable_resize(self):
+        """前端就绪后调用：给无边框窗口补回可拖拽边缘样式。"""
+        try:
+            ok, msg = _enable_window_resize_impl()
+            try:
+                core.log("enable_resize: ok=%s %s" % (ok, msg))
+            except Exception:
+                pass
+            return {"ok": ok, "msg": msg}
+        except Exception as e:
+            return {"ok": False, "msg": str(e)}
+
+    def set_window_geom(self, x, y, w, h):
+        """前端拖拽边缘时调用：一次设置窗口位置与大小（SetWindowPos）。"""
+        if not sys.platform.startswith("win"):
+            return {"ok": False}
+        try:
+            import ctypes
+            from ctypes import wintypes
+            hwnd = _get_hwnd()
+            if not hwnd:
+                return {"ok": False, "msg": "no hwnd"}
+            user32 = ctypes.windll.user32
+            SWP_NOZORDER = 0x0004
+            SWP_NOACTIVATE = 0x0010
+            ok = user32.SetWindowPos(wintypes.HWND(hwnd), 0,
+                                     int(round(x)), int(round(y)),
+                                     int(round(w)), int(round(h)),
+                                     SWP_NOZORDER | SWP_NOACTIVATE)
+            return {"ok": bool(ok)}
+        except Exception as e:
+            return {"ok": False, "msg": str(e)}
 
     # ===== 集群 =====
     def get_clusters(self):
@@ -258,6 +300,91 @@ class Api:
 
     def list_running(self):
         return core.list_running()
+
+
+def _get_hwnd():
+    """获取主窗口原生句柄（找不到返回 0）。"""
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+    except Exception:
+        return 0
+    hwnd = 0
+    try:
+        w = webview.windows[0]
+        for attr in ("native", "gui"):
+            obj = getattr(w, attr, None)
+            if obj is None:
+                continue
+            for hn in ("Handle", "hwnd", "HandleRef"):
+                h = getattr(obj, hn, None)
+                if h is None:
+                    continue
+                try:
+                    hwnd = int(h)
+                except Exception:
+                    try:
+                        hwnd = int(h.ToInt64())
+                    except Exception:
+                        hwnd = 0
+                if hwnd:
+                    break
+            if hwnd:
+                break
+    except Exception:
+        pass
+    if not hwnd:
+        try:
+            hwnd = int(user32.FindWindowW(None, "Checkpoint"))
+        except Exception:
+            hwnd = 0
+    return hwnd
+
+
+def _enable_window_resize_impl():
+    """无边框窗口补回可拖拽边框样式。返回 (ok, msg)。"""
+    if not sys.platform.startswith("win"):
+        return False, "非 Windows 平台"
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    if ctypes.sizeof(ctypes.c_void_p) == 8:
+        get_long = user32.GetWindowLongPtrW
+        set_long = user32.SetWindowLongPtrW
+        get_long.restype = ctypes.c_ssize_t
+        get_long.argtypes = [wintypes.HWND, ctypes.c_int]
+        set_long.restype = ctypes.c_ssize_t
+        set_long.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_ssize_t]
+    else:
+        get_long = user32.GetWindowLongW
+        set_long = user32.SetWindowLongW
+        get_long.argtypes = [wintypes.HWND, ctypes.c_int]
+        set_long.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_long]
+
+    hwnd = _get_hwnd()
+    if not hwnd:
+        return False, "找不到窗口句柄"
+
+    GWL_STYLE = -16
+    WS_MAXIMIZEBOX = 0x00010000
+    WS_MINIMIZEBOX = 0x00020000
+    SWP_FRAMECHANGED = 0x0020
+    SWP_NOMOVE = 0x0002
+    SWP_NOSIZE = 0x0001
+    SWP_NOZORDER = 0x0004
+    try:
+        # 只保留最大化/最小化按钮能力，不加 WS_THICKFRAME（避免系统画出灰色边框）；
+        # 边缘拖拽由前端热区 + set_window_geom 实现
+        style = get_long(wintypes.HWND(hwnd), GWL_STYLE)
+        style |= (WS_MAXIMIZEBOX | WS_MINIMIZEBOX)
+        style &= ~0x00040000  # 确保去掉 WS_THICKFRAME
+        set_long(wintypes.HWND(hwnd), GWL_STYLE, style)
+        user32.SetWindowPos(wintypes.HWND(hwnd), 0, 0, 0, 0, 0,
+                            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER)
+        return True, "hwnd=%s style=0x%x" % (hwnd, style)
+    except Exception as e:
+        return False, "设置失败: " + str(e)
 
 
 def show_error(title, msg):

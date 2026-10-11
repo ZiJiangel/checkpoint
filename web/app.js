@@ -143,7 +143,7 @@ function uiPrompt(title, defaultVal) {
   });
 }
 
-// ============ 主题 ============
+// ============ 明暗模式（原设计，保持不变）============
 let theme = localStorage.getItem('theme') || 'dark';
 function applyTheme(t) {
   document.body.classList.remove('theme-dark', 'theme-light');
@@ -154,6 +154,32 @@ applyTheme(theme);
 document.getElementById('themeBtn').addEventListener('click', () => {
   theme = theme === 'dark' ? 'light' : 'dark';
   applyTheme(theme);
+});
+
+// ============ 界面风格（与明暗独立，设置界面切换）============
+// 注册表：加新风格只需在此加一项 + 一段 CSS 变量块。
+// nodeList 为可选渲染钩子；为 null 时用默认节点列表渲染。
+const STYLES = ['default', 'dashboard', 'terminal', 'blueprint'];
+const UI_STYLES = {
+  default:   { nodeList: null },
+  dashboard: { nodeList: renderNodesDashboard },
+  terminal:  { nodeList: renderNodesTerminal },
+  blueprint: { nodeList: renderNodesBlueprint },
+};
+let uiStyle = localStorage.getItem('uiStyle') || 'default';
+function applyStyle(s) {
+  if (!STYLES.includes(s)) s = 'default';
+  uiStyle = s;
+  STYLES.filter(x => x !== 'default').forEach(x =>
+    document.body.classList.remove('style-' + x));
+  if (s !== 'default') document.body.classList.add('style-' + s);
+  localStorage.setItem('uiStyle', s);
+  const sel = document.getElementById('themeSelect');
+  if (sel) sel.value = s;
+}
+applyStyle(uiStyle);
+document.getElementById('themeSelect').addEventListener('change', (e) => {
+  applyStyle(e.target.value);
 });
 
 // 使用帮助
@@ -183,6 +209,106 @@ document.getElementById('helpBtn').addEventListener('click', () => {
 document.getElementById('minBtn').addEventListener('click', () => window.pywebview.api.minimize());
 document.getElementById('maxBtn').addEventListener('click', () => window.pywebview.api.maximize());
 document.getElementById('closeBtn').addEventListener('click', () => window.pywebview.api.close_win());
+
+// ============ 界面缩放（Ctrl + / Ctrl - / Ctrl 0 重置）============
+const ZOOM_MIN = 0.7, ZOOM_MAX = 1.6, ZOOM_STEP = 0.1;
+let zoomLevel = parseFloat(localStorage.getItem('uiZoom')) || 1;
+if (!(zoomLevel >= ZOOM_MIN && zoomLevel <= ZOOM_MAX)) zoomLevel = 1;
+function applyZoom(z) {
+  zoomLevel = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 100) / 100));
+  document.documentElement.style.zoom = String(zoomLevel);
+  localStorage.setItem('uiZoom', String(zoomLevel));
+  const el = document.getElementById('zoomHint');
+  if (el) {
+    el.textContent = Math.round(zoomLevel * 100) + '%';
+    el.style.opacity = '1';
+    clearTimeout(window._zoomHintTimer);
+    window._zoomHintTimer = setTimeout(() => { el.style.opacity = '0'; }, 1200);
+  }
+}
+applyZoom(zoomLevel);
+document.addEventListener('keydown', (e) => {
+  if (!e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.key === '=' || e.key === '+') { applyZoom(zoomLevel + ZOOM_STEP); e.preventDefault(); }
+  else if (e.key === '-' || e.key === '_') { applyZoom(zoomLevel - ZOOM_STEP); e.preventDefault(); }
+  else if (e.key === '0') { applyZoom(1); e.preventDefault(); }
+});
+
+// ============ 无边框窗口边缘拖拽改尺寸 ============
+// 无边框 + WebView2 会吞掉 Win32 边缘命中，故用前端热区 + 调 API 改窗口几何
+(function initEdgeResize() {
+  const EDGE = 7;              // 边缘热区宽度（px）
+  const CORNER = 14;           // 角落热区（px）
+  const MIN_W = 900, MIN_H = 600;
+  const ZONES = [
+    { dir: 'w',  css: { top: CORNER + 'px', bottom: CORNER + 'px', left: '0', width: EDGE + 'px' }, cursor: 'ew-resize' },
+    { dir: 'e',  css: { top: CORNER + 'px', bottom: CORNER + 'px', right: '0', width: EDGE + 'px' }, cursor: 'ew-resize' },
+    { dir: 's',  css: { left: CORNER + 'px', right: CORNER + 'px', bottom: '0', height: EDGE + 'px' }, cursor: 'ns-resize' },
+    { dir: 'sw', css: { left: '0', bottom: '0', width: CORNER + 'px', height: CORNER + 'px' }, cursor: 'nesw-resize' },
+    { dir: 'se', css: { right: '0', bottom: '0', width: CORNER + 'px', height: CORNER + 'px' }, cursor: 'nwse-resize' },
+  ];
+  let drag = null;
+
+  function startResize(dir, e) {
+    drag = {
+      dir,
+      sx: e.screenX, sy: e.screenY,
+      wx: window.screenX, wy: window.screenY,
+      ww: window.outerWidth, wh: window.outerHeight,
+    };
+    e.preventDefault();
+    e.stopPropagation();
+    document.body.style.userSelect = 'none';
+  }
+
+  document.addEventListener('mousemove', (e) => {
+    if (!drag) return;
+    const dx = e.screenX - drag.sx;
+    const dy = e.screenY - drag.sy;
+    let x = drag.wx, y = drag.wy, w = drag.ww, h = drag.wh;
+    if (drag.dir.includes('e')) w = drag.ww + dx;
+    if (drag.dir.includes('s')) h = drag.wh + dy;
+    if (drag.dir.includes('w')) { w = drag.ww - dx; x = drag.wx + dx; }
+    if (w < MIN_W) { if (drag.dir.includes('w')) x = drag.wx + (drag.ww - MIN_W); w = MIN_W; }
+    if (h < MIN_H) { if (drag.dir.includes('s')) y = drag.wy; h = MIN_H; }
+    try { window.pywebview.api.set_window_geom(x, y, w, h); } catch (err) {}
+  }, true);
+
+  document.addEventListener('mouseup', () => {
+    if (drag) { drag = null; document.body.style.userSelect = ''; }
+  }, true);
+
+  function build() {
+    ZONES.forEach(z => {
+      const el = document.createElement('div');
+      el.className = 'ck-resize-zone';
+      Object.assign(el.style, { position: 'fixed', zIndex: '9000', cursor: z.cursor }, z.css);
+      el.addEventListener('mousedown', (e) => { if (e.button === 0) startResize(z.dir, e); });
+      document.body.appendChild(el);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
+  else build();
+})();
+
+// ============ 滚动条：滚动时显示 ============
+(function initScrollbarHint() {
+  function attach(el) {
+    if (!el) return;
+    let timer = null;
+    el.addEventListener('scroll', () => {
+      el.classList.add('scrolling');
+      clearTimeout(timer);
+      timer = setTimeout(() => el.classList.remove('scrolling'), 900);
+    }, { passive: true });
+  }
+  function init() {
+    attach(document.querySelector('.main'));
+    attach(document.querySelector('.side-scroll'));
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
 
 // ============ 视图导航（左栏 + 右区，vCenter 式）============
 let AUTO_CHECK = true;    // 由设置加载
@@ -992,6 +1118,84 @@ function severityColor(s) {
   return { green: '#3ecf8e', yellow: '#e0b34a', red: '#e06c6c', gray: '#8a8a94', off: '#8a8a94' }[s] || '#8a8a94';
 }
 
+// 健康状态 → 文案
+function statusLabelOf(st) {
+  const key = { green: 'st.ok', yellow: 'st.partial', red: 'st.err', gray: 'st.gray', off: 'st.off' }[st] || 'st.gray';
+  return t(key);
+}
+
+// 仪表盘：表格化节点列表（主机 / 进程 / 状态）
+function renderNodesDashboard(nodes) {
+  const head = '<div class="node-table-head">' +
+    '<span></span><span>' + t('ov.nodes') + '</span>' +
+    '<span class="r">' + t('cl.check') + '</span>' +
+    '<span class="r">' + t('ov.ok') + '</span><span></span></div>';
+  const rows = nodes.map(n => {
+    const st = healthStatusOf(n.id);
+    const h = HEALTH[n.id];
+    let proc = '—';
+    if (h && h.expected && h.expected.length) {
+      const got = (h.online && h.procs) ? h.procs.length : 0;
+      proc = got + '/' + h.expected.length;
+    }
+    const expanded = (window._DETAIL_ID === n.id);
+    let row = '<div class="node-row' + (expanded ? ' selected' : '') + '" data-id="' + n.id + '">' +
+      '<span class="status-dot st-' + st + '"></span>' +
+      '<span class="nd-host"><span class="vm-name">' + n.name + '</span>' +
+        '<span class="vm-role">' + (n.role || '') + '</span></span>' +
+      '<span class="nd-proc">' + proc + '</span>' +
+      '<span class="nd-status st-' + st + '">' + statusLabelOf(st) + '</span>' +
+      '<span class="vm-count nd-del" data-del="' + n.id + '">' + t('btn.delete') + '</span>' +
+      '</div>';
+    if (expanded) row += '<div class="node-expand">' + renderHealthInline(n) + '</div>';
+    return row;
+  }).join('');
+  return '<div class="node-table">' + head + rows + '</div>';
+}
+
+// 终端：固定宽度方括号标签 + 点线引导 + 右对齐数值
+function renderNodesTerminal(nodes) {
+  const tagMap = { green: '[ OK ]', yellow: '[ WRN ]', red: '[ ERR ]', gray: '[ -- ]', off: '[ -- ]' };
+  return nodes.map(n => {
+    const st = healthStatusOf(n.id);
+    const h = HEALTH[n.id];
+    let val = '';
+    if (h && h.expected && h.expected.length) {
+      const got = (h.online && h.procs) ? h.procs.length : 0;
+      val = got + '/' + h.expected.length;
+    } else if (st === 'off') val = t('st.off');
+    else val = statusLabelOf(st);
+    const expanded = (window._DETAIL_ID === n.id);
+    let row = '<div class="node-row' + (expanded ? ' selected' : '') + '" data-id="' + n.id + '">' +
+      '<span class="term-tag st-' + st + '">' + (tagMap[st] || '[ -- ]') + '</span>' +
+      '<span class="term-name">' + n.name + '</span>' +
+      '<span class="term-dots"></span>' +
+      '<span class="term-val">' + val + '</span>' +
+      '<span class="term-del" data-del="' + n.id + '">' + t('btn.delete') + '</span>' +
+      '</div>';
+    if (expanded) row += '<div class="node-expand">' + renderHealthInline(n) + '</div>';
+    return row;
+  }).join('');
+}
+
+// 蓝图：空心方框状态 + 名字 + 右对齐大写角色
+function renderNodesBlueprint(nodes) {
+  return nodes.map(n => {
+    const st = healthStatusOf(n.id);
+    const role = (n.role || '').toUpperCase();
+    const expanded = (window._DETAIL_ID === n.id);
+    let row = '<div class="node-row' + (expanded ? ' selected' : '') + '" data-id="' + n.id + '">' +
+      '<span class="bp-mark st-' + st + '"></span>' +
+      '<span class="bp-name">' + n.name + '</span>' +
+      '<span class="bar-spacer"></span>' +
+      '<span class="bp-role">' + role + '</span>' +
+      '<span class="bp-del" data-del="' + n.id + '">' + t('btn.delete') + '</span>' +
+      '</div>';
+    if (expanded) row += '<div class="node-expand">' + renderHealthInline(n) + '</div>';
+    return row;
+  }).join('');
+}
+
 function renderNodes() {
   const box = document.getElementById('nodeList');
   const cnt = document.getElementById('nodeCount');
@@ -1014,6 +1218,14 @@ function renderNodes() {
     if (ga) ga.addEventListener('click', addNode);
     return;
   }
+  // 界面风格提供独立渲染器时，走它的逻辑
+  const styleDef = UI_STYLES[uiStyle];
+  if (styleDef && styleDef.nodeList) {
+    box.innerHTML = styleDef.nodeList(NODES);
+    bindNodeRowEvents(box);
+    return;
+  }
+
   box.innerHTML = NODES.map(n => {
     const st = healthStatusOf(n.id);
     const dot = '<span class="status-dot st-' + st + '"></span>';
@@ -1031,17 +1243,24 @@ function renderNodes() {
       vmBadge = '<span class="vm-power none">— ' + t('cl.noVmx') + '</span>';
     }
     const expanded = (window._DETAIL_ID === n.id);
+    // 状态文字（默认主题下隐藏，仅界面风格主题显示）
+    const stKey = ({ green: 'ov.ok', yellow: 'ov.warn', red: 'ov.warn', gray: 'ov.gray', off: 'ov.off' })[st] || 'ov.gray';
+    const statusLabel = '<span class="node-status st-' + st + '">' + t(stKey) + '</span>';
     let row = '<div class="node-row' + (expanded ? ' selected' : '') + '" data-id="' + n.id + '">' +
       dot +
       '<span class="vm-name">' + n.name + '</span>' + role + host + note +
-      '<span class="bar-spacer"></span>' + vmBadge +
+      '<span class="bar-spacer"></span>' + statusLabel + vmBadge +
       '<span class="vm-count" style="cursor:pointer" data-del="' + n.id + '">删除</span>' +
       '</div>';
     // 就地展开：健康详情
     if (expanded) row += '<div class="node-expand">' + renderHealthInline(n) + '</div>';
     return row;
   }).join('');
-  // 点击行 → 就地展开/收起健康；点击删除
+  bindNodeRowEvents(box);
+}
+
+// 节点行事件绑定（默认渲染 / 主题渲染共用）
+function bindNodeRowEvents(box) {
   box.querySelectorAll('.node-row').forEach(r => {
     r.addEventListener('click', (e) => {
       if (e.target.dataset.del) { delNode(e.target.dataset.del); return; }
@@ -1049,7 +1268,6 @@ function renderNodes() {
       window._DETAIL_ID = (window._DETAIL_ID === id) ? null : id;
       renderNodes();
       if (window._DETAIL_ID === id) {
-        // 自动体检一次（若没结果）
         if (!HEALTH[id]) runHealthCheck();
       }
     });
@@ -1943,4 +2161,6 @@ window.addEventListener('pywebviewready', async () => {
   await loadNodes();
   await loadHealthCache();   // 恢复上次体检结果
   loadVmware();
+  // 无边框窗口：补回可拖拽边缘（延迟到窗口完全就绪）
+  try { await window.pywebview.api.enable_resize(); } catch (e) {}
 });
