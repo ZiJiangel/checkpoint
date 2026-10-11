@@ -673,6 +673,12 @@ function renderConfigTab(n) {
     '<div class="form-row" style="margin-top:0.6rem">' +
     '<input class="nd-note" value="' + (n.note || '') + '" placeholder="备注（如：主节点 / Kerberos 客户端）">' +
     '</div>' +
+    '<div class="form-row" style="margin-top:0.6rem">' +
+    '<span class="sec-note-inline">' + t('cl.belongCluster') + '</span>' +
+    '<select class="nd-cluster" style="max-width:220px">' +
+    CLUSTERS.map(c => '<option value="' + c + '"' + (c === (n.cluster || CURRENT_CLUSTER) ? ' selected' : '') + '>' + c + '</option>').join('') +
+    '</select>' +
+    '</div>' +
     '<div class="form-row" style="margin-top:0.8rem">' +
     '<button class="primary" id="ndSave">保存</button>' +
     '<button id="ndTest">测试连接</button>' +
@@ -690,6 +696,7 @@ function readDetailForm(base) {
     pass: q('.nd-pass').value,
     role: q('.nd-role').value,
     note: q('.nd-note') ? q('.nd-note').value.trim() : (base.note || ''),
+    cluster: q('.nd-cluster') ? q('.nd-cluster').value : (base.cluster || CURRENT_CLUSTER),
   });
 }
 
@@ -697,8 +704,11 @@ async function saveDetail(id) {
   const base = NODES.find(x => x.id === id) || {};
   const node = readDetailForm(base);
   await window.pywebview.api.save_node(node);
+  await loadClusters();   // 可能新增集群
   await loadNodes();
-  showDetail(id);
+  // 节点可能已改到别的集群 → 从当前列表消失，详情也清空
+  if (NODES.find(x => x.id === id)) showDetail(id);
+  else document.getElementById('nodeDetail').innerHTML = '<div class="empty">' + t('cl.pick') + '</div>';
 }
 
 async function testDetail(n) {
