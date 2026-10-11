@@ -1205,8 +1205,38 @@ async function runHealthCheck() {
   }
 }
 
+async function runDeployCheck() {
+  const btn = document.getElementById('deployCheck');
+  btn.disabled = true; btn.textContent = t('cl.checking');
+  const box = document.getElementById('clusterOverview');
+  try {
+    const res = await window.pywebview.api.pre_deploy_check();
+    const nameOf = {}; NODES.forEach(n => nameOf[n.id] = n.name);
+    let html = '<div class="ov-row" style="align-items:stretch">';
+    res.forEach(r => {
+      const dot = r.status === 'green' ? 'st-green' : (r.status === 'red' ? 'st-red' : 'st-yellow');
+      html += '<div class="ov-item" style="text-align:left">' +
+        '<div style="display:flex;align-items:center;gap:0.4rem"><span class="status-dot ' + dot + '"></span>' +
+        '<b>' + (nameOf[r.id] || '?') + '</b></div>';
+      if (!r.online) html += '<div class="vm-role" style="margin-top:0.3rem">连不上：' + (r.detail || '') + '</div>';
+      else r.items.forEach(it => {
+        html += '<div style="font-size:0.76rem;margin-top:0.2rem" class="' + (it.ok ? '' : 'err') + '">' +
+          (it.ok ? '✓' : '✗') + ' ' + it.label + '：' + it.value + '</div>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+    box.innerHTML = html;
+  } catch (e) {
+    uiAlert('部署自检失败：' + e);
+  } finally {
+    btn.disabled = false; btn.textContent = t('cl.deployCheck');
+  }
+}
+
 document.getElementById('clusterAdd').addEventListener('click', addNode);
 document.getElementById('clusterCheck').addEventListener('click', runHealthCheck);
+document.getElementById('deployCheck').addEventListener('click', runDeployCheck);
 
 // ============ 集群启停编排 ============
 let POWER_RUNNING = false;

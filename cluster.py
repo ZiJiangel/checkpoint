@@ -154,6 +154,66 @@ def test_node(node):
     return False, out
 
 
+# 部署前自检：检查节点基础环境（部署 Hadoop 前的先决条件）
+def pre_deploy_check(node):
+    """检查单个节点是否具备部署条件。
+    返回 {id, online, items: [{key,label,value,ok}], status}"""
+    nid = node.get("id")
+    cmd = ("echo \"java=$(java -version 2>&1 | head -1 | grep -oE 'version [^ ]+' || echo 无)\"; "
+           "echo \"hosts=$(getent hosts master >/dev/null 2>&1 && echo OK || echo 缺)\"; "
+           "echo \"sshd=$(systemctl is-active sshd 2>/dev/null || echo 未知)\"; "
+           "echo \"time=$(timedatectl 2>/dev/null | grep -qi 'synchronized: yes' && echo OK || echo 未同步)\"; "
+           "echo \"selinux=$(getenforce 2>/dev/null || echo 未知)\"; "
+           "echo \"firewall=$(systemctl is-active firewalld 2>/dev/null || echo 未运行)\"")
+    ok, out = ssh_exec(node.get("host", ""), node.get("port", 22),
+                       node.get("user", ""), node.get("pass", ""), cmd, timeout=15)
+    if not ok:
+        return {"id": nid, "online": False, "items": [], "status": "red", "detail": out}
+
+    kv = {}
+    for line in out.splitlines():
+        if "=" in line:
+            k, v = line.split("=", 1)
+            kv[k.strip()] = v.strip()
+
+    def item(key, label, good):
+        val = kv.get(key, "?")
+        is_ok = good(val)
+        return {"key": key, "label": label, "value": val, "ok": is_ok}
+
+    items = [
+        item("java", "Java 环境", lambda v: v != "无" and v != ""),
+        item("hosts", "hosts 解析", lambda v: v == "OK"),
+        item("sshd", "SSH 服务", lambda v: v == "active"),
+        item("time", "时间同步", lambda v: v == "OK"),
+        item("selinux", "SELinux", lambda v: v.lower() in ("disabled", "permissive")),
+        item("firewall", "防火墙", lambda v: v in ("inactive", "未运行", "unknown")),
+    ]
+    bad = [it for it in items if not it["ok"]]
+    status = "green" if not bad else ("red" if len(bad) == len(items) else "yellow")
+    return {"id": nid, "online": True, "items": items, "status": status, "detail": ""}
+
+
+def pre_deploy_check_all():
+    """并发检查所有节点"""
+    nodes = list_nodes()
+    if not nodes:
+        return []
+    results = []
+    with ThreadPoolExecutor(max_workers=len(nodes)) as pool:
+        fut = {pool.submit(pre_deploy_check, n): n for n in nodes}
+        for f in as_completed(fut):
+            try:
+                results.append(f.result())
+            except Exception as e:
+                n = fut[f]
+                results.append({"id": n.get("id"), "online": False, "items": [],
+                                "status": "red", "detail": str(e)})
+    order = {n["id"]: i for i, n in enumerate(nodes)}
+    results.sort(key=lambda r: order.get(r["id"], 999))
+    return results
+
+
 def node_reachable(node, timeout=8):
     """探测单个节点 SSH 是否可达（快速）"""
     ok, _ = ssh_exec(node.get("host", ""), node.get("port", 22),

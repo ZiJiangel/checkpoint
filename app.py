@@ -106,6 +106,9 @@ class Api:
     def diagnose(self, text):
         return diagnose.diagnose(text)
 
+    def pre_deploy_check(self):
+        return cluster.pre_deploy_check_all()
+
     # ===== 集群启停 =====
     def get_services(self):
         return services.get_services()
