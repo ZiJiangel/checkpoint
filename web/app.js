@@ -1280,11 +1280,11 @@ async function runDeployCheck() {
     const nameOf = {}; NODES.forEach(n => nameOf[n.id] = n.name);
     let html = '<div class="ov-row" style="align-items:stretch">';
     res.forEach(r => {
-      const dot = r.status === 'green' ? 'st-green' : (r.status === 'red' ? 'st-red' : 'st-yellow');
+      const dot = r.status === 'green' ? 'st-green' : (r.status === 'red' ? 'st-red' : (r.status === 'off' ? 'st-off' : 'st-yellow'));
       html += '<div class="ov-item" style="text-align:left">' +
         '<div style="display:flex;align-items:center;gap:0.4rem"><span class="status-dot ' + dot + '"></span>' +
         '<b>' + (nameOf[r.id] || '?') + '</b></div>';
-      if (!r.online) html += '<div class="vm-role" style="margin-top:0.3rem">连不上：' + (r.detail || '') + '</div>';
+      if (!r.online) html += '<div class="vm-role" style="margin-top:0.3rem">' + (r.detail || '连接失败') + '</div>';
       else r.items.forEach(it => {
         html += '<div style="font-size:0.76rem;margin-top:0.2rem" class="' + (it.ok ? '' : 'err') + '">' +
           (it.ok ? '✓' : '✗') + ' ' + it.label + '：' + it.value + '</div>';

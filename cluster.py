@@ -200,10 +200,17 @@ def test_node(node):
 
 
 # 部署前自检：检查节点基础环境（部署 Hadoop 前的先决条件）
-def pre_deploy_check(node):
+def pre_deploy_check(node, running_vmx=None):
     """检查单个节点是否具备部署条件。
     返回 {id, online, items: [{key,label,value,ok}], status}"""
     nid = node.get("id")
+    # 配了 vmx 且 VM 未运行 → 直接判为关机，跳过 SSH（不白等超时）
+    vmx = node.get("vmx", "")
+    if vmx and running_vmx is not None:
+        key = os.path.normcase(os.path.abspath(vmx))
+        if key not in running_vmx:
+            return {"id": nid, "online": False, "items": [], "status": "off",
+                    "detail": "虚拟机关机（未开机）"}
     cmd = ("echo \"java=$(java -version 2>&1 | head -1 | grep -oE 'version [^ ]+' || echo 无)\"; "
            "echo \"hosts=$(getent hosts master >/dev/null 2>&1 && echo OK || echo 缺)\"; "
            "echo \"sshd=$(systemctl is-active sshd 2>/dev/null || echo 未知)\"; "
@@ -240,13 +247,19 @@ def pre_deploy_check(node):
 
 
 def pre_deploy_check_all():
-    """并发检查所有节点"""
+    """并发检查所有节点（关机的节点跳过，不白等超时）"""
     nodes = list_nodes()
     if not nodes:
         return []
+    running_vmx = set()
+    try:
+        for r in core.list_running():
+            running_vmx.add(os.path.normcase(os.path.abspath(r)))
+    except Exception:
+        running_vmx = None
     results = []
     with ThreadPoolExecutor(max_workers=len(nodes)) as pool:
-        fut = {pool.submit(pre_deploy_check, n): n for n in nodes}
+        fut = {pool.submit(pre_deploy_check, n, running_vmx): n for n in nodes}
         for f in as_completed(fut):
             try:
                 results.append(f.result())
@@ -309,16 +322,23 @@ def nodes_vm_status():
 
 
 def check_nodes_ready():
-    """检查所有启用节点的 SSH 可达性（单次，供前端轮询）。
+    """检查所有启用节点的 SSH 可达性（并发，供前端轮询）。
     返回 {ready: bool, nodes: [{name, ok}]}"""
+    from concurrent.futures import ThreadPoolExecutor
     targets = [n for n in list_nodes() if n.get("enabled", True)]
-    nodes = []
-    all_ok = True
-    for n in targets:
-        ok = node_reachable(n)
-        nodes.append({"name": n.get("name"), "ok": ok})
-        if not ok:
-            all_ok = False
+    if not targets:
+        return {"ready": True, "nodes": []}
+    results = {}
+    with ThreadPoolExecutor(max_workers=len(targets)) as pool:
+        fut = {pool.submit(node_reachable, n): n for n in targets}
+        for f in as_completed(fut):
+            n = fut[f]
+            try:
+                results[n.get("id")] = f.result()
+            except Exception:
+                results[n.get("id")] = False
+    nodes = [{"name": n.get("name"), "ok": results.get(n.get("id"), False)} for n in targets]
+    all_ok = all(x["ok"] for x in nodes)
     return {"ready": all_ok, "nodes": nodes}
 
 
