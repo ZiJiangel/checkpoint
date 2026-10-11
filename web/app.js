@@ -1401,6 +1401,18 @@ async function runCluster(action) {
   let lines = [];
   let aborted = false;
   if (action === 'start') {
+    // 启动前先确认 VMware 服务（vmrun 依赖授权服务）
+    let vmstate = VMWARE_STATE;
+    try { vmstate = await window.pywebview.api.vmware_state(); VMWARE_STATE = vmstate; } catch (e) {}
+    if (vmstate && vmstate.state === 'red') {
+      POWER_RUNNING = false;
+      powerLog('<div class="diag-box"><div class="diag-item diag-error">' +
+        '<div class="diag-title">💡 VMware 授权服务未启动</div>' +
+        '<div class="diag-meaning">vmrun 依赖「VMware 授权服务」，没启动就无法启停虚拟机</div>' +
+        '<div class="diag-fix">👉 先点上方 VMware 状态条的「启动服务」（会弹 UAC），或打开 VMware Workstation</div>' +
+        '</div></div>');
+      return;
+    }
     // 并发启动（跳过已运行的），逐台显示
     const targets = NODES.filter(n => (VM_STATUS[n.id] || {}).has_vmx);
     const vrows = {};
