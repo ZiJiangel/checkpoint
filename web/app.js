@@ -412,6 +412,7 @@ async function addNodeWithVm(name, vmx) {
 }
 
 async function selectCluster(name) {
+  if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }   // 操作进行中禁止切集群
   await switchCluster(name);
   renderSidebar();
   showView('cluster');
@@ -715,6 +716,7 @@ async function switchCluster(name) {
 }
 
 async function newCluster() {
+  if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }
   const name = await uiPrompt(t('cl.newClusterName'));
   if (!name) return;
   await switchCluster(name);
@@ -1270,6 +1272,7 @@ async function testDetail(n) {
 }
 
 async function delNode(id) {
+  if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }   // 操作进行中禁止删节点
   if (!await uiConfirm(t('cl.confirmDel'))) return;
   await window.pywebview.api.delete_node(id);
   delete HEALTH[id];
@@ -1278,6 +1281,7 @@ async function delNode(id) {
 }
 
 async function addNode() {
+  if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }
   const node = await uiNodeForm(t('cl.add'), { user: 'root', role: 'worker', port: 22 });
   if (!node) return;
   node.cluster = CURRENT_CLUSTER;
