@@ -69,8 +69,11 @@ def list_clusters():
     return names
 
 
+# 存密码文件开头的"调侃"（明文存密码是刻意设计：给学生用，防忘密码）
+PASSWORD_NOTE = "📝 密码明文存这儿，纯属怕你忘 —— 忘了就来这儿看一眼，别慌。下次记得自己记牢，别老麻烦我给你兜底 😏"
+
 def save_nodes(nodes):
-    core.save_json(NODES_FILE, {"nodes": nodes})
+    core.save_json(NODES_FILE, {"_note": PASSWORD_NOTE, "nodes": nodes})
 
 
 def add_node(node):
