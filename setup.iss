@@ -1,7 +1,7 @@
-﻿; 集群快照管理器 安装脚本
+﻿; Checkpoint 安装脚本
 #define MyAppName "Checkpoint"
 #define MyAppVersion "0.9.2"
-#define MyAppExeName "集群快照管理器.exe"
+#define MyAppExeName "Checkpoint.exe"
 
 [Setup]
 AppId={{8F3A2B1C-4D5E-6F70-8A9B-C1D2E3F40510}
@@ -14,7 +14,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=D:\03_学习\集群环境\集群快照管理器-发布\installer
-OutputBaseFilename=集群快照管理器-安装包
+OutputBaseFilename=Checkpoint-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -31,7 +31,7 @@ Name: "chinese"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加任务:"
 
 [Files]
-Source: "D:\03_学习\集群环境\集群快照管理器-发布\集群快照管理器.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "D:\03_学习\集群环境\集群快照管理器-发布\Checkpoint.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
