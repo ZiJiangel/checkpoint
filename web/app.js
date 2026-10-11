@@ -1238,6 +1238,21 @@ document.getElementById('clusterAdd').addEventListener('click', addNode);
 document.getElementById('clusterCheck').addEventListener('click', runHealthCheck);
 document.getElementById('deployCheck').addEventListener('click', runDeployCheck);
 
+async function distributeConfig() {
+  const src = document.getElementById('distSrc').value.trim();
+  const dst = document.getElementById('distDst').value.trim();
+  const res = document.getElementById('distResult');
+  if (!src || !dst) { res.innerHTML = '<span class="err">请填写源/目标目录</span>'; return; }
+  if (!await uiConfirm('把 master 的 ' + src + ' 分发到从节点的 ' + dst + '？')) return;
+  res.textContent = t('ops.running');
+  const r = await window.pywebview.api.distribute_config(src, dst, ['worker']);
+  if (r.skipped) { res.innerHTML = '<span class="vm-role">' + (r.msg || '无目标节点') + '</span>'; return; }
+  res.innerHTML = (r.results || []).map(x =>
+    '<div class="' + (x.ok ? 'ok' : 'err') + '">' + x.node + ' — ' + (x.ok ? t('ops.done') : x.out) + '</div>'
+  ).join('') + (r.msg ? '<div class="err">' + r.msg + '</div>' : '');
+}
+document.getElementById('distGo').addEventListener('click', distributeConfig);
+
 // ============ 集群启停编排 ============
 let POWER_RUNNING = false;
 

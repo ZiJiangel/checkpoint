@@ -84,6 +84,16 @@
         <div id="snapNodePick" class="snap-pick"></div>
         <div class="result" id="clusterSnapResult"></div>
         <div id="clusterSnapList"></div>
+
+        <div class="sec-head" style="margin-top:1.4rem"><span class="sec-title" data-i18n="cl.distTitle">配置分发</span>
+          <span class="sec-note-inline" data-i18n="cl.distHint">把 master 上的配置目录同步到从节点（需 SSH 免密）</span>
+        </div>
+        <div class="form-row">
+          <input id="distSrc" value="/root/app/hadoop/etc/hadoop" placeholder="源目录（master）" style="max-width:320px">
+          <input id="distDst" value="/root/app/hadoop/etc/hadoop" placeholder="目标目录（从节点）" style="max-width:320px">
+          <button class="primary" id="distGo" data-i18n="cl.distGo">分发到从节点</button>
+        </div>
+        <div class="result" id="distResult"></div>
       </div>
 
       <div class="view hidden" id="view-node">

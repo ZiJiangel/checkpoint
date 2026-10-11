@@ -214,6 +214,31 @@ def pre_deploy_check_all():
     return results
 
 
+def distribute_config(src_dir, dst_dir, roles=None):
+    """从 master 节点把配置目录分发到目标角色节点（需 SSH 免密）。
+    src_dir/dst_dir：源/目标目录；roles：目标角色（默认 worker）。
+    返回 {ok, results: [{node, ok, out}]}"""
+    from concurrent.futures import ThreadPoolExecutor
+    nodes = list_nodes()
+    master = next((n for n in nodes if n.get("role") == "master"), None)
+    if not master:
+        return {"ok": False, "results": [], "msg": "未找到 master 节点"}
+    roles = roles or ["worker"]
+    targets = [n for n in nodes if n.get("role") in roles and n.get("id") != master.get("id")]
+    if not targets:
+        return {"ok": True, "results": [], "skipped": True, "msg": "无目标节点"}
+    mh = master.get("host", ""); mu = master.get("user", ""); mp = master.get("pass", "")
+    results = []
+    for t in targets:
+        th = t.get("host", ""); tu = t.get("user", "")
+        # 在 master 上执行 rsync 推送到目标
+        cmd = "rsync -az --delete %s/ %s@%s:%s/" % (src_dir, tu, th, dst_dir)
+        ok, out = ssh_exec(mh, master.get("port", 22), mu, mp, cmd, timeout=60)
+        results.append({"node": t.get("name"), "ok": ok, "out": out})
+    all_ok = all(r["ok"] for r in results) if results else True
+    return {"ok": all_ok, "results": results}
+
+
 def node_reachable(node, timeout=8):
     """探测单个节点 SSH 是否可达（快速）"""
     ok, _ = ssh_exec(node.get("host", ""), node.get("port", 22),

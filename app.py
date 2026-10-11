@@ -109,6 +109,9 @@ class Api:
     def pre_deploy_check(self):
         return cluster.pre_deploy_check_all()
 
+    def distribute_config(self, src, dst, roles):
+        return cluster.distribute_config(src, dst, roles)
+
     # ===== 集群启停 =====
     def get_services(self):
         return services.get_services()
