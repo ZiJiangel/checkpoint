@@ -176,6 +176,8 @@ function applyStyle(s) {
   localStorage.setItem('uiStyle', s);
   const sel = document.getElementById('themeSelect');
   if (sel) sel.value = s;
+  // 重新渲染节点列表（清掉上一个主题的 DOM 残留结构）
+  try { if (typeof renderNodes === 'function') renderNodes(); } catch (e) {}
 }
 applyStyle(uiStyle);
 document.getElementById('themeSelect').addEventListener('change', (e) => {
@@ -1243,13 +1245,10 @@ function renderNodes() {
       vmBadge = '<span class="vm-power none">— ' + t('cl.noVmx') + '</span>';
     }
     const expanded = (window._DETAIL_ID === n.id);
-    // 状态文字（默认主题下隐藏，仅界面风格主题显示）
-    const stKey = ({ green: 'ov.ok', yellow: 'ov.warn', red: 'ov.warn', gray: 'ov.gray', off: 'ov.off' })[st] || 'ov.gray';
-    const statusLabel = '<span class="node-status st-' + st + '">' + t(stKey) + '</span>';
     let row = '<div class="node-row' + (expanded ? ' selected' : '') + '" data-id="' + n.id + '">' +
       dot +
       '<span class="vm-name">' + n.name + '</span>' + role + host + note +
-      '<span class="bar-spacer"></span>' + statusLabel + vmBadge +
+      '<span class="bar-spacer"></span>' + vmBadge +
       '<span class="vm-count" style="cursor:pointer" data-del="' + n.id + '">删除</span>' +
       '</div>';
     // 就地展开：健康详情
