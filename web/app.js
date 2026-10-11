@@ -735,15 +735,15 @@ function renderSnapPick() {
   const sel = snapPickedNodes();
   const selIds = new Set(sel.map(n => n.id));
   box.innerHTML = withVmx.map(n =>
-    '<label class="snap-chip' + (selIds.has(n.id) ? ' on' : '') + '">' +
-    '<input type="checkbox" data-snapnode="' + n.id + '"' + (selIds.has(n.id) ? ' checked' : '') + '>' +
-    n.name + '</label>'
+    '<label class="snap-chip' + (selIds.has(n.id) ? ' on' : '') + '" data-snapnode="' + n.id + '">' +
+    '<span class="snap-tick">✓</span>' + n.name + '</label>'
   ).join('');
   box.querySelectorAll('[data-snapnode]').forEach(cb => {
-    cb.addEventListener('change', () => {
+    cb.addEventListener('click', () => {
       if (SNAP_PICKED === null) SNAP_PICKED = new Set(withVmx.map(n => n.id));   // 首次：从"全选"固化
       const id = cb.dataset.snapnode;
-      if (cb.checked) SNAP_PICKED.add(id); else SNAP_PICKED.delete(id);
+      const on = selIds.has(id);
+      if (on) SNAP_PICKED.delete(id); else SNAP_PICKED.add(id);
       renderSnapPick();
     });
   });
