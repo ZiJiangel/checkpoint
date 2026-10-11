@@ -24,6 +24,35 @@ function showModal(opts) {
 function uiAlert(body, title) { return showModal({ body: body, title: title, confirm: false }); }
 function uiConfirm(body, title) { return showModal({ body: body, title: title, confirm: true }); }
 
+// 带输入框的弹窗（返回输入的字符串，取消返回 null）
+function uiPrompt(title, defaultVal) {
+  return new Promise((resolve) => {
+    const mask = document.getElementById('modalMask');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const okBtn = document.getElementById('modalOk');
+    const cancelBtn = document.getElementById('modalCancel');
+    titleEl.textContent = title || '';
+    bodyEl.innerHTML = '<input class="prompt-input" style="width:100%" value="' +
+      (defaultVal || '').replace(/"/g, '&quot;') + '">';
+    cancelBtn.style.display = '';
+    mask.classList.remove('hidden');
+    const input = bodyEl.querySelector('.prompt-input');
+    setTimeout(() => input.focus(), 50);
+    const done = (val) => {
+      mask.classList.add('hidden');
+      okBtn.onclick = null; cancelBtn.onclick = null;
+      resolve(val);
+    };
+    okBtn.onclick = () => done(input.value.trim() || null);
+    cancelBtn.onclick = () => done(null);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') done(input.value.trim() || null);
+      else if (e.key === 'Escape') done(null);
+    });
+  });
+}
+
 // ============ 主题 ============
 let theme = localStorage.getItem('theme') || 'dark';
 function applyTheme(t) {
@@ -365,6 +394,33 @@ document.getElementById('langSelect').addEventListener('change', (e) => {
 let NODES = [];
 let HEALTH = {};       // id -> 健康结果
 let VM_STATUS = {};    // id -> {running, has_vmx}
+let CLUSTERS = [];     // 集群名列表
+let CURRENT_CLUSTER = '';
+
+async function loadClusters() {
+  CLUSTERS = await window.pywebview.api.get_clusters();
+  CURRENT_CLUSTER = await window.pywebview.api.get_current_cluster();
+  const sel = document.getElementById('clusterSelect');
+  if (sel) {
+    sel.innerHTML = CLUSTERS.map(c =>
+      '<option value="' + c + '"' + (c === CURRENT_CLUSTER ? ' selected' : '') + '>' + c + '</option>'
+    ).join('');
+  }
+}
+
+async function switchCluster(name) {
+  CURRENT_CLUSTER = name;
+  await window.pywebview.api.set_current_cluster(name);
+  HEALTH = {};          // 切换集群后清空体检结果
+  await loadNodes();
+}
+
+async function newCluster() {
+  const name = await uiPrompt(t('cl.newClusterName'));
+  if (!name) return;
+  await switchCluster(name);
+  await loadClusters();
+}
 
 async function loadNodes() {
   NODES = await window.pywebview.api.get_nodes();
@@ -372,6 +428,10 @@ async function loadNodes() {
   renderClusterCard();
   refreshVmStatus();
 }
+
+// 绑定集群选择器
+document.getElementById('clusterSelect').addEventListener('change', (e) => switchCluster(e.target.value));
+document.getElementById('clusterNew').addEventListener('click', newCluster);
 
 async function refreshVmStatus(force) {
   let next;
@@ -1091,6 +1151,7 @@ window.addEventListener('pywebviewready', async () => {
     document.getElementById('aboutAuthor').textContent = t('about.author') + meta.author;
   } catch (e) {}
   loadVms();
+  await loadClusters();
   loadNodes();
   loadVmware();
 });
