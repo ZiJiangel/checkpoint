@@ -76,7 +76,7 @@ int main() {
             "尝试的 Python：\n%s\n\n"
             "请确认已安装 Anaconda（或 Python 在 PATH 中）。\n\n错误码：%lu",
             py, GetLastError());
-        MessageBoxA(NULL, msg, "集群快照管理器", MB_ICONERROR);
+        MessageBoxA(NULL, msg, "Checkpoint", MB_ICONERROR);
         return 1;
     }
     CloseHandle(pi.hProcess);

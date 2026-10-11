@@ -1,5 +1,5 @@
 ﻿; 集群快照管理器 安装脚本
-#define MyAppName "集群快照管理器"
+#define MyAppName "Checkpoint"
 #define MyAppVersion "0.9.2"
 #define MyAppExeName "集群快照管理器.exe"
 

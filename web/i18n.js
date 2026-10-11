@@ -1,7 +1,7 @@
 // ============ 多语言字典 ============
 const I18N = {
   zh: {
-    "app.name": "集群快照管理器",
+    "app.name": "Checkpoint",
     "status.ready": "就绪",
     "status.loading": "加载中…",
     "tab.overview": "概览",
@@ -194,7 +194,7 @@ const I18N = {
     "alias.note": "备注（灰色小字）",
   },
   en: {
-    "app.name": "Snapshot Manager",
+    "app.name": "Checkpoint",
     "status.ready": "Ready",
     "status.loading": "Loading…",
     "tab.overview": "Overview",

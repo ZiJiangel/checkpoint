@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""集群快照管理器 - pywebview 主程序"""
+"""Checkpoint - pywebview 主程序"""
 import os
 import sys
 import subprocess
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     try:
         api = Api()
         webview.create_window(
-            "集群快照管理器",
+            "Checkpoint",
             os.path.join(WEB, "index.html"),
             js_api=api,
             width=1180, height=780,

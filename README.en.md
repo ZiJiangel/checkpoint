@@ -1,4 +1,4 @@
-# Snapshot Manager
+# Checkpoint
 
 A desktop tool for managing a **local VM cluster** — snapshots, health check, one-click start/stop, and diagnosis. Built for students running Hadoop / big-data cluster experiments on local virtual machines.
 

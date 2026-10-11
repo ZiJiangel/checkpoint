@@ -1,4 +1,4 @@
-# 集群快照管理器
+# Checkpoint
 
 > [English](README.en.md) | 简体中文
 
