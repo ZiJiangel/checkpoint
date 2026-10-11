@@ -144,10 +144,18 @@ let AUTO_CHECK = true;    // 由设置加载
 let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
-  ['cluster', 'node', 'vm', 'settings'].forEach(v => {
-    const el = document.getElementById('view-' + v);
-    if (el) el.classList.toggle('hidden', v !== name);
-  });
+  const doSwitch = () => {
+    ['cluster', 'node', 'vm', 'settings'].forEach(v => {
+      const el = document.getElementById('view-' + v);
+      if (el) el.classList.toggle('hidden', v !== name);
+    });
+  };
+  // View Transitions API（现代浏览器平滑过渡；不支持则直接切）
+  if (document.startViewTransition) {
+    document.startViewTransition(doSwitch);
+  } else {
+    doSwitch();
+  }
   if (name === 'cluster') {
     loadVmware();
     if (AUTO_CHECK && !CHECKED_ONCE && NODES.length) {

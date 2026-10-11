@@ -34,6 +34,16 @@ body.theme-light {
   --err: #b23b3b;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
+/* 全局过渡（微动效，不喧宾夺主） */
+button, .nav-item, .node-row, .snap-chip, .mini-btn, .tab, .detail-tab, .svc-action {
+  transition: background .12s, border-color .12s, color .12s, opacity .12s, transform .1s;
+}
+button:active { transform: scale(0.97); }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+/* View Transitions：视图切换淡入淡出 */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .18s; }
+.view:not(.hidden) { animation: fadeIn .18s ease-out; }
+.card, .bar, .ov-item { animation: fadeIn .2s ease-out; }
 html, body { height: 100%; overflow: hidden; }
 body {
   font-family: -apple-system, "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
