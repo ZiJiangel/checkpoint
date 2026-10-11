@@ -1395,12 +1395,21 @@ async function distributeConfig() {
   if (!await uiConfirm('把选中的 ' + picked.length + ' 个配置目录分发到从节点的「' + root + '」下？')) return;
   res.textContent = t('ops.running');
   let html = '';
+  let anyFail = '';
   for (const src of picked) {
     // 目标 = 根目录 + 源目录的最后两级（如 /etc/krb5.conf → 特殊处理）
     const dst = mapTarget(root, src);
     const r = await window.pywebview.api.distribute_config(src, dst, ['worker']);
+    const failOut = (r.results || []).filter(x => !x.ok).map(x => x.out || '').join(' ');
+    if (failOut && !anyFail) anyFail = failOut;
     html += '<div class="' + (r.ok ? 'ok' : 'err') + '">' + src + ' → ' + dst + ' — ' +
       (r.skipped ? t('cl.svcSkipped') : (r.ok ? t('ops.done') : t('ops.fail'))) + '</div>';
+  }
+  // 失败 → 附人话诊断（rsync 缺失 / 免密没配）
+  if (anyFail) {
+    const diag = await diagnoseHtml(anyFail);
+    if (diag) html += diag;
+    else html += '<div class="hint-foot">' + t('cl.distFailHint') + '</div>';
   }
   res.innerHTML = html;
 }

@@ -90,6 +90,22 @@ RULES = [
     },
     # ===== 服务/端口 =====
     {
+        "id": "rsync_missing",
+        "match": ["rsync: command not found", "rsync: not found"],
+        "title": "目标节点没装 rsync",
+        "meaning": "配置分发用 rsync，但目标节点没有这个命令",
+        "fix": "在目标节点执行 yum install -y rsync",
+        "sev": "error",
+    },
+    {
+        "id": "ssh_key",
+        "match": ["Permission denied (publickey", "Host key verification failed", "no mutual signature"],
+        "title": "SSH 免密未配置",
+        "meaning": "master → 从节点 没配 SSH 免密，rsync 传不过去",
+        "fix": "在 master 执行 ssh-copy-id root@从节点IP，确保免密登录",
+        "sev": "error",
+    },
+    {
         "id": "port_used",
         "match": ["Address already in use", "端口被占用", "BindException"],
         "title": "端口被占用",
