@@ -235,22 +235,40 @@ function renderVmView(vmx) {
     '<button id="vmStopBtn">' + t('btn.stop') + '</button>' +
     '</div>' +
     '<div class="result" id="vmOpResult"></div>';
-  // 快照区（树状）
+  // 快照区（支持树状视图）
+  const treeMode = window._SNAP_TREE_MODE;
+  const treeData = window._SNAP_TREE || [];
   html += '<div class="card" style="margin-top:0.8rem">' +
-    '<div class="bar-title" style="margin-bottom:0.5rem">' + t('cl.snapshots') + '（' + snaps.length + '）</div>' +
+    '<div class="bar-title" style="margin-bottom:0.5rem">' + t('cl.snapshots') + '（' + snaps.length + '）' +
+    '<span class="svc-action" style="margin-left:0.6rem" id="vmSnapTreeToggle">' + (treeMode ? t('cl.flatView') : t('cl.treeView')) + '</span></div>' +
     '<div class="form-row">' +
     '<input class="vm-snapname" placeholder="' + t('ph.snapName') + '" style="max-width:240px">' +
     '<button class="primary" id="vmSnapCreate">' + t('btn.create') + '</button>' +
     '</div>' +
     '<div class="result" id="vmSnapResult"></div>';
-  html += snaps.length ? snaps.map(s =>
-    '<div class="svc-line" style="margin-top:0.5rem">' +
-    '<span class="snap">' + s + '</span><span class="bar-spacer"></span>' +
-    '<span class="svc-action" data-vm-snap-rev="' + s + '">' + t('btn.revert') + '</span>' +
-    '<span class="svc-action" data-vm-snap-clone="' + s + '">' + t('cl.clone') + '</span>' +
-    '<span class="svc-action" data-vm-snap-del="' + s + '" style="color:#e06c6c">' + t('btn.delete') + '</span>' +
-    '</div>'
-  ).join('') : '<div class="empty">' + t('ov.empty') + '</div>';
+  if (snaps.length === 0) {
+    html += '<div class="empty">' + t('ov.empty') + '</div>';
+  } else if (treeMode && treeData.length) {
+    // 树状：按 depth 缩进
+    html += treeData.map(item =>
+      '<div class="svc-line" style="margin-top:0.5rem;padding-left:' + (item.depth * 16) + 'px">' +
+      (item.depth ? '<span class="vm-role">└ </span>' : '') +
+      '<span class="snap">' + item.name + '</span><span class="bar-spacer"></span>' +
+      '<span class="svc-action" data-vm-snap-rev="' + item.name + '">' + t('btn.revert') + '</span>' +
+      '<span class="svc-action" data-vm-snap-clone="' + item.name + '">' + t('cl.clone') + '</span>' +
+      '<span class="svc-action" data-vm-snap-del="' + item.name + '" style="color:#e06c6c">' + t('btn.delete') + '</span>' +
+      '</div>'
+    ).join('');
+  } else {
+    html += snaps.map(s =>
+      '<div class="svc-line" style="margin-top:0.5rem">' +
+      '<span class="snap">' + s + '</span><span class="bar-spacer"></span>' +
+      '<span class="svc-action" data-vm-snap-rev="' + s + '">' + t('btn.revert') + '</span>' +
+      '<span class="svc-action" data-vm-snap-clone="' + s + '">' + t('cl.clone') + '</span>' +
+      '<span class="svc-action" data-vm-snap-del="' + s + '" style="color:#e06c6c">' + t('btn.delete') + '</span>' +
+      '</div>'
+    ).join('');
+  }
   html += '</div>';
   // 关联节点配置（若该 VM 在某集群里是节点）
   const linked = NODES.find(n => normVmx(n.vmx) === normVmx(vmx));
@@ -323,6 +341,18 @@ function renderVmView(vmx) {
     await loadVms(false, true);
     renderVmView(vmx);
   }));
+  const treeToggle = document.getElementById('vmSnapTreeToggle');
+  if (treeToggle) treeToggle.addEventListener('click', async () => {
+    if (window._SNAP_TREE_MODE) {
+      window._SNAP_TREE_MODE = false;
+      renderVmView(vmx);
+    } else {
+      // 取树状数据
+      try { window._SNAP_TREE = await window.pywebview.api.snapshot_tree(vmx); } catch (e) { window._SNAP_TREE = []; }
+      window._SNAP_TREE_MODE = true;
+      renderVmView(vmx);
+    }
+  });
   box.querySelectorAll('[data-vm-snap-clone]').forEach(el => el.addEventListener('click', async () => {
     const s = el.dataset.vmSnapClone;
     if (!await uiConfirm('基于快照「' + s + '」克隆一台新虚拟机？（需该 VM 已关机/挂起）')) return;
