@@ -561,6 +561,8 @@ function severityColor(s) {
 
 function renderNodes() {
   const box = document.getElementById('nodeList');
+  const cnt = document.getElementById('nodeCount');
+  if (cnt) cnt.textContent = NODES.length;
   if (NODES.length === 0) {
     box.innerHTML = '<div class="card"><div class="empty">' + t('cl.empty') + '</div></div>';
     return;
