@@ -95,11 +95,11 @@
           <input id="distManual" placeholder="手动添加路径（如 /opt/myapp/conf），回车添加" style="max-width:340px">
         </div>
         <div class="form-row" style="margin-top:0.5rem">
-          <span class="sec-note-inline" data-i18n="cl.distTarget">目标目录</span>
-          <input id="distTarget" value="/root/app" placeholder="从节点上的目标根目录（如 /root/app）" style="max-width:340px">
+          <span class="sec-note-inline" data-i18n="cl.distTarget">目标覆盖</span>
+          <input id="distTarget" value="" placeholder="留空 = 同路径分发（推荐，集群目录一致）" style="max-width:360px">
           <button class="primary" id="distGo" disabled data-i18n="cl.distGo">分发选中的配置</button>
         </div>
-        <div class="hint-foot" data-i18n="cl.distTargetHint">默认按"源目录最后两级"映射到目标根下；不确定时留默认 /root/app</div>
+        <div class="hint-foot" data-i18n="cl.distTargetHint">默认同路径分发（各节点目录结构一致时最安全）；仅当目标路径不同时才填"覆盖根目录"</div>
         <div class="result" id="distResult"></div>
       </div>
 

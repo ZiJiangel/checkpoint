@@ -1376,12 +1376,9 @@ async function scanConfigDirs() {
   }
 }
 
-// 源路径 → 目标路径：/etc/hosts 等单文件保持原路径；目录按"最后一级"挂到 root 下
+// 源路径 → 目标路径。默认同路径分发（最安全）；仅在填了 root 时覆盖
 function mapTarget(root, src) {
-  // 常见的系统单文件：保持绝对路径（不能塞进 /root/app）
-  if (src === '/etc/hosts' || src === '/etc/krb5.conf' || src.endsWith('.conf')) {
-    return src;
-  }
+  if (!root || !root.trim()) return src;   // 留空 = 同路径（推荐）
   const base = src.replace(/\/+$/, '').split('/').pop();
   return root.replace(/\/+$/, '') + '/' + base;
 }
@@ -1391,8 +1388,9 @@ async function distributeConfig() {
   const res = document.getElementById('distResult');
   const picked = Array.from(document.querySelectorAll('[data-distpath]:checked')).map(cb => cb.dataset.distpath);
   if (!picked.length) { res.innerHTML = '<span class="err">' + t('cl.pickConfig') + '</span>'; return; }
-  const root = (document.getElementById('distTarget').value || '/root/app').trim();
-  if (!await uiConfirm('把选中的 ' + picked.length + ' 个配置目录分发到从节点的「' + root + '」下？')) return;
+  const root = (document.getElementById('distTarget').value || '').trim();
+  const scope = root ? ('覆盖根目录 ' + root) : '同路径';
+  if (!await uiConfirm('把选中的 ' + picked.length + ' 个配置分发到从节点（' + scope + '）？')) return;
   res.textContent = t('ops.running');
   let html = '';
   let anyFail = '';

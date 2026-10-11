@@ -345,7 +345,8 @@ def distribute_config(src_dir, dst_dir, roles=None):
             results.append({"node": t.get("name"), "ok": True, "out": "虚拟机关机，跳过", "off": True})
             continue
         th = t.get("host", ""); tu = t.get("user", "")
-        cmd = "rsync -az --delete %s/ %s@%s:%s/" % (src_dir, tu, th, dst_dir)
+        # 不用 --delete（避免目标路径出错时误删文件）；配置分发只覆盖更新
+        cmd = "rsync -az %s/ %s@%s:%s/" % (src_dir, tu, th, dst_dir)
         ok, out = ssh_exec(mh, master.get("port", 22), mu, mp, cmd, timeout=60)
         results.append({"node": t.get("name"), "ok": ok, "out": out})
     all_ok = all(r["ok"] for r in results) if results else True
