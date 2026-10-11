@@ -56,6 +56,50 @@ def known_vm_config(vmx):
     return {}
 
 
+# 内置集群模板：标准节点配置（角色 + 提示）
+CLUSTER_TEMPLATES = {
+    "hadoop3": {
+        "name": "Hadoop 3 节点",
+        "nodes": [
+            {"role": "master", "note": "主节点 · NameNode/RM"},
+            {"role": "worker", "note": "从节点1 · DataNode/NM"},
+            {"role": "worker", "note": "从节点2 · DataNode/NM/2NN"},
+        ],
+    },
+    "hadoop5": {
+        "name": "Hadoop + Kerberos 5 节点",
+        "nodes": [
+            {"role": "master", "note": "主节点"},
+            {"role": "worker", "note": "从节点1"},
+            {"role": "worker", "note": "从节点2"},
+            {"role": "ntp", "note": "NTP 时间服务器"},
+            {"role": "kdc", "note": "Kerberos KDC"},
+        ],
+    },
+}
+
+
+def list_templates():
+    return [{"id": k, "name": v["name"], "count": len(v["nodes"])} for k, v in CLUSTER_TEMPLATES.items()]
+
+
+def create_from_template(tid, cluster_name):
+    """按模板创建节点骨架（归入指定集群）。返回新节点列表。"""
+    tpl = CLUSTER_TEMPLATES.get(tid)
+    if not tpl:
+        return []
+    created = []
+    for i, spec in enumerate(tpl["nodes"], 1):
+        node = {
+            "name": spec["role"] + str(i) if spec["role"] in ("worker",) else spec["role"],
+            "host": "", "user": "root", "pass": "",
+            "role": spec["role"], "note": spec["note"],
+            "cluster": cluster_name, "port": 22, "vmx": "", "tags": {}, "enabled": True,
+        }
+        created.append(add_node(node))
+    return created
+
+
 def list_clusters():
     """返回所有集群名（去重；含当前集群）"""
     names = []

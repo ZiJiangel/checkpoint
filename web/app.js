@@ -92,6 +92,26 @@ function field(cls, label, ctrl) {
 }
 function esc(s) { return String(s == null ? '' : s).replace(/"/g, '&quot;'); }
 
+// 带下拉选择的弹窗（返回选中值，取消返回 null）
+function uiPick(title, optionsHtml) {
+  return new Promise((resolve) => {
+    const mask = document.getElementById('modalMask');
+    const titleEl = document.getElementById('modalTitle');
+    const bodyEl = document.getElementById('modalBody');
+    const okBtn = document.getElementById('modalOk');
+    const cancelBtn = document.getElementById('modalCancel');
+    titleEl.textContent = title || '';
+    bodyEl.innerHTML = '<select class="prompt-input" style="width:100%">' + optionsHtml + '</select>';
+    cancelBtn.style.display = '';
+    mask.classList.remove('hidden');
+    const sel = bodyEl.querySelector('.prompt-input');
+    setTimeout(() => sel.focus(), 50);
+    const done = (val) => { mask.classList.add('hidden'); okBtn.onclick = null; cancelBtn.onclick = null; resolve(val); };
+    okBtn.onclick = () => done(sel.value);
+    cancelBtn.onclick = () => done(null);
+  });
+}
+
 // 带输入框的弹窗（返回输入的字符串，取消返回 null）
 function uiPrompt(title, defaultVal) {
   return new Promise((resolve) => {
@@ -671,6 +691,19 @@ async function loadNodes() {
 
 // 新建集群
 document.getElementById('clusterNew').addEventListener('click', newCluster);
+document.getElementById('clusterTpl').addEventListener('click', createFromTemplate);
+
+async function createFromTemplate() {
+  const tpls = await window.pywebview.api.list_templates();
+  const opts = tpls.map(tp => '<option value="' + tp.id + '">' + tp.name + '（' + tp.count + ' 节点）</option>').join('');
+  const tid = await uiPick(t('cl.pickTemplate'), opts);
+  if (!tid) return;
+  const cname = await uiPrompt(t('cl.templateClusterName'), '新集群');
+  if (!cname) return;
+  await window.pywebview.api.create_from_template(tid, cname);
+  await loadClusters();
+  await switchCluster(cname);
+}
 
 async function refreshVmStatus(force) {
   let next;

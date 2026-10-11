@@ -112,6 +112,12 @@ class Api:
     def distribute_config(self, src, dst, roles):
         return cluster.distribute_config(src, dst, roles)
 
+    def list_templates(self):
+        return cluster.list_templates()
+
+    def create_from_template(self, tid, cluster_name):
+        return cluster.create_from_template(tid, cluster_name)
+
     # ===== 集群启停 =====
     def get_services(self):
         return services.get_services()
