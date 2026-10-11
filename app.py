@@ -115,6 +115,9 @@ class Api:
     def distribute_config(self, src, dst, roles):
         return cluster.distribute_config(src, dst, roles)
 
+    def scan_config_dirs(self):
+        return cluster.scan_config_dirs()
+
     def list_templates(self):
         return cluster.list_templates()
 

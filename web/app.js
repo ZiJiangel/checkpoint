@@ -1304,19 +1304,53 @@ document.getElementById('clusterAdd').addEventListener('click', addNode);
 document.getElementById('clusterCheck').addEventListener('click', runHealthCheck);
 document.getElementById('deployCheck').addEventListener('click', runDeployCheck);
 
-async function distributeConfig() {
-  const src = document.getElementById('distSrc').value.trim();
-  const dst = document.getElementById('distDst').value.trim();
-  const res = document.getElementById('distResult');
-  if (!src || !dst) { res.innerHTML = '<span class="err">请填写源/目标目录</span>'; return; }
-  if (!await uiConfirm('把 master 的 ' + src + ' 分发到从节点的 ' + dst + '？')) return;
-  res.textContent = t('ops.running');
-  const r = await window.pywebview.api.distribute_config(src, dst, ['worker']);
-  if (r.skipped) { res.innerHTML = '<span class="vm-role">' + (r.msg || '无目标节点') + '</span>'; return; }
-  res.innerHTML = (r.results || []).map(x =>
-    '<div class="' + (x.ok ? 'ok' : 'err') + '">' + x.node + ' — ' + (x.ok ? t('ops.done') : x.out) + '</div>'
-  ).join('') + (r.msg ? '<div class="err">' + r.msg + '</div>' : '');
+let DIST_FOUND = [];   // 扫描到的配置目录
+
+async function scanConfigDirs() {
+  const btn = document.getElementById('distScan');
+  const box = document.getElementById('distList');
+  btn.disabled = true; btn.textContent = t('cl.scanning');
+  box.innerHTML = '<div class="empty">' + t('cl.scanning') + '</div>';
+  try {
+    const r = await window.pywebview.api.scan_config_dirs();
+    DIST_FOUND = r.dirs || [];
+    if (!r.ok) { box.innerHTML = '<div class="err">' + (r.msg || '扫描失败') + '</div>'; return; }
+    if (!DIST_FOUND.length) { box.innerHTML = '<div class="empty">' + t('cl.noConfigFound') + '</div>'; return; }
+    // 按软件分组
+    const bySw = {};
+    DIST_FOUND.forEach(d => { (bySw[d.software] = bySw[d.software] || []).push(d.path); });
+    box.innerHTML = Object.keys(bySw).map(sw =>
+      '<div style="margin-top:0.4rem"><span class="vm-role">' + sw + '</span>' +
+      bySw[sw].map(p => '<label class="snap-chip on" style="margin:0.2rem 0.3rem 0 0"><input type="checkbox" data-distpath="' + p + '" checked>' + p + '</label>').join('') +
+      '</div>'
+    ).join('');
+    box.querySelectorAll('[data-distpath]').forEach(cb => {
+      cb.parentElement.classList.toggle('on', cb.checked);
+      cb.addEventListener('change', () => cb.parentElement.classList.toggle('on', cb.checked));
+    });
+    document.getElementById('distGo').disabled = false;
+  } catch (e) {
+    box.innerHTML = '<div class="err">' + e + '</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = t('cl.distScan');
+  }
 }
+
+async function distributeConfig() {
+  const res = document.getElementById('distResult');
+  const picked = Array.from(document.querySelectorAll('[data-distpath]:checked')).map(cb => cb.dataset.distpath);
+  if (!picked.length) { res.innerHTML = '<span class="err">' + t('cl.pickConfig') + '</span>'; return; }
+  if (!await uiConfirm('把选中的 ' + picked.length + ' 个配置目录分发到从节点？')) return;
+  res.textContent = t('ops.running');
+  let html = '';
+  for (const src of picked) {
+    const r = await window.pywebview.api.distribute_config(src, src, ['worker']);
+    html += '<div class="' + (r.ok ? 'ok' : 'err') + '">' + src + ' — ' +
+      (r.skipped ? t('cl.svcSkipped') : (r.ok ? t('ops.done') : t('ops.fail'))) + '</div>';
+  }
+  res.innerHTML = html;
+}
+document.getElementById('distScan').addEventListener('click', scanConfigDirs);
 document.getElementById('distGo').addEventListener('click', distributeConfig);
 
 // ============ 集群启停编排 ============

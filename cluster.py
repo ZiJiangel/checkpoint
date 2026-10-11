@@ -272,6 +272,49 @@ def pre_deploy_check_all():
     return results
 
 
+# 常见软件的配置目录候选（软件名 → [候选路径]）。不写死，扫描确认存在才算。
+CONFIG_CANDIDATES = {
+    "Hadoop": ["/root/app/hadoop/etc/hadoop", "/usr/local/hadoop/etc/hadoop",
+               "/opt/hadoop/etc/hadoop", "/root/app/hadoop/conf"],
+    "Hive": ["/root/app/hive/conf", "/root/app/hive-2.3.9/conf",
+             "/opt/hive/conf", "/usr/local/hive/conf"],
+    "Spark": ["/root/app/spark/conf", "/opt/spark/conf", "/usr/local/spark/conf"],
+    "Flume": ["/opt/flume/conf", "/opt/flume-1.11.0/conf", "/root/app/flume/conf"],
+    "HBase": ["/root/app/hbase/conf", "/opt/hbase/conf", "/usr/local/hbase/conf"],
+    "Kafka": ["/root/app/kafka/config", "/opt/kafka/config"],
+    "Kerberos": ["/etc/krb5.conf", "/var/kerberos/krb5kdc"],
+    "ZooKeeper": ["/root/app/zookeeper/conf", "/opt/zookeeper/conf"],
+    "系统 hosts": ["/etc/hosts"],
+    "环境变量": ["/etc/profile.d"],
+}
+
+
+def scan_config_dirs():
+    """在 master 节点扫描存在的配置目录（不写死，以实际为准）。
+    返回 [{software, path, exists}]"""
+    nodes = list_nodes()
+    master = next((n for n in nodes if n.get("role") == "master"), None)
+    if not master:
+        return {"ok": False, "dirs": [], "msg": "未找到 master 节点"}
+    # 拼探测命令：对每个候选路径 test -e
+    paths = []
+    for sw, plist in CONFIG_CANDIDATES.items():
+        for p in plist:
+            paths.append((sw, p))
+    cmds = "; ".join('test -e "%s" && echo "OK|%s|%s"' % (p, sw, p) for sw, p in paths)
+    ok, out = ssh_exec(master.get("host", ""), master.get("port", 22),
+                       master.get("user", ""), master.get("pass", ""), cmds, timeout=30)
+    if not ok:
+        return {"ok": False, "dirs": [], "msg": out}
+    found = []
+    for line in out.splitlines():
+        if line.startswith("OK|"):
+            parts = line.split("|", 2)
+            if len(parts) == 3:
+                found.append({"software": parts[1], "path": parts[2]})
+    return {"ok": True, "dirs": found, "msg": ""}
+
+
 def distribute_config(src_dir, dst_dir, roles=None):
     """从 master 节点把配置目录分发到目标角色节点（需 SSH 免密）。
     src_dir/dst_dir：源/目标目录；roles：目标角色（默认 worker）。
