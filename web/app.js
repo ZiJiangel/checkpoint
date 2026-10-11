@@ -139,27 +139,50 @@ document.getElementById('minBtn').addEventListener('click', () => window.pywebvi
 document.getElementById('maxBtn').addEventListener('click', () => window.pywebview.api.maximize());
 document.getElementById('closeBtn').addEventListener('click', () => window.pywebview.api.close_win());
 
-// ============ 标签页 ============
+// ============ 视图导航（左栏 + 右区，vCenter 式）============
 let AUTO_CHECK = true;    // 由设置加载
 let CHECKED_ONCE = false;  // 避免反复体检
 
-document.querySelectorAll('.tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-    document.getElementById('page-' + t.dataset.tab).classList.remove('hidden');
-    // 进入「集群」页 → 刷新 VMware 状态
-    if (t.dataset.tab === 'cluster') {
-      loadVmware();
-      // 开启自动检查 → 自动体检一次
-      if (AUTO_CHECK && !CHECKED_ONCE && NODES.length) {
-        CHECKED_ONCE = true;
-        runHealthCheck();
-      }
-    }
+function showView(name) {
+  ['cluster', 'node', 'settings'].forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.toggle('hidden', v !== name);
   });
-});
+  if (name === 'cluster') {
+    loadVmware();
+    if (AUTO_CHECK && !CHECKED_ONCE && NODES.length) {
+      CHECKED_ONCE = true;
+      runHealthCheck();
+    }
+  }
+}
+
+// 渲染左栏（集群列表 + 虚拟机列表）
+function renderSidebar() {
+  const cn = document.getElementById('clusterNav');
+  if (cn) {
+    cn.innerHTML = CLUSTERS.map(c =>
+      '<div class="nav-item' + (c === CURRENT_CLUSTER ? ' active' : '') + '" data-cluster="' + esc(c) + '">' +
+      '<span class="nav-ico">▌</span>' + c + '</div>'
+    ).join('');
+    cn.querySelectorAll('[data-cluster]').forEach(el => {
+      el.addEventListener('click', () => selectCluster(el.dataset.cluster));
+    });
+  }
+  const vn = document.getElementById('vmNav');
+  if (vn) {
+    vn.innerHTML = VMS.map(v =>
+      '<div class="nav-item" data-vm="' + esc(v.vmx) + '">' +
+      '<span class="status-dot ' + (v.running ? 'st-green' : 'st-gray') + '"></span>' + v.label + '</div>'
+    ).join('');
+  }
+}
+
+async function selectCluster(name) {
+  await switchCluster(name);
+  renderSidebar();
+  showView('cluster');
+}
 
 // ============ 数据 ============
 let VMS = [];
@@ -190,12 +213,8 @@ async function loadVms(force) {
 }
 
 function renderAll() {
-  renderOverview();
-  renderOpsTargets();
-  renderRuntime();
-  renderDelSelectors();
   renderAliasList();
-  renderRevSnaps();
+  renderSidebar();
 }
 
 function renderRevSnaps() {
@@ -393,34 +412,13 @@ async function saveAllAlias() {
 }
 
 // ============ 绑定 ============
-document.getElementById('refreshOverview').addEventListener('click', () => loadVms(false));
 document.getElementById('rescanVms').addEventListener('click', () => loadVms(true));
-document.getElementById('refreshRun').addEventListener('click', loadVms);
-document.getElementById('doSnap').addEventListener('click', doSnap);
-document.getElementById('doRev').addEventListener('click', doRev);
-document.getElementById('doDel').addEventListener('click', doDel);
-document.getElementById('doStart').addEventListener('click', doStart);
-document.getElementById('doStop').addEventListener('click', doStop);
 document.getElementById('saveVmrun').addEventListener('click', saveVmrun);
 document.getElementById('saveAllAlias').addEventListener('click', saveAllAlias);
-
-// 下拉复选框开关
-function bindDD(btnId, menuId) {
-  const btn = document.getElementById(btnId);
-  const menu = document.getElementById(menuId);
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const open = menu.classList.contains('open');
-    document.querySelectorAll('.dd-menu').forEach(m => m.classList.remove('open'));
-    if (!open) menu.classList.add('open');
-  });
-  menu.addEventListener('click', e => e.stopPropagation());
-}
-bindDD('snapDDBtn', 'snapDDMenu');
-bindDD('revDDBtn', 'revDDMenu');
-document.addEventListener('click', () => {
-  document.querySelectorAll('.dd-menu').forEach(m => m.classList.remove('open'));
-});
+const _navSet = document.getElementById('navSettings');
+if (_navSet) _navSet.addEventListener('click', () => showView('settings'));
+const _nodeBack = document.getElementById('nodeBack');
+if (_nodeBack) _nodeBack.addEventListener('click', () => showView('cluster'));
 
 // ============ 关于 / 检查更新 ============
 document.getElementById('checkUpdateBtn').addEventListener('click', async () => {
@@ -468,12 +466,6 @@ let CURRENT_CLUSTER = '';
 async function loadClusters() {
   CLUSTERS = await window.pywebview.api.get_clusters();
   CURRENT_CLUSTER = await window.pywebview.api.get_current_cluster();
-  const sel = document.getElementById('clusterSelect');
-  if (sel) {
-    sel.innerHTML = CLUSTERS.map(c =>
-      '<option value="' + c + '"' + (c === CURRENT_CLUSTER ? ' selected' : '') + '>' + c + '</option>'
-    ).join('');
-  }
 }
 
 async function switchCluster(name) {
@@ -481,6 +473,7 @@ async function switchCluster(name) {
   await window.pywebview.api.set_current_cluster(name);
   HEALTH = {};          // 切换集群后清空体检结果
   await loadNodes();
+  renderSidebar();
 }
 
 async function newCluster() {
@@ -497,8 +490,7 @@ async function loadNodes() {
   refreshVmStatus();
 }
 
-// 绑定集群选择器
-document.getElementById('clusterSelect').addEventListener('change', (e) => switchCluster(e.target.value));
+// 新建集群
 document.getElementById('clusterNew').addEventListener('click', newCluster);
 
 async function refreshVmStatus(force) {
@@ -618,6 +610,7 @@ function showDetail(id) {
     '<button class="detail-tab' + (DETAIL_TAB === k ? ' active' : '') + '" data-dtab="' + k + '">' + label + '</button>'
   ).join('') + '</div>';
 
+  showView('node');
   document.getElementById('nodeDetail').innerHTML =
     '<div class="card">' +
     '<div class="card-top"><div><span class="status-dot st-' + st + '"></span>' +
@@ -1277,8 +1270,10 @@ window.addEventListener('pywebviewready', async () => {
     document.getElementById('aboutVer').textContent = 'v' + meta.version;
     document.getElementById('aboutAuthor').textContent = t('about.author') + meta.author;
   } catch (e) {}
-  loadVms();
+  await loadVms();
   await loadClusters();
+  renderSidebar();
+  showView('cluster');
   loadNodes();
   loadVmware();
 });
