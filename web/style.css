@@ -236,6 +236,14 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .ov-num.ok { color: #3ecf8e; }
 .ov-num.err { color: #e06c6c; }
 .ov-label { font-size: 0.72rem; color: var(--muted); margin-top: 0.15rem; }
+/* 人话诊断 */
+.diag-box { margin: 0.5rem 0; }
+.diag-item { padding: 0.5rem 0.7rem; border-radius: 6px; margin-top: 0.4rem; font-size: 0.8rem; border-left: 3px solid var(--muted); background: var(--surface-2); }
+.diag-item.diag-error { border-left-color: #e06c6c; }
+.diag-item.diag-warn { border-left-color: #e0b34a; }
+.diag-title { font-weight: 640; margin-bottom: 0.2rem; }
+.diag-meaning { color: var(--ink-2); }
+.diag-fix { color: #3ecf8e; margin-top: 0.2rem; }
 .snap-pick { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
 .snap-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.7rem 0.25rem 0.5rem; border: 1px solid var(--line); border-radius: 6px; font-size: 0.8rem; cursor: pointer; color: var(--muted); background: var(--surface); user-select: none; transition: all .12s; }
 .snap-chip:hover { border-color: var(--muted); color: var(--ink-2); }

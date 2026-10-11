@@ -45,6 +45,7 @@ import core
 import cluster
 import services
 import vmware_env
+import diagnose
 
 import sys
 
@@ -101,6 +102,9 @@ class Api:
 
     def health_check(self):
         return cluster.health_check_all()
+
+    def diagnose(self, text):
+        return diagnose.diagnose(text)
 
     # ===== 集群启停 =====
     def get_services(self):

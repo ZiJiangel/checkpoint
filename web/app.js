@@ -929,6 +929,15 @@ function renderHealthInline(n) {
     && (!h.svcs_missing || !h.svcs_missing.length)
     && (!h.ports_missing || !h.ports_missing.length);
   if (noProb) html += '<div class="svc-line ok">全部检查通过</div>';
+  else {
+    // 人话诊断（异步填充）
+    const id = 'diag_' + n.id;
+    html += '<div id="' + id + '"></div>';
+    setTimeout(async () => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = await diagnoseHtml(h.detail || '');
+    }, 30);
+  }
   return html;
 }
 
@@ -1293,9 +1302,13 @@ async function runCluster(action) {
       if (!ok) {
         lines[lines.length - 1] = renderLine(label + (detail ? ' — ' + detail : ''), 'fail');
         powerLog(lines.join(''));
+        // 人话诊断
+        const diag = await diagnoseHtml(detail);
+        if (diag) lines.push(diag);
         // 依赖被破坏，停止后续阶段
         lines.push('<div class="result err">✕ 检测未通过，已停止后续阶段（依赖未就绪）</div>');
         aborted = true;
+        powerLog(lines.join(''));
         break;
       }
       lines[lines.length - 1] = renderLine(label, 'done');
@@ -1309,6 +1322,21 @@ async function runCluster(action) {
   }
   runHealthCheck();   // 结束后自动刷新体检
   refreshVmStatus();  // 刷新 VM 开/关机状态
+}
+
+// 人话诊断：调后端规则表，返回 HTML（失败时展示）
+async function diagnoseHtml(text) {
+  if (!text) return '';
+  let hits = [];
+  try { hits = await window.pywebview.api.diagnose(text); } catch (e) { return ''; }
+  if (!hits || !hits.length) return '';
+  return '<div class="diag-box">' + hits.map(h =>
+    '<div class="diag-item diag-' + h.sev + '">' +
+    '<div class="diag-title">💡 ' + h.title + '</div>' +
+    '<div class="diag-meaning">' + h.meaning + '</div>' +
+    '<div class="diag-fix">👉 ' + h.fix + '</div>' +
+    '</div>'
+  ).join('') + '</div>';
 }
 
 function renderLine(text, state) {
