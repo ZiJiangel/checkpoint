@@ -33,6 +33,14 @@ A desktop tool for managing a **local VM cluster** — snapshots, health check, 
 
 ---
 
+## Screenshots
+
+![Cluster page](screenshots/1-cluster.png)
+
+> Left: clusters / VMs. Right: VMware status, cluster overview, node list, cluster snapshots, config distribution.
+
+---
+
 ## Prerequisites
 
 This tool is for **local VM cluster experiments**. You need:
