@@ -1804,7 +1804,24 @@ async function stopVmwareServices(mode) {
   mode = mode || 'optional';
   const label = mode === 'all' ? t('vm.stopAll') : t('vm.stopOptional');
   let warn = label + '？';
-  if (mode === 'all') warn = t('vm.stopAllWarn');
+  if (mode === 'all') {
+    // 检查是否有 VM 在运行——有则强力警告（会断网+失去控制）
+    let runningCount = 0;
+    try {
+      const st = await window.pywebview.api.nodes_vm_status();
+      runningCount = Object.values(st).filter(v => v.running).length;
+    } catch (e) {}
+    if (runningCount > 0) {
+      warn = '⚠️ 当前有 ' + runningCount + ' 台虚拟機在运行！\n\n' +
+        '停止「授权/NAT/DHCP」服务会导致：\n' +
+        '  • 虚拟机断网，SSH 连不上（集群失联）\n' +
+        '  • vmrun 失效，无法再启停/快照虚拟机\n\n' +
+        '虚拟机本身不会关机，但你会失去对它们的控制。\n\n' +
+        '建议：先「关闭所有虚拟机」，再停服务。\n\n确定仍要停止？';
+    } else {
+      warn = t('vm.stopAllWarn');
+    }
+  }
   if (!await uiConfirm(warn)) return;
   const box = document.getElementById('vmwareCard');
   box.insertAdjacentHTML('afterbegin', '<div class="result cl-run" id="vmwareBusy">' + t('vm.working') + '</div>');
