@@ -499,6 +499,7 @@ async function saveAllAlias() {
 
 // ============ 绑定 ============
 document.getElementById('rescanVms').addEventListener('click', () => loadVms(true));
+document.getElementById('clusterSnapCreate').addEventListener('click', createClusterSnap);
 document.getElementById('saveVmrun').addEventListener('click', saveVmrun);
 document.getElementById('saveAllAlias').addEventListener('click', saveAllAlias);
 const _navSet = document.getElementById('navSettings');
@@ -575,6 +576,7 @@ async function loadNodes() {
   NODES = await window.pywebview.api.get_nodes();
   renderNodes();
   renderClusterCard();
+  renderClusterSnap();
   refreshVmStatus();
 }
 
@@ -592,6 +594,7 @@ async function refreshVmStatus(force) {
   if (changed || force) {
     renderNodes();
     renderClusterCard();
+    renderClusterSnap();
   }
 }
 
@@ -633,6 +636,73 @@ function renderClusterCard() {
     '<span style="display:flex;gap:0.8rem;font-size:0.8rem">' + parts.join('') + '</span>' +
     '<span class="vm-count">' + NODES.length + ' 台</span>' +
     '</div>';
+}
+
+// 集群快照：按节点列出各 VM 的快照 + 批量打
+function renderClusterSnap() {
+  const box = document.getElementById('clusterSnapList');
+  if (!box) return;
+  if (NODES.length === 0) { box.innerHTML = ''; return; }
+  // 汇总：每个快照名 → 哪些节点有
+  const nameMap = {};   // snapName -> [nodeName...]
+  NODES.forEach(n => {
+    const vm = VMS.find(v => normVmx(v.vmx) === normVmx(n.vmx));
+    const snaps = vm ? vm.snapshots : [];
+    snaps.forEach(s => { (nameMap[s] = nameMap[s] || []).push(n.name); });
+  });
+  const names = Object.keys(nameMap).sort();
+  if (names.length === 0) { box.innerHTML = '<div class="empty">' + t('ov.empty') + '</div>'; return; }
+  box.innerHTML = names.map(s => {
+    const nodesWith = nameMap[s];
+    const all = nodesWith.length === NODES.length;
+    return '<div class="node-row">' +
+      '<span class="snap">' + s + '</span>' +
+      '<span class="vm-role">' + nodesWith.length + '/' + NODES.length + ' 台' + (all ? '（全集群）' : '') + '</span>' +
+      '<span class="bar-spacer"></span>' +
+      '<span class="svc-action" data-cluster-rev="' + esc(s) + '">' + t('btn.revert') + '</span>' +
+      '</div>';
+  }).join('');
+  box.querySelectorAll('[data-cluster-rev]').forEach(el => el.addEventListener('click', () => revertClusterSnap(el.dataset.clusterRev)));
+}
+
+async function createClusterSnap() {
+  const name = document.getElementById('clusterSnapName').value.trim();
+  const res = document.getElementById('clusterSnapResult');
+  if (!name) { res.innerHTML = '<span class="err">' + t('ops.needName') + '</span>'; return; }
+  const targets = NODES.filter(n => n.vmx);
+  if (targets.length === 0) { res.innerHTML = '<span class="err">' + t('cl.noVmxNodes') + '</span>'; return; }
+  res.textContent = t('ops.running');
+  let ok = 0, fail = 0;
+  for (const n of targets) {
+    try {
+      const r = await window.pywebview.api.snapshot(n.vmx, name);
+      if (r.ok) ok++; else fail++;
+    } catch (e) { fail++; }
+    res.textContent = t('ops.running') + ' (' + (ok + fail) + '/' + targets.length + ')';
+  }
+  res.innerHTML = '<span class="' + (fail === 0 ? 'ok' : 'err') + '">' +
+    ok + ' 台成功' + (fail ? '，' + fail + ' 台失败' : '') + '</span>';
+  await loadVms(false, true);
+  renderClusterSnap();
+}
+
+async function revertClusterSnap(name) {
+  if (!await uiConfirm(t('ops.revert') + '（整个集群）：' + name + ' ?')) return;
+  const res = document.getElementById('clusterSnapResult');
+  const targets = NODES.filter(n => n.vmx);
+  res.textContent = t('ops.running');
+  let ok = 0, fail = 0;
+  for (const n of targets) {
+    const vm = VMS.find(v => normVmx(v.vmx) === normVmx(n.vmx));
+    if (!vm || !vm.snapshots.includes(name)) continue;   // 该节点没这个快照，跳过
+    try {
+      const r = await window.pywebview.api.revert(n.vmx, name);
+      if (r.ok) ok++; else fail++;
+    } catch (e) { fail++; }
+    res.textContent = t('ops.running') + ' (' + (ok + fail) + ')';
+  }
+  res.innerHTML = '<span class="' + (fail === 0 ? 'ok' : 'err') + '">回滚：' + ok + ' 台成功' + (fail ? '，' + fail + ' 台失败' : '') + '</span>';
+  await loadVms(false, true);
 }
 
 function severityColor(s) {

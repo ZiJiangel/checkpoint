@@ -69,6 +69,16 @@
         <div id="clusterCard"></div>
         <div id="nodeList"></div>
         <div id="powerProgress"></div>
+
+        <div class="sec-head" style="margin-top:1.4rem"><span class="sec-title" data-i18n="cl.clusterSnap">集群快照</span>
+          <span class="sec-note-inline" data-i18n="cl.clusterSnapHint">给整个集群的节点一次性打快照 / 回滚</span>
+        </div>
+        <div class="form-row">
+          <input id="clusterSnapName" data-i18n-ph="ph.snapName" placeholder="快照名（如 base_clean_1010）" style="max-width:260px">
+          <button class="primary" id="clusterSnapCreate" data-i18n="cl.snapAll">给所有节点打快照</button>
+        </div>
+        <div class="result" id="clusterSnapResult"></div>
+        <div id="clusterSnapList"></div>
       </div>
 
       <div class="view hidden" id="view-node">
