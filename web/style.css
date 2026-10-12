@@ -224,6 +224,19 @@ button.primary:hover { opacity: 0.88; }
 .result { font-family: var(--font-mono); font-size: 0.8rem; margin-top: 0.6rem; }
 .result .ok { color: var(--ok); }
 .result .err { color: var(--err); }
+
+/* 命令透明：实际执行的命令 + 输出 */
+.cmd-log { margin-top: 0.5rem; border: 1px solid var(--line); border-radius: var(--r-box); background: var(--surface); overflow: hidden; }
+.cmd-log-head { display: flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.7rem; font-size: 0.75rem; color: var(--muted); border-bottom: 1px solid var(--line); }
+.cmd-log-head .cmd-toggle { margin-left: auto; cursor: pointer; color: var(--accent); font-size: 0.72rem; }
+.cmd-item { padding: 0.4rem 0.7rem; border-bottom: 1px solid var(--line); }
+.cmd-item:last-child { border-bottom: none; }
+.cmd-line { display: flex; align-items: flex-start; gap: 0.4rem; font-family: var(--font-mono); font-size: 0.76rem; }
+.cmd-line .cmd-tgt { color: var(--muted); flex: none; }
+.cmd-line .cmd-text { flex: 1; word-break: break-all; }
+.cmd-line .cmd-copy { flex: none; cursor: pointer; color: var(--muted); font-size: 0.7rem; padding: 0 0.2rem; }
+.cmd-line .cmd-copy:hover { color: var(--accent); }
+.cmd-out { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); white-space: pre-wrap; word-break: break-all; margin-top: 0.2rem; max-height: 8rem; overflow-y: auto; }
 .chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .chip { padding: 0.3rem 0.7rem; border-radius: var(--r-chip); border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font-size: 0.78rem; cursor: pointer; }
 .chip.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }

@@ -93,6 +93,7 @@ function field(cls, label, ctrl) {
   return '<div class="form-row" style="margin-top:0.5rem"><span class="ff-label">' + label + '</span>' + ctrl + '</div>';
 }
 function esc(s) { return String(s == null ? '' : s).replace(/"/g, '&quot;'); }
+function escAll(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
 // 带下拉选择的弹窗（返回选中值，取消返回 null）
 function uiPick(title, optionsHtml) {
@@ -1037,6 +1038,7 @@ async function createClusterSnap() {
   const targets = snapPickedNodes();
   if (targets.length === 0) { res.innerHTML = '<span class="err">' + t('cl.noVmxNodes') + '</span>'; return; }
   res.textContent = t('ops.running');
+  await resetCmdLog();
   let ok = 0, fail = 0;
   for (const n of targets) {
     try {
@@ -1046,7 +1048,7 @@ async function createClusterSnap() {
     res.textContent = t('ops.running') + ' (' + (ok + fail) + '/' + targets.length + ')';
   }
   res.innerHTML = '<span class="' + (fail === 0 ? 'ok' : 'err') + '">' +
-    ok + ' 台成功' + (fail ? '，' + fail + ' 台失败' : '') + '</span>';
+    ok + ' 台成功' + (fail ? '，' + fail + ' 台失败' : '') + '</span>' + await takeCmdLogHtml();
   POWER_RUNNING = false; setPowerBtns(false);
   await loadVms(false, true);
   renderClusterSnap();
@@ -1059,6 +1061,7 @@ async function revertClusterSnap(name) {
   const res = document.getElementById('clusterSnapResult');
   const targets = NODES.filter(n => n.vmx);
   res.textContent = t('ops.running');
+  await resetCmdLog();
   let ok = 0, fail = 0;
   for (const n of targets) {
     const vm = VMS.find(v => normVmx(v.vmx) === normVmx(n.vmx));
@@ -1069,7 +1072,7 @@ async function revertClusterSnap(name) {
     } catch (e) { fail++; }
     res.textContent = t('ops.running') + ' (' + (ok + fail) + ')';
   }
-  res.innerHTML = '<span class="' + (fail === 0 ? 'ok' : 'err') + '">回滚：' + ok + ' 台成功' + (fail ? '，' + fail + ' 台失败' : '') + '</span>';
+  res.innerHTML = '<span class="' + (fail === 0 ? 'ok' : 'err') + '">回滚：' + ok + ' 台成功' + (fail ? '，' + fail + ' 台失败' : '') + '</span>' + await takeCmdLogHtml();
   POWER_RUNNING = false; setPowerBtns(false);
   await loadVms(false, true);
 }
@@ -1645,6 +1648,7 @@ async function distributeConfig() {
   const scope = root ? ('覆盖根目录 ' + root) : '同路径';
   if (!await uiConfirm('把选中的 ' + picked.length + ' 个配置分发到从节点（' + scope + '）？')) return;
   res.textContent = t('ops.running');
+  await resetCmdLog();
   let html = '';
   let anyFail = '';
   for (const src of picked) {
@@ -1663,6 +1667,7 @@ async function distributeConfig() {
     if (diag) html += diag;
     else html += '<div class="hint-foot">' + t('cl.distFailHint') + '</div>';
   }
+  html += await takeCmdLogHtml();
   res.innerHTML = html;
 }
 document.getElementById('distScan').addEventListener('click', scanConfigDirs);
@@ -1702,6 +1707,7 @@ async function runCluster(action) {
   if (POWER_RUNNING) { uiAlert(t('cl.busy')); return; }
   POWER_RUNNING = true;
   setPowerBtns(true);
+  await resetCmdLog();
   const svcs = await window.pywebview.api.get_services();
   const enabled = svcs.filter(s => s.enabled);
   const stages = [...new Set(enabled.map(s => s.stage))].sort((a, b) => action === 'stop' ? b - a : a - b);
@@ -1764,8 +1770,9 @@ async function runCluster(action) {
     });
     if (!ready) {
       lines.push(renderLine('阶段0 · 等待节点就绪超时（有节点未连上）', 'fail'));
-      powerLog(lines.join(''));
       lines.push('<div class="result err">✕ 节点未就绪，已停止（请检查虚拟机是否正常启动）</div>');
+      const _cmdHtml = await takeCmdLogHtml();
+      if (_cmdHtml) lines.push(_cmdHtml);
       POWER_RUNNING = false;
       setPowerBtns(false);
       powerLog(lines.join(''));
@@ -1817,8 +1824,10 @@ async function runCluster(action) {
   setPowerBtns(false);
   if (!aborted) {
     lines.push('<div class="empty" style="margin-top:0.6rem">' + t('cl.powerDone') + '</div>');
-    powerLog(lines.join(''));
   }
+  const _cmdHtml = await takeCmdLogHtml();
+  if (_cmdHtml) lines.push(_cmdHtml);
+  powerLog(lines.join(''));
   runHealthCheck();   // 结束后自动刷新体检
   refreshVmStatus();  // 刷新 VM 开/关机状态
 }
@@ -1843,6 +1852,54 @@ function renderLine(text, state) {
   const cls = { running: 'cl-run', done: 'ok', fail: 'err' }[state] || '';
   return '<div class="result ' + cls + '">' + icon + ' ' + text + '</div>';
 }
+
+// ============ 命令透明：显示本次操作实际执行的命令 + 输出 ============
+// 用法：操作前 await resetCmdLog()；操作后 const cmdHtml = await takeCmdLogHtml()
+let _CMD_CACHE = [];   // 最近一次取出的命令（供复制）
+
+async function resetCmdLog() {
+  try { await window.pywebview.api.drain_cmd_log(); } catch (e) {}
+}
+
+async function takeCmdLogHtml(expanded) {
+  let cmds = [];
+  try { cmds = await window.pywebview.api.drain_cmd_log(); } catch (e) { cmds = []; }
+  _CMD_CACHE = cmds || [];
+  if (!_CMD_CACHE.length) return '';
+  const open = expanded !== false;   // 默认展开
+  const items = _CMD_CACHE.map((c, i) => {
+    const st = c.ok ? 'ok' : 'err';
+    const out = c.out ? '<div class="cmd-out">' + escAll(c.out) + '</div>' : '';
+    return '<div class="cmd-item">' +
+      '<div class="cmd-line">' +
+      (c.target ? '<span class="cmd-tgt">' + escAll(c.target) + '</span>' : '') +
+      '<span class="cmd-text ' + st + '">$ ' + escAll(c.cmd) + '</span>' +
+      '<span class="cmd-copy" data-copy="' + i + '" title="复制命令">⧉</span>' +
+      '</div>' + out + '</div>';
+  }).join('');
+  return '<div class="cmd-log">' +
+    '<div class="cmd-log-head">' + t('cmd.transparent') + '（' + _CMD_CACHE.length + '）' +
+    '<span class="cmd-toggle" data-toggle="1">' + (open ? t('cmd.collapse') : t('cmd.expand')) + '</span></div>' +
+    '<div class="cmd-log-body"' + (open ? '' : ' style="display:none"') + '>' + items + '</div>' +
+    '</div>';
+}
+
+// 事件委托：命令块复制 / 折叠
+document.addEventListener('click', (e) => {
+  const cp = e.target.closest('.cmd-copy');
+  if (cp) {
+    const c = _CMD_CACHE[Number(cp.dataset.copy)];
+    if (c && navigator.clipboard) navigator.clipboard.writeText(c.cmd);
+    return;
+  }
+  const tg = e.target.closest('.cmd-toggle');
+  if (tg) {
+    const body = tg.closest('.cmd-log').querySelector('.cmd-log-body');
+    const hidden = body.style.display === 'none';
+    body.style.display = hidden ? '' : 'none';
+    tg.textContent = hidden ? t('cmd.collapse') : t('cmd.expand');
+  }
+});
 
 // 轮询等待节点 SSH 就绪（前端轮询，进度可见）。最长 150 秒
 async function waitNodesReady(onTick) {

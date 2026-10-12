@@ -179,11 +179,15 @@ def ssh_exec(host, port, user, password, cmd, timeout=15, use_exit_code=False):
         code = so.channel.recv_exit_status()
         if err.strip():
             out = out + ("\n[STDERR] " + err if out else err)
+        core.record_cmd("ssh " + str(user) + "@" + str(host) + " \"" + str(cmd) + "\"",
+                        out, ok=(code == 0), target=str(host))
         if use_exit_code:
             return code == 0, out
         return True, out
     except Exception as e:
         core.log("SSH 执行失败：" + str(host) + " — " + str(e))
+        core.record_cmd("ssh " + str(user) + "@" + str(host) + " \"" + str(cmd) + "\"",
+                        str(e), ok=False, target=str(host))
         return False, "执行失败：" + str(e)
     finally:
         cli.close()

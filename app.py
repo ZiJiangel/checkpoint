@@ -258,6 +258,10 @@ class Api:
     def get_meta(self):
         return {"version": core.VERSION, "author": core.AUTHOR}
 
+    def drain_cmd_log(self):
+        """取出并清空命令日志（供前端"命令透明"展示本次操作的命令）。"""
+        return core.drain_cmd_log()
+
     def check_update(self):
         return core.check_update()
 

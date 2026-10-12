@@ -35,6 +35,33 @@ def log(msg, exc=False):
     except Exception:
         pass
 
+
+# ============ 命令透明：全局命令日志（记录实际执行的命令+输出）============
+import threading
+_CMD_LOG = []
+_CMD_LOCK = threading.Lock()
+_CMD_MAX = 500
+
+def record_cmd(cmd, out="", ok=True, target=""):
+    """记录一条实际执行的命令（供界面"命令透明"展示）。"""
+    try:
+        with _CMD_LOCK:
+            _CMD_LOG.append({"cmd": str(cmd), "out": str(out)[:2000], "ok": bool(ok), "target": str(target)})
+            if len(_CMD_LOG) > _CMD_MAX:
+                del _CMD_LOG[:-_CMD_MAX]
+    except Exception:
+        pass
+
+def drain_cmd_log():
+    """取出并清空命令日志（每次操作后调用，返回本次操作产生的命令）。"""
+    try:
+        with _CMD_LOCK:
+            items = list(_CMD_LOG)
+            _CMD_LOG.clear()
+            return items
+    except Exception:
+        return []
+
 # 依次尝试查找 vmrun：通用路径优先，最后是"保底路径"（可自行增删）
 VMRUN_CANDIDATES = [
     r"C:\Program Files (x86)\VMware\VMware Workstation\vmrun.exe",
@@ -91,9 +118,12 @@ def run_vmrun(args, timeout=60):
                            timeout=timeout, encoding="utf-8", errors="replace",
                            creationflags=CREATE_NO_WINDOW)
         out = ((p.stdout or "") + (p.stderr or "")).strip()
+        if args and args[0] != "list":   # 只读的 list 不记录（避免状态轮询污染）
+            record_cmd("vmrun " + " ".join(args), out, ok=(p.returncode == 0))
         return p.returncode == 0, out
     except Exception as e:
         log("执行 vmrun 失败：" + " ".join(args) + " — " + str(e), exc=True)
+        record_cmd("vmrun " + " ".join(args), str(e), ok=False)
         return False, str(e)
 
 
