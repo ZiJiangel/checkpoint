@@ -108,6 +108,28 @@ check("jps 进程", jps == ["NameNode", "DataNode", "Jps"], jps)
 ports = cluster._parse_ports("Netid State\ntcp LISTEN 0.0.0.0:9000\ntcp LISTEN *:8088\nudp :::88")
 check("ports 解析", {9000, 8088, 88} <= ports, ports)
 
+# ---- 测 _parse_vmsd_tree（快照树解析，真机修过）----
+print("[_parse_vmsd_tree]")
+import core  # noqa
+import tempfile
+VMSD = """.encoding = "UTF-8"
+snapshot.lastUID = "2"
+snapshot0.uid = "1"
+snapshot0.displayName = "base"
+snapshot.numSnapshots = "2"
+snapshot1.uid = "2"
+snapshot1.displayName = "child"
+snapshot1.parent = "1"
+"""
+tf = tempfile.NamedTemporaryFile("wb", suffix=".vmsd", delete=False)
+tf.write(VMSD.encode("utf-8")); tf.close()
+tree = core._parse_vmsd_tree(tf.name)
+os.unlink(tf.name)
+check("vmsd 2 节点", len(tree) == 2, tree)
+check("vmsd 父 depth0", tree[0]["name"] == "base" and tree[0]["depth"] == 0, tree[0] if tree else None)
+check("vmsd 子 depth1", len(tree) > 1 and tree[1]["name"] == "child" and tree[1]["depth"] == 1, tree[1] if len(tree) > 1 else None)
+check("vmsd 不存在返回空", core._parse_vmsd_tree("/no/such/file.vmsd") == [])
+
 # ---- 测脱敏（diagpack）----
 print("[脱敏]")
 import diagpack  # noqa
