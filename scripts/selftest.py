@@ -111,6 +111,17 @@ check("jps 进程", jps == ["NameNode", "DataNode", "Jps"], jps)
 ports = cluster._parse_ports("Netid State\ntcp LISTEN 0.0.0.0:9000\ntcp LISTEN *:8088\nudp :::88")
 check("ports 解析", {9000, 8088, 88} <= ports, ports)
 
+# ---- 测 hdfs_rename / hdfs_search ----
+print("[hdfs_rename/search]")
+patch(fake_hdfs=lambda cmd, timeout=60, use_exit_code=True: (True, "OK"))
+_rok, _rout = cluster.hdfs_rename("/a", "/b")
+check("rename ok", _rok is True)
+SEARCH_OUT = "Found 2 items\n-rw-r--r-- 1 root root 100 2026-10-12 10:00 /data/a.txt\n-rw-r--r-- 1 root root 200 2026-10-12 10:01 /data/b.txt"
+patch(fake_hdfs=lambda cmd, timeout=60, use_exit_code=True: (True, SEARCH_OUT))
+sr = cluster.hdfs_search("/data", "txt")
+check("search ok", sr["ok"] is True)
+check("search 2 项", len(sr["items"]) == 2, sr["items"])
+
 # ---- 测 node_vm_off（关机秒判，省时间的关键逻辑）----
 print("[node_vm_off]")
 import os as _os

@@ -284,6 +284,13 @@ class Api:
         ok, out = cluster.hdfs_rm(path, recursive)
         return {"ok": ok, "msg": out}
 
+    def hdfs_rename(self, src, dst):
+        ok, out = cluster.hdfs_rename(src, dst)
+        return {"ok": ok, "msg": out}
+
+    def hdfs_search(self, dir_path, keyword):
+        return cluster.hdfs_search(dir_path, keyword)
+
     def hive_exec(self, sql):
         return cluster.hive_exec(sql)
 

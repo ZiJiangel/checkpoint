@@ -2460,6 +2460,7 @@ async function renderHdfs() {
         '<span class="vm-role">' + escAll(it.perm) + '</span>' +
         '<span class="hdfs-actions">' +
           (isDir ? '' : '<span class="svc-action" data-hdfs-dl="' + full + '">' + t('hdfs.dl') + '</span>') +
+          '<span class="svc-action" data-hdfs-rename="' + full + '">' + t('hdfs.rename') + '</span>' +
           '<span class="svc-action" data-hdfs-del="' + full + '" data-hdfs-dir="' + (isDir ? 1 : 0) + '" style="color:#e06c6c">' + t('hdfs.del') + '</span></span>' +
         '</div>';
     }).join('');
@@ -2491,6 +2492,18 @@ async function renderHdfs() {
       '<button class="mini-btn" id="hdfsBack">' + t('hdfs.back') + '</button>';
     document.getElementById('hdfsBack').addEventListener('click', renderHdfs);
   }));
+  // 绑定：重命名
+  list.querySelectorAll('[data-hdfs-rename]').forEach(el => el.addEventListener('click', async () => {
+    const p = el.dataset.hdfsRename;
+    const base = p.replace(/\/$/, '').split('/').pop();
+    const nn = await uiPrompt(t('hdfs.renameTo'), base);
+    if (!nn || nn === base) return;
+    const dir = p.replace(/\/[^/]*$/, '');
+    const dst = (dir ? dir : '') + '/' + nn;
+    const rr = await window.pywebview.api.hdfs_rename(p, dst);
+    if (!rr.ok) uiAlert(rr.msg || '');
+    renderHdfs();
+  }));
   // 绑定：删除
   list.querySelectorAll('[data-hdfs-del]').forEach(el => el.addEventListener('click', async () => {
     const p = el.dataset.hdfsDel;
@@ -2500,6 +2513,23 @@ async function renderHdfs() {
     if (!rr.ok) uiAlert(rr.msg || '');
     renderHdfs();
   }));
+}
+
+// HDFS 搜索
+async function hdfsSearch() {
+  const kw = (document.getElementById('hdfsSearch').value || '').trim();
+  const list = document.getElementById('hdfsList');
+  if (!kw) { renderHdfs(); return; }
+  list.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.hdfs_search(HDFS_PATH, kw); }
+  catch (e) { list.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml();
+  if (!r.items.length) { list.innerHTML = '<div class="empty">' + t('hdfs.noMatch') + '</div>' + cmdHtml; return; }
+  list.innerHTML = '<div class="hdfs-row head"><span>' + t('hdfs.name') + '</span><span>' + t('hdfs.size') + '</span><span></span><span>' + t('hdfs.perm') + '</span><span></span></div>' +
+    r.items.map(it => '<div class="hdfs-row"><span>' + (it.type === 'dir' ? '📁' : '📄') + ' ' + escAll(it.full) + '</span><span class="vm-role">' + escAll(it.size) + '</span><span></span><span class="vm-role">' + escAll(it.perm) + '</span><span></span></div>').join('') +
+    cmdHtml;
 }
 
 // ============ Hive 查询（数据域工作台）============
@@ -2960,6 +2990,10 @@ window.addEventListener('pywebviewready', async () => {
   showView('cluster');
   await loadNodes();
   // HDFS 工具栏
+  const hdfsSearchBtn = document.getElementById('hdfsSearchBtn');
+  if (hdfsSearchBtn) hdfsSearchBtn.addEventListener('click', hdfsSearch);
+  const hdfsSearchInput = document.getElementById('hdfsSearch');
+  if (hdfsSearchInput) hdfsSearchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') hdfsSearch(); });
   const hr = document.getElementById('hdfsRefresh');
   if (hr) hr.addEventListener('click', renderHdfs);
   const hm = document.getElementById('hdfsMkdir');

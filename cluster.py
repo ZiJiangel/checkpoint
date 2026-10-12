@@ -823,6 +823,26 @@ def hdfs_mkdir(path):
     return _hdfs_master_run('hdfs dfs -mkdir -p "%s"' % path)
 
 
+def hdfs_rename(src, dst):
+    """重命名/移动 HDFS 路径。"""
+    return _hdfs_master_run('hdfs dfs -mv "%s" "%s"' % (src, dst), timeout=60)
+
+
+def hdfs_search(dir_path, keyword, timeout=60):
+    """在 HDFS 目录下搜索文件名含 keyword 的项。返回 {ok, items, msg}。"""
+    ok, out = _hdfs_master_run('hdfs dfs -ls -R "%s" 2>/dev/null | grep "%s"' % (dir_path, keyword), timeout=timeout)
+    items = []
+    for line in (out or "").splitlines():
+        if not line.strip() or line.startswith("Found "):
+            continue
+        parts = line.split()
+        if len(parts) >= 8:
+            perm = parts[0]
+            items.append({"full": " ".join(parts[7:]), "type": "dir" if perm.startswith("d") else "file",
+                          "size": parts[4], "perm": perm})
+    return {"ok": True, "items": items, "msg": ""}
+
+
 def hdfs_rm(path, recursive=False):
     flag = "-r " if recursive else ""
     return _hdfs_master_run('hdfs dfs -rm %s"%s"' % (flag, path), timeout=60)
