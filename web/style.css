@@ -247,6 +247,11 @@ body {
 .hive-tbl { border-collapse: collapse; font-size: 0.82rem; }
 .hive-tbl th, .hive-tbl td { border: 1px solid var(--line); padding: 0.35rem 0.7rem; text-align: left; white-space: nowrap; }
 .hive-tbl th { background: var(--surface-2); color: var(--muted); font-weight: 600; }
+.hive-wrap { display: flex; gap: 1rem; margin-top: 1rem; }
+.hive-tree { width: 180px; flex: none; border-right: 1px solid var(--line); padding-right: 0.6rem; max-height: 420px; overflow-y: auto; }
+.hive-main { flex: 1; min-width: 0; }
+.hive-tree-item { font-size: 0.82rem; cursor: pointer; padding: 2px 4px; border-radius: var(--r-nav); display: block; }
+.hive-tree-item:hover { background: var(--surface-2); color: var(--accent); }
 .yarn-tbl { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
 .yarn-tbl th, .yarn-tbl td { border-bottom: 1px solid var(--line); padding: 0.45rem 0.7rem; text-align: left; }
 .yarn-tbl th { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }

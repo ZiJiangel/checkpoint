@@ -268,14 +268,20 @@
           <span class="obj-title" data-i18n="pane.hive">Hive 查询</span>
           <span class="obj-sub" id="hiveDb">default</span>
           <span class="bar-spacer"></span>
+          <button class="mini-btn" id="hiveLoadTree" data-i18n="hive.loadTree">加载库表</button>
           <button class="mini-btn primary" id="hiveRun" data-i18n="hive.run">执行</button>
           <button class="mini-btn" id="hiveClear" data-i18n="hive.clear">清空</button>
         </div>
-        <textarea id="hiveSql" class="hive-sql" placeholder="SELECT * FROM ...;"></textarea>
-        <div class="hive-out" id="hiveOut">
-          <div class="empty" data-i18n="hive.hint">输入 SQL，点「执行」</div>
+        <div class="hive-wrap">
+          <div class="hive-tree" id="hiveTree"><div class="empty" data-i18n="hive.treeHint">点上方按钮加载库表</div></div>
+          <div class="hive-main">
+            <textarea id="hiveSql" class="hive-sql" placeholder="SELECT * FROM ...;"></textarea>
+            <div class="hive-out" id="hiveOut">
+              <div class="empty" data-i18n="hive.hint">输入 SQL，点「执行」</div>
+            </div>
+            <div class="result" id="hiveResult"></div>
+          </div>
         </div>
-        <div class="result" id="hiveResult"></div>
       </div>
 
       <div class="view hidden" id="view-hbase">

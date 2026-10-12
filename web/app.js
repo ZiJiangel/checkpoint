@@ -2573,6 +2573,20 @@ function parseBeelineTable(text) {
   return { headers, rows };
 }
 
+async function loadHiveTree() {
+  const tree = document.getElementById('hiveTree');
+  if (!tree) return;
+  tree.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  let r;
+  try { r = await window.pywebview.api.hive_tables(); } catch (e) { tree.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  if (!r.ok) { tree.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>'; return; }
+  tree.innerHTML = '<div class="bar-title" style="margin-bottom:0.4rem">default</div>' +
+    (r.tables.length ? r.tables.map(tb => '<span class="hive-tree-item" data-hive-tbl="' + escAll(tb) + '">▤ ' + escAll(tb) + '</span>').join('') : '<div class="empty">' + t('tables.none') + '</div>');
+  tree.querySelectorAll('[data-hive-tbl]').forEach(el => el.addEventListener('click', () => {
+    document.getElementById('hiveSql').value = 'select * from ' + el.dataset.hiveTbl + ' limit 100';
+  }));
+}
+
 async function runHive() {
   const sql = (document.getElementById('hiveSql').value || '').trim();
   const out = document.getElementById('hiveOut');
@@ -2991,6 +3005,8 @@ window.addEventListener('pywebviewready', async () => {
   // Hive 工具栏
   const hiveRunBtn = document.getElementById('hiveRun');
   if (hiveRunBtn) hiveRunBtn.addEventListener('click', runHive);
+  const hiveLoadTreeBtn = document.getElementById('hiveLoadTree');
+  if (hiveLoadTreeBtn) hiveLoadTreeBtn.addEventListener('click', loadHiveTree);
   const hiveClearBtn = document.getElementById('hiveClear');
   if (hiveClearBtn) hiveClearBtn.addEventListener('click', () => { document.getElementById('hiveSql').value = ''; document.getElementById('hiveOut').innerHTML = ''; });
   const s = await window.pywebview.api.get_settings();
