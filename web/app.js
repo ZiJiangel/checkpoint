@@ -2364,7 +2364,9 @@ async function renderHdfs() {
         '<span class="vm-role">' + (isDir ? '—' : escAll(it.size)) + '</span>' +
         '<span class="vm-role">' + escAll(it.date) + '</span>' +
         '<span class="vm-role">' + escAll(it.perm) + '</span>' +
-        '<span class="hdfs-actions"><span class="svc-action" data-hdfs-del="' + full + '" data-hdfs-dir="' + (isDir ? 1 : 0) + '" style="color:#e06c6c">' + t('hdfs.del') + '</span></span>' +
+        '<span class="hdfs-actions">' +
+          (isDir ? '' : '<span class="svc-action" data-hdfs-dl="' + full + '">' + t('hdfs.dl') + '</span>') +
+          '<span class="svc-action" data-hdfs-del="' + full + '" data-hdfs-dir="' + (isDir ? 1 : 0) + '" style="color:#e06c6c">' + t('hdfs.del') + '</span></span>' +
         '</div>';
     }).join('');
   }
@@ -2379,6 +2381,21 @@ async function renderHdfs() {
   tree.querySelectorAll('[data-hdfs-go]').forEach(el => el.addEventListener('click', () => {
     HDFS_PATH = el.dataset.hdfsGo || '/';
     renderHdfs();
+  }));
+  // 绑定：下载
+  list.querySelectorAll('[data-hdfs-dl]').forEach(el => el.addEventListener('click', async () => {
+    const p = el.dataset.hdfsDl;
+    await resetCmdLog();
+    let r;
+    try { r = await window.pywebview.api.hdfs_download_dialog(p); }
+    catch (e) { uiAlert('下载失败：' + e); return; }
+    if (r.cancelled) return;
+    if (!r.ok) { uiAlert('下载失败：' + (r.msg || '')); return; }
+    const cmdHtml = await takeCmdLogHtml();
+    const list2 = document.getElementById('hdfsList');
+    list2.innerHTML = '<div class="empty ok">' + t('hdfs.dlDone') + ': ' + escAll(r.local || '') + '</div>' + cmdHtml +
+      '<button class="mini-btn" id="hdfsBack">' + t('hdfs.back') + '</button>';
+    document.getElementById('hdfsBack').addEventListener('click', renderHdfs);
   }));
   // 绑定：删除
   list.querySelectorAll('[data-hdfs-del]').forEach(el => el.addEventListener('click', async () => {

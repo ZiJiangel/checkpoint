@@ -278,6 +278,19 @@ class Api:
         ok, out = cluster.hdfs_rm(path, recursive)
         return {"ok": ok, "msg": out}
 
+    def hdfs_download_dialog(self, remote_path):
+        """选本地保存目录 → 从 HDFS 下载该文件。"""
+        import webview
+        try:
+            w = webview.windows[0]
+            res = w.create_file_dialog(webview.FOLDER_DIALOG)
+        except Exception as e:
+            return {"ok": False, "msg": "打开目录对话框失败：" + str(e)}
+        if not res:
+            return {"ok": False, "msg": "", "cancelled": True}
+        local_dir = res[0] if isinstance(res, (list, tuple)) else res
+        return cluster.hdfs_download(remote_path, local_dir)
+
     def hdfs_pick_and_upload(self, remote_dir):
         """打开文件对话框选本地文件 → 上传到 HDFS。"""
         import webview

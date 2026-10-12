@@ -768,3 +768,50 @@ def hdfs_upload(local_path, remote_dir):
     cmd = 'hdfs dfs -put -f "%s" "%s" && rm -f "%s"' % (tmp_remote, dst, tmp_remote)
     ok2, out2 = _hdfs_master_run(cmd, timeout=180)
     return {"ok": ok2, "msg": out2, "dst": dst}
+
+
+def sftp_download(host, port, user, password, remote_path, local_path, timeout=30):
+    """SFTP 从远程下载文件到本地（返回 (ok, msg)）。"""
+    try:
+        import paramiko
+    except ImportError:
+        return False, "缺少 paramiko"
+    cli = paramiko.SSHClient()
+    cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        cli.connect(host, port=int(port or 22), username=user, password=password, timeout=timeout)
+        sftp = cli.open_sftp()
+        sftp.get(remote_path, local_path)
+        sftp.close()
+        return True, "下载成功"
+    except Exception as e:
+        core.log("SFTP 下载失败：" + str(e), exc=True)
+        return False, str(e)
+    finally:
+        cli.close()
+
+
+def hdfs_download(remote_path, local_dir):
+    """把 HDFS 文件下载到本地目录。
+    步骤：master 上 hdfs dfs -get 到 /tmp → SFTP 下载到本地。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "msg": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "msg": "master 节点关机，请先开机"}
+    import os as _os
+    base = _os.path.basename(remote_path.rstrip("/"))
+    tmp_remote = "/tmp/checkpoint_dl_" + base
+    # 1) master 上 hdfs dfs -get
+    ok, out = _hdfs_master_run('hdfs dfs -get -f "%s" "%s"' % (remote_path, tmp_remote), timeout=180)
+    if not ok:
+        return {"ok": False, "msg": "从 HDFS 取文件失败：" + out}
+    # 2) SFTP 下载到本地
+    local_path = _os.path.join(local_dir, base)
+    ok2, msg2 = sftp_download(m.get("host", ""), m.get("port", 22),
+                              m.get("user", ""), m.get("pass", ""), tmp_remote, local_path)
+    # 清理 master 临时文件
+    _hdfs_master_run('rm -f "%s"' % tmp_remote, timeout=30)
+    if not ok2:
+        return {"ok": False, "msg": "下载到本地失败：" + msg2}
+    return {"ok": True, "msg": "下载成功", "local": local_path}
