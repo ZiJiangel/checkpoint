@@ -19,6 +19,9 @@ def check(name, cond, detail=""):
     print(("  [OK] " if cond else "  [FAIL] ") + name + ((" — " + str(detail)) if (detail and not cond) else ""))
 
 
+_ORIG = {"node_vm_off": cluster.node_vm_off}
+
+
 def patch(fake_ssh=None, fake_hdfs=None):
     """替换 SSH 层为假实现。"""
     cluster._master_node = lambda: {"name": "master", "host": "1.1.1.1", "port": 22, "user": "root", "pass": "x", "role": "master"}
@@ -107,6 +110,16 @@ jps = cluster._parse_jps("1234 NameNode\n5678 DataNode\n9999 Jps")
 check("jps 进程", jps == ["NameNode", "DataNode", "Jps"], jps)
 ports = cluster._parse_ports("Netid State\ntcp LISTEN 0.0.0.0:9000\ntcp LISTEN *:8088\nudp :::88")
 check("ports 解析", {9000, 8088, 88} <= ports, ports)
+
+# ---- 测 node_vm_off（关机秒判，省时间的关键逻辑）----
+print("[node_vm_off]")
+import os as _os
+_nvo = _ORIG["node_vm_off"]   # 用原始函数（patch 改过它）
+check("无vmx不判关机", _nvo({"vmx": ""}) is False)
+vmx = r"D:\VM\test.vmx"
+key = _os.path.normcase(_os.path.abspath(vmx))
+check("vmx在运行", _nvo({"vmx": vmx}, running={key}) is False)
+check("vmx不在运行", _nvo({"vmx": vmx}, running=set()) is True)
 
 # ---- 测 _parse_vmsd_tree（快照树解析，真机修过）----
 print("[_parse_vmsd_tree]")
