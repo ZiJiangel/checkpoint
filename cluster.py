@@ -654,3 +654,72 @@ def load_health_cache():
     if data and isinstance(data, dict) and "results" in data:
         return data
     return None
+
+
+# ============ HDFS 操作（图形化浏览/上传/下载，复用 ssh_exec）============
+
+def _master_node():
+    nodes = list_nodes()
+    return next((n for n in nodes if n.get("role") == "master"), None)
+
+
+def _hdfs_master_run(cmd, timeout=30, use_exit_code=True):
+    """在 master 上跑一条 hdfs 命令（带 VM 关机秒判 + 命令透明）。
+    返回 (ok, out)。"""
+    m = _master_node()
+    if not m:
+        return False, "未找到 master 节点"
+    if node_vm_off(m):
+        return False, "master 节点关机，请先开机"
+    return ssh_exec(m.get("host", ""), m.get("port", 22),
+                    m.get("user", ""), m.get("pass", ""), cmd,
+                    timeout=timeout, use_exit_code=use_exit_code)
+
+
+def hdfs_ls(path="/"):
+    """列 HDFS 目录。返回 [{name, type, size, date, perm, owner}]。
+    用 hdfs dfs -ls 输出解析（列：权限 副本 owner group size date time name）。"""
+    path = path or "/"
+    ok, out = _hdfs_master_run('hdfs dfs -ls "%s"' % path)
+    if not ok:
+        return {"ok": False, "items": [], "msg": out}
+    items = []
+    for line in out.splitlines():
+        line = line.rstrip()
+        if not line or line.startswith("Found ") or line.startswith("ls:") or line.lower().startswith("[stderr]"):
+            continue
+        parts = line.split()
+        if len(parts) < 8:
+            continue
+        perm = parts[0]
+        is_dir = perm.startswith("d")
+        size = parts[4]
+        date = parts[5] + " " + parts[6]
+        name = " ".join(parts[7:])
+        base = name.rstrip("/").split("/")[-1] or name
+        items.append({"name": base, "full": name, "type": "dir" if is_dir else "file",
+                      "size": size, "date": date, "perm": perm, "owner": parts[2]})
+    return {"ok": True, "items": items, "msg": ""}
+
+
+def hdfs_mkdir(path):
+    return _hdfs_master_run('hdfs dfs -mkdir -p "%s"' % path)
+
+
+def hdfs_rm(path, recursive=False):
+    flag = "-r " if recursive else ""
+    return _hdfs_master_run('hdfs dfs -rm %s"%s"' % (flag, path), timeout=60)
+
+
+def hdfs_put(local_path, remote_path):
+    """上传本地文件到 HDFS（本地文件需在 master 上；否则前端需先传）。"""
+    return _hdfs_master_run('hdfs dfs -put -f "%s" "%s"' % (local_path, remote_path), timeout=120)
+
+
+def hdfs_get(remote_path, local_path):
+    return _hdfs_master_run('hdfs dfs -get -f "%s" "%s"' % (remote_path, local_path), timeout=120)
+
+
+def hdfs_cat(remote_path):
+    """读文件前 N 行（预览）。"""
+    return _hdfs_master_run('hdfs dfs -cat "%s" | head -100' % remote_path, timeout=60)

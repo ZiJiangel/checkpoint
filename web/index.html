@@ -34,22 +34,59 @@
   </header>
 
   <main class="content">
+    <nav class="activitybar" id="activityBar">
+      <button class="act-btn active" data-domain="env" title="环境">
+        <svg viewBox="0 0 24 24" width="20" height="20"><rect x="2" y="4" width="20" height="13" rx="1.5" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M8 20h8M12 17v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <button class="act-btn" data-domain="data" title="数据">
+        <svg viewBox="0 0 24 24" width="20" height="20"><ellipse cx="12" cy="6" rx="8" ry="3" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" stroke="currentColor" stroke-width="1.8" fill="none"/></svg>
+      </button>
+      <button class="act-btn" data-domain="job" title="作业">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 3l14 9-14 9z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="act-btn" data-domain="tool" title="工具">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4l-6 6a2 2 0 1 0 2.8 2.8l6-6a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.8-2.8z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg>
+      </button>
+      <span style="flex:1"></span>
+      <button class="act-btn" id="actSettings" data-domain="settings" title="设置">
+        <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </nav>
+
     <aside class="sidebar" id="sidebar">
       <div class="side-scroll">
-        <div class="side-block">
-          <div class="side-title">
-            <span data-i18n="cl.clusterSel">集群</span>
-            <button class="side-add" id="clusterTpl" title="从模板创建">⊞</button>
-            <button class="side-add" id="clusterNew" title="新建集群">＋</button>
+        <div class="side-domain" id="sideEnv">
+          <div class="side-block">
+            <div class="side-title">
+              <span data-i18n="cl.clusterSel">集群</span>
+              <button class="side-add" id="clusterTpl" title="从模板创建">⊞</button>
+              <button class="side-add" id="clusterNew" title="新建集群">＋</button>
+            </div>
+            <div id="clusterNav" class="side-list"></div>
           </div>
-          <div id="clusterNav" class="side-list"></div>
+          <div class="side-block">
+            <div class="side-title">
+              <span data-i18n="tab.vm">虚拟机</span>
+              <button class="side-add" id="rescanVms" title="重新扫描">↻</button>
+            </div>
+            <div id="vmNav" class="side-list"></div>
+          </div>
         </div>
-        <div class="side-block">
-          <div class="side-title">
-            <span data-i18n="tab.vm">虚拟机</span>
-            <button class="side-add" id="rescanVms" title="重新扫描">↻</button>
+        <div class="side-domain hidden" id="sideData">
+          <div class="side-title"><span data-i18n="dom.data">数据</span></div>
+          <div class="side-list">
+            <div class="nav-item" data-pane="hdfs"><span class="nav-ico">▤</span><span data-i18n="pane.hdfs">HDFS 操作</span></div>
           </div>
-          <div id="vmNav" class="side-list"></div>
+        </div>
+        <div class="side-domain hidden" id="sideJob">
+          <div class="side-title"><span data-i18n="dom.job">作业</span></div>
+          <div class="side-list">
+            <div class="nav-item" data-pane="yarn"><span class="nav-ico">▶</span><span data-i18n="pane.yarn">YARN 作业</span></div>
+          </div>
+        </div>
+        <div class="side-domain hidden" id="sideTool">
+          <div class="side-title"><span data-i18n="dom.tool">工具</span></div>
+          <div class="side-list"></div>
         </div>
       </div>
       <div class="side-footer">
@@ -162,6 +199,24 @@
           <div class="empty" id="aboutAuthor"></div>
           <div class="empty" id="updateMsg"></div>
         </div>
+      </div>
+
+      <div class="view hidden" id="view-hdfs">
+        <div class="obj-head" style="display:flex;align-items:center;gap:0.6rem;padding-bottom:0.8rem;border-bottom:1px solid var(--line)">
+          <span class="obj-title" data-i18n="pane.hdfs">HDFS 操作</span>
+          <span class="obj-sub" id="hdfsPath">/</span>
+          <span class="bar-spacer"></span>
+          <button class="mini-btn" id="hdfsRefresh" data-i18n="hdfs.refresh">刷新</button>
+          <button class="mini-btn" id="hdfsUpload" data-i18n="hdfs.upload">上传</button>
+          <button class="mini-btn" id="hdfsMkdir" data-i18n="hdfs.mkdir">新建目录</button>
+        </div>
+        <div class="hdfs-wrap">
+          <div class="hdfs-tree" id="hdfsTree"></div>
+          <div class="hdfs-list" id="hdfsList">
+            <div class="empty" data-i18n="hdfs.hint">点「刷新」加载 HDFS 文件列表</div>
+          </div>
+        </div>
+        <div class="result" id="hdfsResult"></div>
       </div>
     </section>
   </main>

@@ -319,7 +319,7 @@ let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
   const doSwitch = () => {
-    ['cluster', 'node', 'vm', 'settings'].forEach(v => {
+    ['cluster', 'node', 'vm', 'settings', 'hdfs'].forEach(v => {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('hidden', v !== name);
     });
@@ -337,6 +337,42 @@ function showView(name) {
       runHealthCheck();
     }
   }
+}
+
+// ============ 活动栏（域切换）============
+let CUR_DOMAIN = 'env';
+
+function switchDomain(dom) {
+  CUR_DOMAIN = dom;
+  document.querySelectorAll('.act-btn').forEach(b => b.classList.toggle('active', b.dataset.domain === dom));
+  // 侧栏域显隐
+  const map = { env: 'sideEnv', data: 'sideData', job: 'sideJob', tool: 'sideTool' };
+  Object.entries(map).forEach(([k, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', k !== dom);
+  });
+  // 环境域 → 默认回集群视图；数据域 → HDFS 工作台
+  if (dom === 'env') showView('cluster');
+  else if (dom === 'data') { showView('hdfs'); renderHdfs(); }
+  else if (dom === 'job') showView('hdfs');  // 暂借，后续做 YARN
+  else if (dom === 'settings') { showView('settings'); }
+}
+
+function bindActivityBar() {
+  document.querySelectorAll('.act-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      if (b.dataset.domain === 'settings') { showView('settings'); return; }
+      switchDomain(b.dataset.domain);
+    });
+  });
+  // 数据域侧栏项
+  document.querySelectorAll('[data-pane]').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('[data-pane]').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+      if (el.dataset.pane === 'hdfs') { showView('hdfs'); renderHdfs(); }
+    });
+  });
 }
 
 // 渲染左栏（集群列表 + 虚拟机列表）
@@ -2289,7 +2325,74 @@ document.getElementById('vmwareStatus').addEventListener('click', () => {
 });
 
 // ============ 启动 ============
+// ============ HDFS 操作（数据域工作台）============
+let HDFS_PATH = "/";
+
+async function renderHdfs() {
+  const list = document.getElementById('hdfsList');
+  const tree = document.getElementById('hdfsTree');
+  const pathEl = document.getElementById('hdfsPath');
+  if (!list) return;
+  if (pathEl) pathEl.textContent = HDFS_PATH;
+  await resetCmdLog();
+  list.innerHTML = '<div class="empty">' + t('hdfs.hint') + '</div>';
+  let r;
+  try { r = await window.pywebview.api.hdfs_ls(HDFS_PATH); }
+  catch (e) { list.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  if (!r.ok) {
+    list.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + await takeCmdLogHtml();
+    return;
+  }
+  // 面包屑（路径分段可点）
+  const crumbs = HDFS_PATH.split('/').filter(Boolean);
+  let crumbHtml = '<span class="svc-action" data-hdfs-go="/">/</span>';
+  let acc = '';
+  crumbs.forEach(c => { acc += '/' + c; crumbHtml += ' <span class="svc-action" data-hdfs-go="' + escAll(acc) + '">' + escAll(c) + '</span> /'; });
+  tree.innerHTML = '<div class="bar-title" style="margin-bottom:0.5rem">' + t('pane.hdfs') + '</div>' + crumbHtml;
+
+  let html = '<div class="hdfs-row head"><span>' + t('hdfs.name') + '</span><span>' + t('hdfs.size') + '</span><span>' + t('hdfs.date') + '</span><span>' + t('hdfs.perm') + '</span><span>' + t('hdfs.act') + '</span></div>';
+  if (!r.items.length) {
+    html += '<div class="empty">' + t('hdfs.emptyDir') + '</div>';
+  } else {
+    html += r.items.map(it => {
+      const isDir = it.type === 'dir';
+      const icon = isDir ? '📁' : '📄';
+      const nm = escAll(it.name);
+      const full = escAll(it.full);
+      return '<div class="hdfs-row">' +
+        '<span class="hdfs-name" ' + (isDir ? 'data-hdfs-go="' + full + '"' : '') + '>' + icon + ' ' + nm + '</span>' +
+        '<span class="vm-role">' + (isDir ? '—' : escAll(it.size)) + '</span>' +
+        '<span class="vm-role">' + escAll(it.date) + '</span>' +
+        '<span class="vm-role">' + escAll(it.perm) + '</span>' +
+        '<span class="hdfs-actions"><span class="svc-action" data-hdfs-del="' + full + '" data-hdfs-dir="' + (isDir ? 1 : 0) + '" style="color:#e06c6c">' + t('hdfs.del') + '</span></span>' +
+        '</div>';
+    }).join('');
+  }
+  html += await takeCmdLogHtml();
+  list.innerHTML = html;
+
+  // 绑定：进目录
+  list.querySelectorAll('[data-hdfs-go]').forEach(el => el.addEventListener('click', () => {
+    HDFS_PATH = el.dataset.hdfsGo || '/';
+    renderHdfs();
+  }));
+  tree.querySelectorAll('[data-hdfs-go]').forEach(el => el.addEventListener('click', () => {
+    HDFS_PATH = el.dataset.hdfsGo || '/';
+    renderHdfs();
+  }));
+  // 绑定：删除
+  list.querySelectorAll('[data-hdfs-del]').forEach(el => el.addEventListener('click', async () => {
+    const p = el.dataset.hdfsDel;
+    if (!await uiConfirm(t('hdfs.delConfirm').replace('{n}', p))) return;
+    const rec = el.dataset.hdfsDir === '1';
+    const rr = await window.pywebview.api.hdfs_rm(p, rec);
+    if (!rr.ok) uiAlert(rr.msg || '');
+    renderHdfs();
+  }));
+}
+
 window.addEventListener('pywebviewready', async () => {
+  bindActivityBar();
   const s = await window.pywebview.api.get_settings();
   initLang(s.lang);
   document.getElementById('vmrunPath').value = s.vmrun || '';
@@ -2306,6 +2409,20 @@ window.addEventListener('pywebviewready', async () => {
   renderSidebar();
   showView('cluster');
   await loadNodes();
+  // HDFS 工具栏
+  const hr = document.getElementById('hdfsRefresh');
+  if (hr) hr.addEventListener('click', renderHdfs);
+  const hm = document.getElementById('hdfsMkdir');
+  if (hm) hm.addEventListener('click', async () => {
+    const name = await uiPrompt(t('hdfs.mkdir'), '');
+    if (!name) return;
+    const p = (HDFS_PATH.replace(/\/$/, '') + '/' + name);
+    const rr = await window.pywebview.api.hdfs_mkdir(p);
+    if (!rr.ok) uiAlert(rr.msg || '');
+    renderHdfs();
+  });
+  const hu = document.getElementById('hdfsUpload');
+  if (hu) hu.addEventListener('click', () => uiAlert('上传功能开发中（需先把本地文件传到 master，见待做清单）'));
   await loadHealthCache();   // 恢复上次体检结果
   loadVmware();
   // 无边框窗口：补回可拖拽边缘（延迟到窗口完全就绪）

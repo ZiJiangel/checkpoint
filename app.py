@@ -266,6 +266,18 @@ class Api:
         """看一眼命令日志（不清空），供执行中实时显示。"""
         return core.peek_cmd_log()
 
+    # ===== HDFS 操作 =====
+    def hdfs_ls(self, path="/"):
+        return cluster.hdfs_ls(path)
+
+    def hdfs_mkdir(self, path):
+        ok, out = cluster.hdfs_mkdir(path)
+        return {"ok": ok, "msg": out}
+
+    def hdfs_rm(self, path, recursive=False):
+        ok, out = cluster.hdfs_rm(path, recursive)
+        return {"ok": ok, "msg": out}
+
     def check_update(self):
         return core.check_update()
 

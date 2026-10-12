@@ -164,9 +164,25 @@ body {
 }
 /* 主布局：左栏 + 右区 */
 .content { flex: 1; display: flex; overflow: hidden; }
+.activitybar { width: 52px; flex: none; background: var(--tb-bg); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: 0.5rem 0; gap: 0.2rem; }
+.act-btn { width: 40px; height: 40px; border: none; background: transparent; color: var(--muted); border-radius: var(--r-nav); cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative; }
+.act-btn:hover { color: var(--ink); background: var(--btn-hover); }
+.act-btn.active { color: var(--ink); }
+.act-btn.active::before { content: ''; position: absolute; left: -6px; top: 8px; bottom: 8px; width: 2px; background: var(--accent); border-radius: 2px; }
 .sidebar { width: 200px; flex: none; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
 .side-scroll { flex: 1; overflow-y: auto; padding: 0.6rem 0; }
 .side-block { margin-bottom: 0.8rem; }
+.side-domain.hidden { display: none; }
+.hdfs-wrap { display: flex; gap: 1rem; margin-top: 1rem; min-height: 320px; }
+.hdfs-tree { width: 200px; flex: none; border-right: 1px solid var(--line); padding-right: 0.6rem; }
+.hdfs-list { flex: 1; overflow-x: auto; }
+.hdfs-row { display: grid; grid-template-columns: 1fr 90px 140px 100px 90px; gap: 0.6rem; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); font-size: 0.82rem; align-items: center; }
+.hdfs-row.head { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.hdfs-row:not(.head):hover { background: var(--surface-2); }
+.hdfs-name { cursor: pointer; display: flex; align-items: center; gap: 0.4rem; }
+.hdfs-name:hover { color: var(--accent); }
+.hdfs-actions { display: flex; gap: 0.5rem; }
+.hdfs-actions .svc-action { font-size: 0.76rem; }
 .side-title { display: flex; align-items: center; padding: 0.3rem 0.9rem; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .side-title span { flex: 1; }
 .side-add { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; padding: 0 0.3rem; }
