@@ -882,6 +882,7 @@ def sftp_upload(host, port, user, password, local_path, remote_path, timeout=30)
         import paramiko
     except ImportError:
         return False, "缺少 paramiko"
+    cid = core.start_cmd("sftp put %s -> %s@%s:%s" % (local_path, user, host, remote_path), target=str(host))
     cli = paramiko.SSHClient()
     cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
@@ -889,9 +890,11 @@ def sftp_upload(host, port, user, password, local_path, remote_path, timeout=30)
         sftp = cli.open_sftp()
         sftp.put(local_path, remote_path)
         sftp.close()
+        core.finish_cmd(cid, "上传成功", ok=True)
         return True, "上传成功"
     except Exception as e:
         core.log("SFTP 上传失败：" + str(e), exc=True)
+        core.finish_cmd(cid, str(e), ok=False)
         return False, str(e)
     finally:
         cli.close()
@@ -927,6 +930,7 @@ def sftp_download(host, port, user, password, remote_path, local_path, timeout=3
         import paramiko
     except ImportError:
         return False, "缺少 paramiko"
+    cid = core.start_cmd("sftp get %s@%s:%s -> %s" % (user, host, remote_path, local_path), target=str(host))
     cli = paramiko.SSHClient()
     cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
@@ -934,9 +938,11 @@ def sftp_download(host, port, user, password, remote_path, local_path, timeout=3
         sftp = cli.open_sftp()
         sftp.get(remote_path, local_path)
         sftp.close()
+        core.finish_cmd(cid, "下载成功", ok=True)
         return True, "下载成功"
     except Exception as e:
         core.log("SFTP 下载失败：" + str(e), exc=True)
+        core.finish_cmd(cid, str(e), ok=False)
         return False, str(e)
     finally:
         cli.close()
