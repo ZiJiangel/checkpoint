@@ -409,6 +409,47 @@ function showVm(vmx) {
   renderVmView(vmx);
 }
 
+// 把扁平快照树(depth序列)渲染成带连接线的树
+function buildSnapTree(flat) {
+  const root = { name: '__root__', children: [] };
+  const parents = [root];   // parents[d] = 深度 d 节点的父
+  for (const item of flat) {
+    const d = item.depth || 0;
+    const parent = parents[d] || root;
+    const node = { name: item.name, depth: d, children: [] };
+    parent.children.push(node);
+    parents[d + 1] = node;
+    parents.length = d + 2;
+  }
+  return root;
+}
+
+function renderSnapTreeHtml(flat) {
+  const root = buildSnapTree(flat);
+  const out = [];
+  const line = (guide, node) =>
+    '<div class="svc-line snap-tree-line" style="margin-top:0.5rem">' +
+    (guide ? '<span class="snap-tree-guide">' + escAll(guide) + '</span>' : '') +
+    '<span class="snap">' + escAll(node.name) + '</span><span class="bar-spacer"></span>' +
+    '<span class="svc-action" data-vm-snap-rev="' + escAll(node.name) + '">' + t('btn.revert') + '</span>' +
+    '<span class="svc-action" data-vm-snap-clone="' + escAll(node.name) + '">' + t('cl.clone') + '</span>' +
+    '<span class="svc-action" data-vm-snap-del="' + escAll(node.name) + '" style="color:#e06c6c">' + t('btn.delete') + '</span>' +
+    '</div>';
+  const walk = (node, prefix) => {
+    node.children.forEach((child, idx) => {
+      const isLast = idx === node.children.length - 1;
+      out.push(line(prefix + (isLast ? '└─ ' : '├─ '), child));
+      walk(child, prefix + (isLast ? '   ' : '│  '));
+    });
+  };
+  // 顶层节点：不带连接线（它是根）
+  root.children.forEach(top => {
+    out.push(line('', top));
+    walk(top, '');
+  });
+  return out.join('');
+}
+
 function renderVmView(vmx) {
   const box = document.getElementById('vmDetail');
   const v = VMS.find(x => x.vmx === vmx);
@@ -447,16 +488,8 @@ function renderVmView(vmx) {
   if (snaps.length === 0) {
     html += '<div class="empty">' + t('ov.empty') + '</div>';
   } else if (treeMode && treeData.length) {
-    // 树状：按 depth 缩进
-    html += treeData.map(item =>
-      '<div class="svc-line" style="margin-top:0.5rem;padding-left:' + (item.depth * 16) + 'px">' +
-      (item.depth ? '<span class="vm-role">└ </span>' : '') +
-      '<span class="snap">' + item.name + '</span><span class="bar-spacer"></span>' +
-      '<span class="svc-action" data-vm-snap-rev="' + item.name + '">' + t('btn.revert') + '</span>' +
-      '<span class="svc-action" data-vm-snap-clone="' + item.name + '">' + t('cl.clone') + '</span>' +
-      '<span class="svc-action" data-vm-snap-del="' + item.name + '" style="color:#e06c6c">' + t('btn.delete') + '</span>' +
-      '</div>'
-    ).join('');
+    // 树状：带连接线（├─└─│）
+    html += renderSnapTreeHtml(treeData);
   } else {
     html += snaps.map(s =>
       '<div class="svc-line" style="margin-top:0.5rem">' +

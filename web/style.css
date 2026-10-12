@@ -173,6 +173,8 @@ body {
 .side-scroll { flex: 1; overflow-y: auto; padding: 0.6rem 0; }
 .side-block { margin-bottom: 0.8rem; }
 .side-domain.hidden { display: none; }
+.snap-tree-line { display: flex; align-items: center; }
+.snap-tree-guide { font-family: var(--font-mono); color: var(--muted); white-space: pre; }
 .hdfs-wrap { display: flex; gap: 1rem; margin-top: 1rem; min-height: 320px; }
 .hdfs-tree { width: 200px; flex: none; border-right: 1px solid var(--line); padding-right: 0.6rem; }
 .hdfs-list { flex: 1; overflow-x: auto; }
