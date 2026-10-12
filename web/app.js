@@ -1559,13 +1559,19 @@ async function runHealthCheck() {
   const btn = document.getElementById('clusterCheck');
   btn.disabled = true;
   btn.textContent = t('cl.checking');
+  await resetCmdLog();
   try {
     const res = await window.pywebview.api.health_check();
     HEALTH = {};
     res.forEach(r => { HEALTH[r.id] = r; });
     renderNodes();
     renderClusterCard();
+    renderClusterOverview();
     refreshVmStatus();
+    // 命令透明：把体检实际执行的命令显示到概览下方（每次替换，不堆叠）
+    const cmdHtml = await takeCmdLogHtml();
+    const cmdBox = document.getElementById('healthCmdOut');
+    if (cmdBox) cmdBox.innerHTML = cmdHtml;
   } catch (e) {
     uiAlert('体检失败: ' + e);
   } finally {
@@ -2073,17 +2079,175 @@ async function resetCmdLog() {
 }
 
 // 把命令数组渲染成 HTML（running 状态也支持）
+// 长命令分行（&& / ; 处换行），更易读
+function formatCmd(cmd) {
+  let s = String(cmd || '');
+  s = s.replace(/echo __[A-Z]+__;?/g, '');   // 去掉内部分隔标记（__JPS__ 等）
+  return s.replace(/\n\s*\n/g, '\n').trim();
+}
+
+// 单条命令 → 教学注释（解释这条命令干嘛、参数含义）
+function explainPart(part) {
+  const p = String(part || '').trim();
+  if (!p) return '';
+  const has = (s) => p.indexOf(s) !== -1;
+  if (has('source /etc/profile')) return t('cmd.e.source');
+  if (has('jps')) return t('cmd.e.jps');
+  if (has('ss -tln') || has('netstat -tln')) return t('cmd.e.ports');
+  if (has('systemctl is-active')) return t('cmd.e.svcActive');
+  if (has('systemctl start')) return t('cmd.e.svcStart');
+  if (has('systemctl stop')) return t('cmd.e.svcStop');
+  if (has('timedatectl') || has('ntpdate') || has('chronyc')) return t('cmd.e.time');
+  if (has('getenforce')) return t('cmd.e.selinux');
+  if (has('firewall') || has('firewalld')) return t('cmd.e.firewall');
+  if (has('java -version')) return t('cmd.e.java');
+  if (has('getent hosts')) return t('cmd.e.hosts');
+  if (has('df ')) return t('cmd.e.disk');
+  if (has('free ')) return t('cmd.e.mem');
+  if (has('top ')) return t('cmd.e.cpu');
+  if (has('echo -n')) return t('cmd.e.echoLabel');
+  if (has('hostname')) return t('cmd.e.hostname');
+  if (has('whoami')) return t('cmd.e.whoami');
+  if (has('vmrun start')) return t('cmd.e.vmStart');
+  if (has('vmrun stop')) return t('cmd.e.vmStop');
+  if (has('vmrun list')) return t('cmd.e.vmList');
+  if (has('vmrun snapshot')) return t('cmd.e.vmSnap');
+  if (has('revertToSnapshot')) return t('cmd.e.vmRevert');
+  if (has('deleteSnapshot')) return t('cmd.e.vmSnapDel');
+  if (has('vmrun clone')) return t('cmd.e.vmClone');
+  if (has('test -e')) return t('cmd.e.testPath');
+  if (has('hdfs dfs -ls')) return t('cmd.e.hdfsLs');
+  if (has('hdfs dfs -put')) return t('cmd.e.hdfsPut');
+  if (has('hdfs dfs -get')) return t('cmd.e.hdfsGet');
+  if (has('hdfs dfs -mkdir')) return t('cmd.e.hdfsMkdir');
+  if (has('hdfs dfs -rm')) return t('cmd.e.hdfsRm');
+  if (has('hdfs dfs -mv')) return t('cmd.e.hdfsMv');
+  if (has('hdfs dfs -cat')) return t('cmd.e.hdfsCat');
+  if (has('dfsadmin -report')) return t('cmd.e.hdfsReport');
+  if (has('safemode')) return t('cmd.e.safeMode');
+  if (has('yarn application -list')) return t('cmd.e.yarnList');
+  if (has('yarn logs')) return t('cmd.e.yarnLog');
+  if (has('yarn application -kill')) return t('cmd.e.yarnKill');
+  if (has('beeline') || has('hive -e')) return t('cmd.e.hive');
+  if (has('hadoop jar')) return t('cmd.e.mr');
+  if (has('rsync')) return t('cmd.e.rsync');
+  if (has('hbase shell')) return t('cmd.e.hbase');
+  if (has('rm -')) return t('cmd.e.rm');
+  return '';
+}
+
+// 命令 → 逐条（注释 + 命令）的 HTML（教学用）
+function renderCmdLines(cmd) {
+  let s = String(cmd || '').replace(/echo __[A-Z]+__;?/g, '');
+  // 按 ; 或 && 拆成单条（|| 不拆，它是同一条内的"或"）
+  const parts = s.split(/;|&&/).map(x => x.trim()).filter(Boolean);
+  if (!parts.length) return '<span class="cmd-raw">' + escAll(s) + '</span>';
+  return parts.map(p => {
+    const exp = explainPart(p);
+    const comment = exp ? '<div class="cmd-cmt"># ' + escAll(exp) + '</div>' : '';
+    return comment + '<div class="cmd-code">' + escAll(p) + ';</div>';
+  }).join('');
+}
+
+// 命令 → 人话说明（让大一新生看得懂"这一步在干嘛"）
+function describeCmd(cmd) {
+  const c = String(cmd || '');
+  const has = (s) => c.indexOf(s) !== -1;
+  // vmrun 系列
+  if (has('vmrun start')) return t('cmd.x.vmStart');
+  if (has('vmrun stop')) return t('cmd.x.vmStop');
+  if (has('vmrun list')) return t('cmd.x.vmList');
+  if (has('vmrun snapshot')) return t('cmd.x.snap');
+  if (has('vmrun revertToSnapshot')) return t('cmd.x.revert');
+  if (has('vmrun deleteSnapshot')) return t('cmd.x.snapDel');
+  if (has('vmrun clone')) return t('cmd.x.clone');
+  // systemctl
+  if (has('systemctl start')) return t('cmd.x.svcStart');
+  if (has('systemctl stop')) return t('cmd.x.svcStop');
+  if (has('systemctl is-active') || has('systemctl status')) return t('cmd.x.svcStatus');
+  // HDFS
+  if (has('hdfs dfs -ls')) return t('cmd.x.hdfsLs');
+  if (has('hdfs dfs -put')) return t('cmd.x.hdfsPut');
+  if (has('hdfs dfs -get')) return t('cmd.x.hdfsGet');
+  if (has('hdfs dfs -mkdir')) return t('cmd.x.hdfsMkdir');
+  if (has('hdfs dfs -rm')) return t('cmd.x.hdfsRm');
+  if (has('hdfs dfs -mv')) return t('cmd.x.hdfsMv');
+  if (has('hdfs dfs -cat')) return t('cmd.x.hdfsCat');
+  if (has('dfsadmin -report')) return t('cmd.x.hdfsReport');
+  if (has('safemode')) return t('cmd.x.safeMode');
+  // YARN / Hive / MR
+  if (has('yarn application -list') || has('yarn application -list')) return t('cmd.x.yarnList');
+  if (has('yarn logs')) return t('cmd.x.yarnLog');
+  if (has('yarn application -kill')) return t('cmd.x.yarnKill');
+  if (has('beeline') || has('hive -e')) return t('cmd.x.hive');
+  if (has('hadoop jar')) return t('cmd.x.mr');
+  // SFTP / rsync / 通用
+  if (has('sftp put')) return t('cmd.x.sftpPut');
+  if (has('sftp get')) return t('cmd.x.sftpGet');
+  if (has('rsync')) return t('cmd.x.rsync');
+  if (has('hbase shell')) return t('cmd.x.hbase');
+  if (has('top ') || has('free -m') || has('df -m')) return t('cmd.x.metrics');
+  if (has('hostname')) return t('cmd.x.hostname');
+  if (has('source /etc/profile')) return t('cmd.x.source');
+  if (has('jps')) return t('cmd.x.jps');
+  if (has('which ')) return t('cmd.x.detect');
+  return '';   // 没匹配到就不显示说明
+}
+
+// 输出注释：简短 # 标签（不复述内容）
+function annotateOutput(cmd, out, ok) {
+  const c = String(cmd || '');
+  const has = (s) => c.indexOf(s) !== -1;
+  if (!ok) return '# 执行失败';
+  if (!String(out || '').trim()) return '# 无输出';
+  if (has('jps')) return '# 节点上运行的进程';
+  if (has('ss -tln') || has('netstat')) return '# 节点监听的端口';
+  if (has('hdfs dfs -ls')) return '# HDFS 目录内容';
+  if (has('systemctl is-active')) return '# 服务运行状态';
+  if (has('vmrun list')) return '# 运行中的虚拟机';
+  if (has('yarn application -list')) return '# YARN 作业列表';
+  if (has('dfsadmin -report')) return '# HDFS 集群状态';
+  if (has('safemode')) return '# HDFS 安全模式';
+  if (has('hbase shell')) return '# HBase 表';
+  if (has('hostname')) return '# 节点主机名';
+  return '';
+}
+
+// 清理输出：去掉内部分隔标记行（__JPS__ 等）
+function cleanOutput(out) {
+  return String(out || '').split('\n')
+    .filter(l => !/^__[A-Z_]+__$/.test(l.trim()))
+    .join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// 输出处理：太长可展开
+function renderCmdOut(out, cmd, ok) {
+  const cleaned = cleanOutput(out);
+  if (!cleaned) return '';
+  const lines = cleaned.split('\n');
+  const tooLong = lines.length > 12 || cleaned.length > 600;
+  return '<div class="cmd-out' + (tooLong ? ' cmd-out-fold' : '') + '">' + escAll(cleaned) + '</div>' +
+    (tooLong ? '<span class="cmd-out-more" data-more="1">' + t('cmd.o.lines').replace('{n}', lines.length) + ' ▾</span>' : '');
+}
+
 function renderCmdItems(cmds, open) {
   const items = cmds.map((c, i) => {
     const st = c.running ? 'run' : (c.ok ? 'ok' : 'err');
-    const pre = c.running ? '⏳ ' : '$ ';
-    const out = (!c.running && c.out) ? '<div class="cmd-out">' + escAll(c.out) + '</div>' : '';
+    const icon = c.running ? '⏳' : (c.ok ? '✓' : '✗');
+    const purpose = c.running ? t('ops.running') : describeCmd(c.cmd);
+    const tgt = c.target ? '<span class="cmd-item-tgt">' + escAll(c.target) + '</span>' : '';
+    const out = (!c.running) ? renderCmdOut(c.out, c.cmd, c.ok) : '';
+    const body = c.running
+      ? '<div class="cmd-code">' + escAll(formatCmd(c.cmd)) + '</div>'
+      : renderCmdLines(c.cmd);
     return '<div class="cmd-item">' +
       '<div class="cmd-line">' +
-      (c.target ? '<span class="cmd-tgt">' + escAll(c.target) + '</span>' : '') +
-      '<span class="cmd-text ' + st + '">' + pre + escAll(c.cmd) + '</span>' +
+      '<span class="cmd-ico ' + st + '">' + icon + '</span>' +
+      '<span class="cmd-desc">' + escAll(purpose) + '</span>' + tgt +
+      '<span class="bar-spacer"></span>' +
       '<span class="cmd-copy" data-copy="' + i + '" title="复制命令">⧉</span>' +
-      '</div>' + out + '</div>';
+      '</div>' +
+      '<div class="cmd-lines">' + body + '</div>' + out + '</div>';
   }).join('');
   return '<div class="cmd-log">' +
     '<div class="cmd-log-head">' + t('cmd.transparent') + '（' + cmds.length + '）' +
@@ -2130,6 +2294,17 @@ document.addEventListener('click', (e) => {
   if (cp) {
     const c = _CMD_CACHE[Number(cp.dataset.copy)];
     if (c && navigator.clipboard) navigator.clipboard.writeText(c.cmd);
+    return;
+  }
+  const more = e.target.closest('.cmd-out-more');
+  if (more) {
+    const out = more.previousElementSibling;
+    if (out) {
+      out.classList.remove('cmd-out-fold');
+      out.style.maxHeight = 'none';     // 去掉基类的 max-height 卡制
+      out.style.overflow = 'visible';
+      more.style.display = 'none';
+    }
     return;
   }
   const tg = e.target.closest('.cmd-toggle');

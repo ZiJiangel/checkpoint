@@ -355,6 +355,28 @@ button.primary:hover { opacity: 0.88; }
 .cmd-line .cmd-tgt { color: var(--muted); flex: none; }
 .cmd-line .cmd-text { flex: 1; word-break: break-all; }
 .cmd-line .cmd-text.run { color: var(--muted); }
+/* 命令块 v2：主行说人话，命令缩下面 */
+.cmd-item { padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--line); }
+.cmd-item:last-child { border-bottom: none; }
+.cmd-line-rich { align-items: center; gap: 0.5rem; }
+.cmd-line { display: flex; align-items: center; gap: 0.5rem; }
+.cmd-raw { flex: 1; cursor: help; }
+.cmd-lines { margin: 0.3rem 0 0 1.4rem; }
+.cmd-cmt { font-size: 0.72rem; color: var(--muted); opacity: 0.72; margin-top: 0.5rem; line-height: 1.5; }
+.cmd-code { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink); white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+.cmd-item-tgt { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
+.cmd-ico { flex: none; font-size: 0.8rem; }
+.cmd-ico.ok { color: var(--ok); }
+.cmd-ico.err { color: var(--err); }
+.cmd-ico.run { color: var(--muted); }
+.cmd-desc { flex: 1; font-size: 0.84rem; color: var(--ink); }
+.cmd-desc-raw { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-2); }
+.cmd-rawline { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.2rem; padding-left: 1.4rem; }
+.cmd-raw { flex: 1; font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; }
+.cmd-out { margin-top: 0.35rem; margin-left: 1.4rem; font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); white-space: pre-wrap; word-break: break-all; max-height: 12rem; overflow-y: auto; background: var(--bg); border-radius: var(--r-ctl); padding: 0.4rem 0.6rem; }
+.cmd-out-fold { max-height: 6rem; overflow: hidden; position: relative; }
+.cmd-out-more { display: inline-block; margin: 0.2rem 0 0 1.4rem; font-size: 0.72rem; color: var(--accent); cursor: pointer; }
+.cmd-note { margin: 0.3rem 0 0 1.4rem; font-size: 0.78rem; color: var(--ink-2); }
 .cmd-line .cmd-copy { flex: none; cursor: pointer; color: var(--muted); font-size: 0.7rem; padding: 0 0.2rem; }
 .cmd-line .cmd-copy:hover { color: var(--accent); }
 .cmd-out { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); white-space: pre-wrap; word-break: break-all; margin-top: 0.2rem; max-height: 8rem; overflow-y: auto; }

@@ -233,8 +233,8 @@ def ssh_exec(host, port, user, password, cmd, timeout=15, use_exit_code=False):
         core.log("SSH 连接失败：" + str(host) + " — " + str(e))
         cli.close()   # 连接失败也要关，避免泄漏
         return False, "连接失败：" + str(e)
-    label = "ssh " + str(user) + "@" + str(host) + " \"" + str(cmd) + "\""
-    cid = core.start_cmd(label, target=str(host))
+    # 命令透明：只记"虚拟机内实际执行的命令"，不显示 ssh 外壳（主机放 target）
+    cid = core.start_cmd(str(cmd), target=str(host))
     try:
         si, so, se = cli.exec_command(cmd, timeout=timeout)
         out = so.read().decode("utf-8", "replace")
