@@ -151,7 +151,9 @@ def run_vmrun(args, timeout=60):
     vmrun = get_vmrun()
     if not vmrun or not os.path.exists(vmrun):
         return False, "未找到 vmrun，请在设置中指定 VMware 的 vmrun 路径"
-    track = bool(args) and args[0] != "list"   # 只读的 list 不记录（避免状态轮询污染）
+    # 只读查询不记录命令（避免状态轮询/列表加载污染"操作明细"）
+    _readonly = ("list", "listSnapshots")
+    track = bool(args) and args[0] not in _readonly
     cid = start_cmd("vmrun " + " ".join(args)) if track else None
     try:
         CREATE_NO_WINDOW = 0x08000000

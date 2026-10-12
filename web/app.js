@@ -595,10 +595,14 @@ function renderVmView(vmx) {
       renderVmView(vmx);
     } else {
       // 取树状数据
+      await resetCmdLog();
       try { window._SNAP_TREE = await window.pywebview.api.snapshot_tree(vmx); } catch (e) { window._SNAP_TREE = []; }
       window._SNAP_TREE_VMX = vmx;
       window._SNAP_TREE_MODE = true;
+      const cmdHtml = await takeCmdLogHtml();   // 取走命令（否则会飘到别处显示）
       renderVmView(vmx);
+      const sr = document.getElementById('vmSnapResult');
+      if (sr && cmdHtml) sr.innerHTML = cmdHtml;
     }
   });
   box.querySelectorAll('[data-vm-snap-clone]').forEach(el => el.addEventListener('click', async () => {
