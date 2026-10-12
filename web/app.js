@@ -1911,6 +1911,22 @@ async function renderTopology() {
 }
 
 // 资源监控：CPU / 内存 / 磁盘 / HDFS 容量
+let _MON_HISTORY = [];   // [{cpu, mem, disk}] 最近 N 次采样
+
+// 生成简单折线 SVG（无依赖）
+function sparkline(values, color, max) {
+  if (!values.length) return '';
+  const w = 240, h = 40, n = values.length;
+  const mx = max || Math.max.apply(null, values.concat([1]));
+  const pts = values.map((v, i) => {
+    const x = n > 1 ? (i / (n - 1)) * w : 0;
+    const y = h - (Math.min(v, mx) / mx) * h;
+    return (Math.round(x * 10) / 10) + ',' + (Math.round(y * 10) / 10);
+  }).join(' ');
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" width="100%" height="40" preserveAspectRatio="none">' +
+    '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.5"/></svg>';
+}
+
 async function renderMonitor() {
   const box = document.getElementById('monitorView');
   if (!box) return;
@@ -1921,6 +1937,10 @@ async function renderMonitor() {
   catch (e) { box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
   const cmdHtml = await takeCmdLogHtml();
   if (!r.ok) { box.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + cmdHtml; return; }
+  // 记录本次采样
+  const mm = r.master || {};
+  _MON_HISTORY.push({ cpu: Number(mm.cpu || 0), mem: (Number(mm.mem_total || 1) > 0 ? Math.round(Number(mm.mem_used || 0) / Number(mm.mem_total) * 100) : 0), disk: (Number(mm.disk_total || 1) > 0 ? Math.round(Number(mm.disk_used || 0) / Number(mm.disk_total) * 100) : 0) });
+  if (_MON_HISTORY.length > 20) _MON_HISTORY = _MON_HISTORY.slice(-20);
   const pct = (a, b) => (b && Number(b) > 0) ? Math.min(100, Math.round(Number(a) / Number(b) * 100)) : 0;
   const cls = (p) => p >= 85 ? 'warn' : '';
   const m = r.master || {};
@@ -1935,8 +1955,20 @@ async function renderMonitor() {
   const h = r.hdfs || {};
   html += card('HDFS', escAll(h.used || '?') + ' / ' + escAll(h.capacity || '?'), pct(h.used_raw, h.capacity_raw), 'blue');
   html += '</div>';
-  html += '<div class="mon-card" style="margin-top:0.2rem"><div class="mon-label">' + t('mon.trend') + '</div>' +
-    '<div class="muted" style="margin-top:0.5rem;font-size:0.8rem">' + t('mon.trendHint') + '</div></div>';
+  // 趋势图（按采样历史；至少 2 次才有线）
+  if (_MON_HISTORY.length >= 2) {
+    const cpuV = _MON_HISTORY.map(x => x.cpu);
+    const memV = _MON_HISTORY.map(x => x.mem);
+    const diskV = _MON_HISTORY.map(x => x.disk);
+    html += '<div class="mon-card" style="margin-top:0.6rem"><div class="mon-label">' + t('mon.trend') + '（' + _MON_HISTORY.length + ' 次采样）</div>';
+    html += '<div class="mon-trend-row"><span class="mon-k">CPU</span>' + sparkline(cpuV, '#4ec97a', 100) + '</div>';
+    html += '<div class="mon-trend-row"><span class="mon-k">' + t('mon.mem') + '</span>' + sparkline(memV, '#d9a441', 100) + '</div>';
+    html += '<div class="mon-trend-row"><span class="mon-k">' + t('mon.disk') + '</span>' + sparkline(diskV, '#7aa2f7', 100) + '</div>';
+    html += '</div>';
+  } else {
+    html += '<div class="mon-card" style="margin-top:0.2rem"><div class="mon-label">' + t('mon.trend') + '</div>' +
+      '<div class="muted" style="margin-top:0.5rem;font-size:0.8rem">' + t('mon.trendHint') + '</div></div>';
+  }
   box.innerHTML = html + cmdHtml;
 }
 

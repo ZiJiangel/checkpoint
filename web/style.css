@@ -201,6 +201,8 @@ body {
 .mon-card { border: 1px solid var(--line); border-radius: var(--r-box); background: var(--surface); padding: 0.8rem 0.9rem; }
 .mon-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .mon-val { font-size: 1.25rem; font-weight: 650; font-family: var(--font-mono); margin: 0.4rem 0; }
+.mon-trend-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.4rem; }
+.mon-trend-row .mon-k { width: 40px; flex: none; font-size: 0.72rem; }
 .jobtpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.8rem; margin-top: 1rem; }
 .jobtpl-card { border: 1px solid var(--line); border-radius: var(--r-box); background: var(--surface); padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .jobtpl-name { font-weight: 600; font-size: 0.92rem; }
