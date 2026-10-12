@@ -292,6 +292,24 @@ class Api:
     def cluster_verify(self):
         return cluster.cluster_verify()
 
+    def save_text_file(self, suggested_name, content):
+        """弹保存对话框，把文本写入文件。"""
+        import webview
+        try:
+            w = webview.windows[0]
+            res = w.create_file_dialog(webview.SAVE_DIALOG, save_filename=suggested_name)
+        except Exception as e:
+            return {"ok": False, "msg": "打开保存对话框失败：" + str(e)}
+        if not res:
+            return {"ok": False, "cancelled": True, "msg": ""}
+        path = res if isinstance(res, str) else res[0]
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(content)
+            return {"ok": True, "msg": "已保存", "path": path}
+        except Exception as e:
+            return {"ok": False, "msg": "写文件失败：" + str(e)}
+
     def export_cluster_config(self, cluster_name=None):
         """把当前集群导出为声明式配置文件（保存对话框）。"""
         import webview, json

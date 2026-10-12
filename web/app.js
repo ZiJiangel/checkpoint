@@ -2541,6 +2541,39 @@ async function runHive() {
   out.innerHTML = html + cmdHtml;
 }
 
+// ============ 结果导出（体检结果 → markdown）============
+function buildHealthMarkdown() {
+  const lines = [];
+  lines.push('# Checkpoint 体检报告');
+  lines.push('');
+  lines.push('- 集群：' + (CURRENT_CLUSTER || ''));
+  lines.push('- 时间：' + new Date().toLocaleString());
+  lines.push('');
+  lines.push('| 节点 | 角色 | 状态 | 缺失进程 | 缺失服务 | 缺失端口 |');
+  lines.push('|---|---|---|---|---|---|');
+  const nameMap = { green: '正常', yellow: '部分异常', red: '异常', gray: '未检查', off: '关机' };
+  NODES.forEach(n => {
+    const h = HEALTH[n.id];
+    const st = h ? (nameMap[h.status] || h.status) : '未检查';
+    const miss = h && h.missing ? h.missing.join(', ') : '';
+    const svcs = h && h.svcs_missing ? h.svcs_missing.join(', ') : '';
+    const ports = h && h.ports_missing ? h.ports_missing.join(', ') : '';
+    lines.push('| ' + n.name + ' | ' + (n.role || '') + ' | ' + st + ' | ' + miss + ' | ' + svcs + ' | ' + ports + ' |');
+  });
+  lines.push('');
+  return lines.join('\n');
+}
+
+async function exportResult() {
+  const md = buildHealthMarkdown();
+  try {
+    const r = await window.pywebview.api.save_text_file('checkpoint-report.md', md);
+    if (r.cancelled) return;
+    if (r.ok) uiAlert(t('cl.exported') + '\n' + r.path);
+    else uiAlert(t('ops.fail') + ': ' + (r.msg || ''));
+  } catch (e) { uiAlert(t('ops.fail') + ': ' + e); }
+}
+
 // ============ 声明式集群配置（工具域）============
 async function exportClusterCfg() {
   const out = document.getElementById('ccfgOut');
@@ -2655,6 +2688,8 @@ window.addEventListener('pywebviewready', async () => {
   if (verifyRunBtn) verifyRunBtn.addEventListener('click', runVerify);
   const diagMakeBtn = document.getElementById('diagMake');
   if (diagMakeBtn) diagMakeBtn.addEventListener('click', makeDiagPack);
+  const exportResultBtn = document.getElementById('exportResult');
+  if (exportResultBtn) exportResultBtn.addEventListener('click', exportResult);
   const ccfgExp = document.getElementById('ccfgExport');
   if (ccfgExp) ccfgExp.addEventListener('click', exportClusterCfg);
   const ccfgImp = document.getElementById('ccfgImport');
