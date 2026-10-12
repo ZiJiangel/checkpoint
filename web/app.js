@@ -3021,6 +3021,12 @@ window.addEventListener('pywebviewready', async () => {
   if (cfgLoad) cfgLoad.addEventListener('click', loadCfgTemplate);
   const cfgSave = document.getElementById('cfgtmplSave');
   if (cfgSave) cfgSave.addEventListener('click', saveCfgTemplate);
+  const cfgCopy = document.getElementById('cfgtmplCopy');
+  if (cfgCopy) cfgCopy.addEventListener('click', () => {
+    const txt = document.getElementById('cfgtmplText').value;
+    if (navigator.clipboard) navigator.clipboard.writeText(txt);
+    uiAlert(t('cfgtmpl.copied'));
+  });
   const cfgSel = document.getElementById('cfgtmplSelect');
   if (cfgSel) cfgSel.addEventListener('change', loadCfgTemplate);
   const ccfgExp = document.getElementById('ccfgExport');
