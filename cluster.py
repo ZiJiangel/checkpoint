@@ -231,6 +231,7 @@ def ssh_exec(host, port, user, password, cmd, timeout=15, use_exit_code=False):
                     timeout=timeout, banner_timeout=timeout, auth_timeout=timeout)
     except Exception as e:
         core.log("SSH 连接失败：" + str(host) + " — " + str(e))
+        cli.close()   # 连接失败也要关，避免泄漏
         return False, "连接失败：" + str(e)
     label = "ssh " + str(user) + "@" + str(host) + " \"" + str(cmd) + "\""
     cid = core.start_cmd(label, target=str(host))
