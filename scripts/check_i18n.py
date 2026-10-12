@@ -15,10 +15,13 @@ import sys
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_JS = os.path.join(BASE, "web", "app.js")
+INDEX_HTML = os.path.join(BASE, "web", "index.html")
 I18N_JS = os.path.join(BASE, "web", "i18n.js")
 
 # t('key') —— 词边界 \bt 避免误匹配 createElement('div') 末尾的 t(
 RE_USED = re.compile(r"\bt\('([a-zA-Z0-9_.]+)'\)")
+# HTML 里的 data-i18n / data-i18n-ph / data-i18n-title="key"
+RE_HTML_I18N = re.compile(r'data-i18n(?:-ph|-title)?="([a-zA-Z0-9_.]+)"')
 # "key": —— 字典条目
 RE_DEF = re.compile(r'^\s*"([a-zA-Z0-9_.]+)"\s*:', re.M)
 
@@ -39,9 +42,11 @@ def split_langs(text):
 
 def main():
     app = read(APP_JS)
+    html = read(INDEX_HTML)
     i18n = read(I18N_JS)
 
-    used = set(RE_USED.findall(app))
+    # 用到的 key = app.js 的 t('key') + index.html 的 data-i18n
+    used = set(RE_USED.findall(app)) | set(RE_HTML_I18N.findall(html))
     zh_block, en_block = split_langs(i18n)
     zh = set(RE_DEF.findall(zh_block or ""))
     en = set(RE_DEF.findall(en_block or ""))
