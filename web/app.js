@@ -319,7 +319,7 @@ let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
   const doSwitch = () => {
-    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn'].forEach(v => {
+    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn', 'verify'].forEach(v => {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('hidden', v !== name);
     });
@@ -373,6 +373,7 @@ function bindActivityBar() {
       if (el.dataset.pane === 'hdfs') { showView('hdfs'); renderHdfs(); }
       else if (el.dataset.pane === 'hive') { showView('hive'); }
       else if (el.dataset.pane === 'yarn') { showView('yarn'); renderYarn(); }
+      else if (el.dataset.pane === 'verify') { showView('verify'); }
     });
   });
 }
@@ -2488,6 +2489,32 @@ async function runHive() {
   out.innerHTML = html + cmdHtml;
 }
 
+// ============ 集群验证（作业域）============
+async function runVerify() {
+  const out = document.getElementById('verifyOut');
+  if (!out) return;
+  out.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.cluster_verify(); }
+  catch (e) { out.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml();
+  let html = '';
+  (r.steps || []).forEach(s => {
+    const cls = s.ok ? 'done' : 'fail';
+    const ico = s.ok ? '✓' : '✕';
+    html += '<div class="verify-step ' + cls + '"><span class="vs-ico">' + ico + '</span>' + escAll(s.label) + '</div>';
+  });
+  if (r.ok) {
+    html += '<div class="sec-head" style="margin-top:1rem"><span class="sec-title">' + t('verify.result') + '</span></div>';
+    html += '<pre class="cmd-out" style="max-height:14rem">' + escAll(r.result || '') + '</pre>';
+    html += '<div class="verify-step done" style="margin-top:0.5rem"><span class="vs-ico">✓</span>' + t('verify.pass') + '</div>';
+  } else {
+    html += '<div class="verify-step fail" style="margin-top:0.5rem"><span class="vs-ico">✕</span>' + escAll(r.msg || t('ops.fail')) + '</div>';
+  }
+  out.innerHTML = html + cmdHtml;
+}
+
 // ============ YARN 作业（作业域）============
 async function renderYarn() {
   const box = document.getElementById('yarnList');
@@ -2528,6 +2555,8 @@ window.addEventListener('pywebviewready', async () => {
   bindActivityBar();
   const yarnRefreshBtn = document.getElementById('yarnRefresh');
   if (yarnRefreshBtn) yarnRefreshBtn.addEventListener('click', renderYarn);
+  const verifyRunBtn = document.getElementById('verifyRun');
+  if (verifyRunBtn) verifyRunBtn.addEventListener('click', runVerify);
   // Hive 工具栏
   const hiveRunBtn = document.getElementById('hiveRun');
   if (hiveRunBtn) hiveRunBtn.addEventListener('click', runHive);

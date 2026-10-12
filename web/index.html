@@ -83,6 +83,7 @@
           <div class="side-title"><span data-i18n="dom.job">作业</span></div>
           <div class="side-list">
             <div class="nav-item" data-pane="yarn"><span class="nav-ico">▶</span><span data-i18n="pane.yarn">YARN 作业</span></div>
+            <div class="nav-item" data-pane="verify"><span class="nav-ico">✓</span><span data-i18n="pane.verify">集群验证</span></div>
           </div>
         </div>
         <div class="side-domain hidden" id="sideTool">
@@ -245,6 +246,21 @@
           <div class="empty" data-i18n="yarn.hint">点「刷新」加载 YARN 作业</div>
         </div>
         <div class="result" id="yarnResult"></div>
+      </div>
+
+      <div class="view hidden" id="view-verify">
+        <div class="obj-head" style="display:flex;align-items:center;gap:0.6rem;padding-bottom:0.8rem;border-bottom:1px solid var(--line)">
+          <span class="obj-title" data-i18n="pane.verify">集群验证</span>
+          <span class="obj-sub" data-i18n="verify.sub">跑 WordCount 冒烟测试，验证 MapReduce 全链路</span>
+        </div>
+        <div class="card" style="margin-top:1rem">
+          <div class="card-title" data-i18n="verify.wordcount">WordCount 冒烟测试</div>
+          <div class="hint-foot" data-i18n="verify.desc">用自带样例数据跑一个 MapReduce 作业 —— 比「进程在」更硬的验证</div>
+          <div class="form-row" style="margin-top:0.8rem">
+            <button class="primary" id="verifyRun" data-i18n="verify.run">开始验证</button>
+          </div>
+        </div>
+        <div class="result" id="verifyOut"></div>
       </div>
     </section>
   </main>

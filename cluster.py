@@ -791,6 +791,46 @@ def sftp_download(host, port, user, password, remote_path, local_path, timeout=3
         cli.close()
 
 
+def cluster_verify(timeout=300):
+    """集群验证：跑一个 WordCount 冒烟测试，验证 MapReduce 全链路。
+    步骤：准备样例数据 → 上传 HDFS → 跑 wordcount → 读结果。
+    返回 {ok, steps:[{label, ok, out}], result}。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "steps": [], "msg": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "steps": [], "msg": "master 节点关机，请先开机"}
+    steps = []
+
+    def run(label, cmd, t=timeout):
+        ok, out = _hdfs_master_run(cmd, timeout=t)
+        steps.append({"label": label, "ok": ok, "out": out})
+        return ok, out
+
+    # 1) 准备样例数据
+    run("准备样例数据", "echo \"hadoop yarn mapreduce\" > /tmp/cp_word.txt && "
+        "echo \"hello hadoop\" >> /tmp/cp_word.txt", 30)
+    # 2) 上传到 HDFS（用独立目录，避免污染用户数据）
+    run("上传到 HDFS /tmp_cp_input", "hdfs dfs -mkdir -p /tmp_cp_input && "
+        "hdfs dfs -put -f /tmp/cp_word.txt /tmp_cp_input/", 60)
+    # 3) 找 examples jar（版本号不写死，通配）
+    ok_jar, jar = run("定位 MapReduce 示例 jar",
+                      "ls /root/app/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-*.jar 2>/dev/null | head -1", 15)
+    jar_path = (jar or "").strip().splitlines()[-1].strip() if ok_jar and jar.strip() else ""
+    if not jar_path:
+        return {"ok": False, "steps": steps, "msg": "未找到 hadoop-mapreduce-examples jar（Hadoop 装了吗？）"}
+    # 4) 清旧输出 + 跑 wordcount
+    run("清理旧输出", "hdfs dfs -rm -r -f /tmp_cp_output", 30)
+    ok_wc, out_wc = run("运行 WordCount", 'hadoop jar "%s" wordcount /tmp_cp_input /tmp_cp_output' % jar_path, timeout)
+    if not ok_wc:
+        return {"ok": False, "steps": steps, "msg": "WordCount 运行失败"}
+    # 5) 读结果
+    ok_res, res = run("读取结果", "hdfs dfs -cat /tmp_cp_output/part-r-00000", 30)
+    # 6) 清理
+    run("清理临时数据", "hdfs dfs -rm -r -f /tmp_cp_input /tmp_cp_output && rm -f /tmp/cp_word.txt", 30)
+    return {"ok": ok_res, "steps": steps, "result": res if ok_res else "", "msg": ""}
+
+
 def yarn_apps(timeout=60):
     """查 YARN 作业列表。用 yarn application -list 解析。
     返回 {ok, apps:[{id, name, type, state, queue, start}], msg}。"""

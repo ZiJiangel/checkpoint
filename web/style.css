@@ -198,6 +198,11 @@ body {
 .yarn-state.RUNNING { color: var(--ok); }
 .yarn-state.FINISHED { color: var(--muted); }
 .yarn-state.FAILED { color: var(--err); }
+.verify-step { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0; font-size: 0.84rem; }
+.verify-step .vs-ico { width: 1.1rem; text-align: center; }
+.verify-step.done { color: var(--ok); }
+.verify-step.fail { color: var(--err); }
+.verify-step.running { color: var(--muted); }
 .side-title { display: flex; align-items: center; padding: 0.3rem 0.9rem; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .side-title span { flex: 1; }
 .side-add { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; padding: 0 0.3rem; }
