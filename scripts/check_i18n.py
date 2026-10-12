@@ -65,12 +65,18 @@ def main():
     if en_only:
         problems.append(("英文有、中文缺", en_only))
 
+    # 动态 key 检测：t(变量) 这类，正则扫不到，会被误判成"未使用"
+    dyn = re.findall(r"\bt\(([a-zA-Z_$][\w$]*)\)", app)
+    has_dynamic = len(dyn) > 0
+
     unused = sorted((zh | en) - used)
 
     print("使用 key 数: %d" % len(used))
     print("中文定义: %d    英文定义: %d" % (len(zh), len(en)))
     if unused:
-        print("未使用（定义了但代码没引用，仅供参考）: %d" % len(unused))
+        print("未使用（定义了但代码没引用）: %d" % len(unused))
+    if has_dynamic:
+        print("[注意] 检测到动态 t(key) 调用 — 未使用列表仅供参考，勿盲删")
 
     if not problems:
         print("\n[OK] i18n 词条完整")
