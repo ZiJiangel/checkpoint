@@ -1601,6 +1601,7 @@ async function runDeployCheck() {
   const btn = document.getElementById('deployCheck');
   btn.disabled = true; btn.textContent = t('cl.checking');
   const box = document.getElementById('clusterOverview');
+  await resetCmdLog();
   try {
     const res = await window.pywebview.api.pre_deploy_check();
     const nameOf = {}; NODES.forEach(n => nameOf[n.id] = n.name);
@@ -1618,7 +1619,7 @@ async function runDeployCheck() {
       html += '</div>';
     });
     html += '</div>';
-    box.innerHTML = html;
+    box.innerHTML = html + await takeCmdLogHtml();
   } catch (e) {
     uiAlert('部署自检失败：' + e);
   } finally {
@@ -1637,6 +1638,8 @@ async function scanConfigDirs() {
   const box = document.getElementById('distList');
   btn.disabled = true; btn.textContent = t('cl.scanning');
   box.innerHTML = '<div class="empty">' + t('cl.scanning') + '</div>';
+  await resetCmdLog();
+  const _scanCmds = async () => await takeCmdLogHtml();
   try {
     const r = await window.pywebview.api.scan_config_dirs();
     DIST_FOUND = r.dirs || [];
@@ -1655,6 +1658,7 @@ async function scanConfigDirs() {
       cb.parentElement.classList.toggle('on', cb.checked);
     });
     document.getElementById('distGo').disabled = false;
+    box.innerHTML += await _scanCmds();
   } catch (e) {
     box.innerHTML = '<div class="err">' + e + '</div>';
   } finally {
@@ -2661,6 +2665,7 @@ async function renderHdfsTree() {
 async function expandTreeNode(path, container) {
   let r;
   try { r = await window.pywebview.api.hdfs_dirs(path); } catch (e) { return; }
+  await resetCmdLog();   // 后台加载，取走命令避免污染"操作明细"
   if (!r.ok || !r.dirs.length) return;
   container.innerHTML = r.dirs.map(d => {
     const base = d.replace(/\/$/, '').split('/').pop();
@@ -2829,6 +2834,7 @@ async function loadHiveTree() {
   tree.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
   let r;
   try { r = await window.pywebview.api.hive_tables(); } catch (e) { tree.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  await resetCmdLog();   // 后台加载，取走命令避免污染"操作明细"
   if (!r.ok) { tree.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>'; return; }
   tree.innerHTML = '<div class="bar-title" style="margin-bottom:0.4rem">default</div>' +
     (r.tables.length ? r.tables.map(tb => '<span class="hive-tree-item" data-hive-tbl="' + escAll(tb) + '">▤ ' + escAll(tb) + '</span>').join('') : '<div class="empty">' + t('tables.none') + '</div>');
