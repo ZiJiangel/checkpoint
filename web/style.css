@@ -250,6 +250,26 @@ body {
 .hive-wrap { display: flex; gap: 1rem; margin-top: 1rem; }
 .hive-tree { width: 180px; flex: none; border-right: 1px solid var(--line); padding-right: 0.6rem; max-height: 420px; overflow-y: auto; }
 .hive-main { flex: 1; min-width: 0; }
+.hive-editor { position: relative; margin-top: 1rem; }
+.hive-editor .hive-sql, .hive-editor .hive-highlight {
+  font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.5;
+  padding: 0.7rem; margin: 0; border-radius: var(--r-box);
+  white-space: pre-wrap; word-break: break-word; tab-size: 4;
+}
+.hive-editor .hive-sql {
+  position: relative; width: 100%; min-height: 120px; margin-top: 0;
+  background: transparent; color: transparent; caret-color: var(--ink);
+  border: 1px solid var(--line); resize: vertical; z-index: 2;
+}
+.hive-editor .hive-highlight {
+  position: absolute; inset: 0; margin-top: 1rem; overflow: hidden;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+  pointer-events: none; z-index: 1;
+}
+.hive-kw { color: #c586c0; font-weight: 600; }
+.hive-str { color: #ce9178; }
+.hive-num { color: #b5cea8; }
+.hive-cmt { color: var(--muted); font-style: italic; }
 .hive-tree-item { font-size: 0.82rem; cursor: pointer; padding: 2px 4px; border-radius: var(--r-nav); display: block; }
 .hive-tree-item:hover { background: var(--surface-2); color: var(--accent); }
 .yarn-tbl { width: 100%; border-collapse: collapse; font-size: 0.82rem; }

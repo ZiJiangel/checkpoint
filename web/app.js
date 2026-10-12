@@ -2573,6 +2573,30 @@ function parseBeelineTable(text) {
   return { headers, rows };
 }
 
+// SQL 高亮（关键字/字符串/数字/注释）
+const SQL_KW = new Set(("select from where group by order having limit insert into values update set delete create " +
+  "table external if not exists drop alter add partition partitioned as and or in like join left right inner outer on " +
+  "distinct count sum avg min max desc asc union all load data inpath overwrite location row format delimited fields " +
+  "terminated stored textfile using describe show databases use").split(" "));
+
+function highlightSql(text) {
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // 先转义，再按 token 着色（简单正则，够用）
+  let out = esc(text);
+  out = out.replace(/--[^\n]*/g, m => '\u0001' + m + '\u0002');   // 注释占位
+  out = out.replace(/'[^']*'/g, m => '<span class="hive-str">' + m + '</span>');
+  out = out.replace(/\b\d+\b/g, m => '<span class="hive-num">' + m + '</span>');
+  out = out.replace(/\b([A-Za-z_]+)\b/g, (m, w) => SQL_KW.has(w.toLowerCase()) ? '<span class="hive-kw">' + w + '</span>' : m);
+  out = out.replace(/\u0001([\s\S]*?)\u0002/g, (m, c) => '<span class="hive-cmt">' + c + '</span>');
+  return out + '\n';
+}
+
+function syncHiveHighlight() {
+  const ta = document.getElementById('hiveSql');
+  const hl = document.getElementById('hiveHighlight');
+  if (ta && hl) { hl.innerHTML = highlightSql(ta.value); hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; }
+}
+
 async function loadHiveTree() {
   const tree = document.getElementById('hiveTree');
   if (!tree) return;
@@ -2584,6 +2608,7 @@ async function loadHiveTree() {
     (r.tables.length ? r.tables.map(tb => '<span class="hive-tree-item" data-hive-tbl="' + escAll(tb) + '">▤ ' + escAll(tb) + '</span>').join('') : '<div class="empty">' + t('tables.none') + '</div>');
   tree.querySelectorAll('[data-hive-tbl]').forEach(el => el.addEventListener('click', () => {
     document.getElementById('hiveSql').value = 'select * from ' + el.dataset.hiveTbl + ' limit 100';
+    syncHiveHighlight();
   }));
 }
 
@@ -3005,6 +3030,12 @@ window.addEventListener('pywebviewready', async () => {
   // Hive 工具栏
   const hiveRunBtn = document.getElementById('hiveRun');
   if (hiveRunBtn) hiveRunBtn.addEventListener('click', runHive);
+  const hiveSqlEl = document.getElementById('hiveSql');
+  if (hiveSqlEl) {
+    hiveSqlEl.addEventListener('input', syncHiveHighlight);
+    hiveSqlEl.addEventListener('scroll', syncHiveHighlight);
+    syncHiveHighlight();
+  }
   const hiveLoadTreeBtn = document.getElementById('hiveLoadTree');
   if (hiveLoadTreeBtn) hiveLoadTreeBtn.addEventListener('click', loadHiveTree);
   const hiveClearBtn = document.getElementById('hiveClear');

@@ -275,7 +275,10 @@
         <div class="hive-wrap">
           <div class="hive-tree" id="hiveTree"><div class="empty" data-i18n="hive.treeHint">点上方按钮加载库表</div></div>
           <div class="hive-main">
-            <textarea id="hiveSql" class="hive-sql" placeholder="SELECT * FROM ...;"></textarea>
+            <div class="hive-editor">
+              <pre class="hive-highlight" id="hiveHighlight" aria-hidden="true"></pre>
+              <textarea id="hiveSql" class="hive-sql" placeholder="SELECT * FROM ...;" spellcheck="false"></textarea>
+            </div>
             <div class="hive-out" id="hiveOut">
               <div class="empty" data-i18n="hive.hint">输入 SQL，点「执行」</div>
             </div>
