@@ -1306,6 +1306,12 @@ def hive_describe(table, timeout=60):
     return hive_exec("describe %s" % table, timeout=timeout)
 
 
+def _shell_quote(s):
+    """把字符串安全放进 shell：单引号包裹，内部单引号转义为 '\\''。
+    单引号内 shell 不解释 $、反引号、反斜杠——避免 SQL/路径被 shell 篡改。"""
+    return "'" + str(s).replace("'", "'\\''") + "'"
+
+
 def hive_exec(sql, timeout=120):
     """在 master 上执行 Hive SQL。
     优先 beeline -e；失败退回 hive -e（老版本）。
@@ -1317,11 +1323,10 @@ def hive_exec(sql, timeout=120):
         return {"ok": False, "out": "master 节点关机，请先开机"}
     # 用 -e 执行；输出带分隔符解析
     # 先试 beeline（HiveServer2，返回规整）；再退 hive -e
-    sql_esc = sql.replace('"', '\\"')
-    cmd_beeline = 'beeline -u "jdbc:hive2://localhost:10000" --silent=true -e "%s"' % sql_esc
+    cmd_beeline = 'beeline -u "jdbc:hive2://localhost:10000" --silent=true -e ' + _shell_quote(sql)
     ok, out = _hdfs_master_run(cmd_beeline, timeout=timeout, use_exit_code=True)
     if not ok:
-        cmd_hive = 'hive -e "%s"' % sql_esc
+        cmd_hive = 'hive -e ' + _shell_quote(sql)
         ok2, out2 = _hdfs_master_run(cmd_hive, timeout=timeout, use_exit_code=True)
         return {"ok": ok2, "out": out2}
     return {"ok": ok, "out": out}

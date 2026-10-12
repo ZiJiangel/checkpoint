@@ -102,6 +102,13 @@ check("hive_import ok", r.get("ok") is True, r)
 check("hive_import 有 ddl", "create external table" in (r.get("ddl") or ""))
 check("hive_import 列名", "c1 string" in (r.get("ddl") or "") and "c2 string" in (r.get("ddl") or ""))
 
+# ---- 测 _shell_quote（shell 转义，防命令注入/篡改）----
+print("[_shell_quote]")
+check("普通", cluster._shell_quote("abc") == "'abc'")
+check("单引号转义", cluster._shell_quote("it's") == "'it'\\''s'", cluster._shell_quote("it's"))
+check("含$被单引号保护", cluster._shell_quote("$x") == "'$x'")
+check("含反引号", cluster._shell_quote("\u0060whoami\u0060") == "'\u0060whoami\u0060'")
+
 # ---- 测 _parse_services / _parse_jps / _parse_ports ----
 print("[解析三兄弟]")
 svc = cluster._parse_services("sshd=active\nfirewalld=inactive\nchronyd=active")
