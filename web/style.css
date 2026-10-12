@@ -232,6 +232,8 @@ body {
 .term-input input { flex: 1; font-family: var(--font-mono); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 0.5rem 0.7rem; color: var(--ink); }
 .hdfs-wrap { display: flex; gap: 1rem; margin-top: 1rem; min-height: 320px; }
 .hdfs-tree { width: 200px; flex: none; border-right: 1px solid var(--line); padding-right: 0.6rem; }
+.hdfs-tree-root, .hdfs-tree-name { font-size: 0.82rem; cursor: pointer; padding: 2px 4px; border-radius: var(--r-nav); display: block; }
+.hdfs-tree-root:hover, .hdfs-tree-name:hover { background: var(--surface-2); }
 .hdfs-list { flex: 1; overflow-x: auto; }
 .hdfs-row { display: grid; grid-template-columns: 1fr 90px 140px 100px 90px; gap: 0.6rem; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--line); font-size: 0.82rem; align-items: center; }
 .hdfs-row.head { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }

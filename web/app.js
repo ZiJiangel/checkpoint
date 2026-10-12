@@ -2422,6 +2422,30 @@ document.getElementById('vmwareStatus').addEventListener('click', () => {
 // ============ HDFS 操作（数据域工作台）============
 let HDFS_PATH = "/";
 
+// HDFS 左侧目录树（懒加载子目录）
+let _HDFS_EXPANDED = new Set(['/']);
+async function renderHdfsTree() {
+  const tree = document.getElementById('hdfsTree');
+  if (!tree) return;
+  tree.innerHTML = '<div class="bar-title" style="margin-bottom:0.5rem">' + t('pane.hdfs') + '</div><div class="hdfs-tree-root" data-hdfs-go="/">📁 /</div><div id="hdfsTreeBody" style="padding-left:12px"></div>';
+  tree.querySelector('[data-hdfs-go="/"]').addEventListener('click', () => { HDFS_PATH = '/'; renderHdfs(); });
+  await expandTreeNode('/', document.getElementById('hdfsTreeBody'));
+}
+
+async function expandTreeNode(path, container) {
+  let r;
+  try { r = await window.pywebview.api.hdfs_dirs(path); } catch (e) { return; }
+  if (!r.ok || !r.dirs.length) return;
+  container.innerHTML = r.dirs.map(d => {
+    const base = d.replace(/\/$/, '').split('/').pop();
+    return '<div class="hdfs-tree-node"><span class="hdfs-tree-name" data-hdfs-go="' + escAll(d) + '">📁 ' + escAll(base) + '</span></div>';
+  }).join('');
+  container.querySelectorAll('[data-hdfs-go]').forEach(el => el.addEventListener('click', () => {
+    HDFS_PATH = el.dataset.hdfsGo;
+    renderHdfs();
+  }));
+}
+
 async function renderHdfs() {
   const list = document.getElementById('hdfsList');
   const tree = document.getElementById('hdfsTree');
@@ -2437,12 +2461,8 @@ async function renderHdfs() {
     list.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + await takeCmdLogHtml();
     return;
   }
-  // 面包屑（路径分段可点）
-  const crumbs = HDFS_PATH.split('/').filter(Boolean);
-  let crumbHtml = '<span class="svc-action" data-hdfs-go="/">/</span>';
-  let acc = '';
-  crumbs.forEach(c => { acc += '/' + c; crumbHtml += ' <span class="svc-action" data-hdfs-go="' + escAll(acc) + '">' + escAll(c) + '</span> /'; });
-  tree.innerHTML = '<div class="bar-title" style="margin-bottom:0.5rem">' + t('pane.hdfs') + '</div>' + crumbHtml;
+  // 左侧目录树（可展开）
+  await renderHdfsTree();
 
   let html = '<div class="hdfs-row head"><span>' + t('hdfs.name') + '</span><span>' + t('hdfs.size') + '</span><span>' + t('hdfs.date') + '</span><span>' + t('hdfs.perm') + '</span><span>' + t('hdfs.act') + '</span></div>';
   if (!r.items.length) {

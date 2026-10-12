@@ -828,6 +828,20 @@ def hdfs_rename(src, dst):
     return _hdfs_master_run('hdfs dfs -mv "%s" "%s"' % (src, dst), timeout=60)
 
 
+def hdfs_dirs(path="/", timeout=30):
+    """列某目录下的子目录（供左侧目录树）。返回 {ok, dirs:[full...], msg}。"""
+    ok, out = _hdfs_master_run('hdfs dfs -ls "%s" 2>/dev/null' % path, timeout=timeout)
+    dirs = []
+    for line in (out or "").splitlines():
+        line = line.rstrip()
+        if not line or line.startswith("Found ") or line.startswith("ls:"):
+            continue
+        parts = line.split()
+        if len(parts) >= 8 and parts[0].startswith("d"):
+            dirs.append(" ".join(parts[7:]))
+    return {"ok": True, "dirs": dirs, "msg": ""}
+
+
 def hdfs_search(dir_path, keyword, timeout=60):
     """在 HDFS 目录下搜索文件名含 keyword 的项。返回 {ok, items, msg}。"""
     ok, out = _hdfs_master_run('hdfs dfs -ls -R "%s" 2>/dev/null | grep "%s"' % (dir_path, keyword), timeout=timeout)
@@ -1130,6 +1144,9 @@ JOB_TEMPLATES = [
      "cmd": 'hadoop jar {examples} TestDFSIO -read -nrFiles 4 -size 16MB'},
     {"id": "terasort", "name": "TeraSort", "desc": "大规模排序基准（需先生成数据）",
      "cmd": 'hadoop jar {examples} teragen 100000 /tera_in && hadoop jar {examples} terasort /tera_in /tera_out'},
+    {"id": "spark_wc", "name": "Spark WordCount", "desc": "Spark 词频统计（需装 Spark）",
+     "cmd": 'spark-submit --class org.apache.spark.examples.SparkPi --master yarn /root/app/spark/examples/jars/spark-examples*.jar 10 2>/dev/null || '
+            'spark-shell -e "sc.textFile(\"/input\").flatMap(_.split(\" \")).map((_,1)).reduceByKey(_+_).saveAsTextFile(\"/spark_out\")"'},
 ]
 
 

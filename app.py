@@ -291,6 +291,9 @@ class Api:
     def hdfs_search(self, dir_path, keyword):
         return cluster.hdfs_search(dir_path, keyword)
 
+    def hdfs_dirs(self, path="/"):
+        return cluster.hdfs_dirs(path)
+
     def hive_exec(self, sql):
         return cluster.hive_exec(sql)
 
