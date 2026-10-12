@@ -175,6 +175,14 @@ body {
 .side-domain.hidden { display: none; }
 .snap-tree-line { display: flex; align-items: center; }
 .snap-tree-guide { font-family: var(--font-mono); color: var(--muted); white-space: pre; }
+.term-wrap { margin-top: 0.8rem; display: flex; flex-direction: column; }
+.term-out { font-family: var(--font-mono); font-size: 0.8rem; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-box); padding: 0.7rem; min-height: 260px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
+.term-line.cmd { color: var(--accent); }
+.term-line.run { color: var(--muted); }
+.term-line.err { color: var(--err); }
+.term-input { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; font-family: var(--font-mono); }
+.term-prompt { color: var(--ok); }
+.term-input input { flex: 1; font-family: var(--font-mono); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 0.5rem 0.7rem; color: var(--ink); }
 .hdfs-wrap { display: flex; gap: 1rem; margin-top: 1rem; min-height: 320px; }
 .hdfs-tree { width: 200px; flex: none; border-right: 1px solid var(--line); padding-right: 0.6rem; }
 .hdfs-list { flex: 1; overflow-x: auto; }

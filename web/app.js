@@ -1418,6 +1418,7 @@ function showDetail(id) {
   // 选项卡栏
   const tabs = [
     ['health', '健康'], ['service', '服务'], ['snapshot', '快照'], ['config', '配置'],
+    ['terminal', '终端'],
   ];
   const tabBar = '<div class="detail-tabs">' + tabs.map(([k, label]) =>
     '<button class="detail-tab' + (DETAIL_TAB === k ? ' active' : '') + '" data-dtab="' + k + '">' + label + '</button>'
@@ -1451,6 +1452,9 @@ function renderDetailBody(n) {
     body.innerHTML = renderHealthTab(n);
   } else if (DETAIL_TAB === 'service') {
     body.innerHTML = renderServiceTab(n);
+  } else if (DETAIL_TAB === 'terminal') {
+    body.innerHTML = renderTerminalTab(n);
+    bindTerminalTab(n);
   } else if (DETAIL_TAB === 'snapshot') {
     body.innerHTML = renderSnapshotTab(n);
     bindSnapshotTab(n);
@@ -1564,6 +1568,52 @@ function bindSnapshotTab(n) {
     showDetail(n.id);
     res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.deleted') : r.out) + '</span>' + cmdHtml;
   }));
+}
+
+// 终端 tab：SSH 到该节点执行命令
+let _TERM_HISTORY = {};   // id -> [输出行]
+
+function renderTerminalTab(n) {
+  const hist = (_TERM_HISTORY[n.id] || []).map(l =>
+    '<div class="term-line ' + (l.cls || '') + '">' + escAll(l.text) + '</div>').join('');
+  return '<div class="term-wrap">' +
+    '<div class="term-out" id="termOut">' + (hist || '<div class="empty">' + t('term.hint') + '</div>') + '</div>' +
+    '<div class="term-input"><span class="term-prompt">$</span>' +
+    '<input id="termCmd" placeholder="' + t('term.placeholder') + '" autocomplete="off"></div>' +
+    '</div>';
+}
+
+function bindTerminalTab(n) {
+  const inp = document.getElementById('termCmd');
+  const out = document.getElementById('termOut');
+  if (!inp) return;
+  if (!_TERM_HISTORY[n.id]) _TERM_HISTORY[n.id] = [];
+  const paint = () => {
+    out.innerHTML = _TERM_HISTORY[n.id].map(l =>
+      '<div class="term-line ' + (l.cls || '') + '">' + escAll(l.text) + '</div>').join('') || '<div class="empty">' + t('term.hint') + '</div>';
+    out.scrollTop = out.scrollHeight;
+  };
+  inp.addEventListener('keydown', async (e) => {
+    if (e.key !== 'Enter') return;
+    const cmd = inp.value.trim();
+    if (!cmd) return;
+    inp.value = '';
+    _TERM_HISTORY[n.id].push({ text: '$ ' + cmd, cls: 'cmd' });
+    _TERM_HISTORY[n.id].push({ text: t('term.running'), cls: 'run' });
+    paint();
+    try {
+      const r = await window.pywebview.api.node_exec(n, cmd);
+      _TERM_HISTORY[n.id].pop();   // 去掉 running
+      _TERM_HISTORY[n.id].push({ text: (r.out || '(无输出)'), cls: r.ok ? '' : 'err' });
+    } catch (err) {
+      _TERM_HISTORY[n.id].pop();
+      _TERM_HISTORY[n.id].push({ text: String(err), cls: 'err' });
+    }
+    // 只留最近 200 行
+    if (_TERM_HISTORY[n.id].length > 200) _TERM_HISTORY[n.id] = _TERM_HISTORY[n.id].slice(-200);
+    paint();
+  });
+  inp.focus();
 }
 
 function renderConfigTab(n) {

@@ -252,6 +252,16 @@ def ssh_exec(host, port, user, password, cmd, timeout=15, use_exit_code=False):
         cli.close()
 
 
+def node_exec(node, cmd, timeout=30):
+    """在节点上执行一条命令（终端用）。返回 {ok, out}。"""
+    if node_vm_off(node):
+        return {"ok": False, "out": "虚拟机关机（未开机）"}
+    ok, out = ssh_exec(node.get("host", ""), node.get("port", 22),
+                       node.get("user", ""), node.get("pass", ""), cmd,
+                       timeout=timeout, use_exit_code=True)
+    return {"ok": ok, "out": out}
+
+
 def test_node(node):
     """测试节点连接：跑 hostname 验证（关机节点秒判，不白等超时）"""
     if node_vm_off(node):

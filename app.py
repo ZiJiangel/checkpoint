@@ -143,6 +143,10 @@ class Api:
         ok, msg = cluster.test_node(node)
         return {"ok": ok, "out": msg}
 
+    def node_exec(self, node, cmd):
+        """在节点上执行一条命令（终端用）。"""
+        return cluster.node_exec(node, cmd)
+
     def health_check(self):
         return cluster.health_check_all()
 
