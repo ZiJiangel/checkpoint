@@ -723,3 +723,48 @@ def hdfs_get(remote_path, local_path):
 def hdfs_cat(remote_path):
     """读文件前 N 行（预览）。"""
     return _hdfs_master_run('hdfs dfs -cat "%s" | head -100' % remote_path, timeout=60)
+
+
+def sftp_upload(host, port, user, password, local_path, remote_path, timeout=30):
+    """用 SFTP 把本地文件传到远程（返回 (ok, msg)）。"""
+    try:
+        import paramiko
+    except ImportError:
+        return False, "缺少 paramiko"
+    cli = paramiko.SSHClient()
+    cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        cli.connect(host, port=int(port or 22), username=user, password=password, timeout=timeout)
+        sftp = cli.open_sftp()
+        sftp.put(local_path, remote_path)
+        sftp.close()
+        return True, "上传成功"
+    except Exception as e:
+        core.log("SFTP 上传失败：" + str(e), exc=True)
+        return False, str(e)
+    finally:
+        cli.close()
+
+
+def hdfs_upload(local_path, remote_dir):
+    """把本地文件上传到 HDFS。
+    步骤：SFTP 传到 master 的 /tmp → 在 master 上 hdfs dfs -put。
+    local_path: 宿主机本地文件；remote_dir: HDFS 目标目录。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "msg": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "msg": "master 节点关机，请先开机"}
+    import os as _os
+    base = _os.path.basename(local_path)
+    tmp_remote = "/tmp/checkpoint_upload_" + base
+    # 1) SFTP 传到 master
+    ok, msg = sftp_upload(m.get("host", ""), m.get("port", 22),
+                          m.get("user", ""), m.get("pass", ""), local_path, tmp_remote)
+    if not ok:
+        return {"ok": False, "msg": "传到 master 失败：" + msg}
+    # 2) master 上 hdfs dfs -put
+    dst = remote_dir.rstrip("/") + "/" + base
+    cmd = 'hdfs dfs -put -f "%s" "%s" && rm -f "%s"' % (tmp_remote, dst, tmp_remote)
+    ok2, out2 = _hdfs_master_run(cmd, timeout=180)
+    return {"ok": ok2, "msg": out2, "dst": dst}

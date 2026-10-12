@@ -2422,7 +2422,15 @@ window.addEventListener('pywebviewready', async () => {
     renderHdfs();
   });
   const hu = document.getElementById('hdfsUpload');
-  if (hu) hu.addEventListener('click', () => uiAlert('上传功能开发中（需先把本地文件传到 master，见待做清单）'));
+  if (hu) hu.addEventListener('click', async () => {
+    await resetCmdLog();
+    let r;
+    try { r = await window.pywebview.api.hdfs_pick_and_upload(HDFS_PATH); }
+    catch (e) { uiAlert('上传失败：' + e); return; }
+    if (r.cancelled) return;
+    if (!r.ok) { uiAlert('上传失败：' + (r.msg || '')); }
+    renderHdfs();
+  });
   await loadHealthCache();   // 恢复上次体检结果
   loadVmware();
   // 无边框窗口：补回可拖拽边缘（延迟到窗口完全就绪）
