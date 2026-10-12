@@ -897,8 +897,6 @@ document.getElementById('snapSelectAll').addEventListener('click', () => { SNAP_
 document.getElementById('snapSelectNone').addEventListener('click', () => { SNAP_PICKED = new Set(); renderSnapPick(); });
 document.getElementById('saveVmrun').addEventListener('click', saveVmrun);
 document.getElementById('saveAllAlias').addEventListener('click', saveAllAlias);
-const _navSet = document.getElementById('navSettings');
-if (_navSet) _navSet.addEventListener('click', () => showView('settings'));
 const _nodeBack = document.getElementById('nodeBack');
 if (_nodeBack) _nodeBack.addEventListener('click', () => showView('cluster'));
 const _vmBack = document.getElementById('vmBack');
@@ -1356,6 +1354,7 @@ function renderNodes() {
       dot +
       '<span class="vm-name">' + n.name + '</span>' + role + host + note +
       '<span class="bar-spacer"></span>' + vmBadge +
+      '<span class="vm-count" style="cursor:pointer" data-detail="' + n.id + '">' + t('cl.detail') + '</span>' +
       '<span class="vm-count" style="cursor:pointer" data-del="' + n.id + '">删除</span>' +
       '</div>';
     // 就地展开：健康详情
@@ -1370,6 +1369,7 @@ function bindNodeRowEvents(box) {
   box.querySelectorAll('.node-row').forEach(r => {
     r.addEventListener('click', (e) => {
       if (e.target.dataset.del) { delNode(e.target.dataset.del); return; }
+      if (e.target.dataset.detail) { showDetail(e.target.dataset.detail); return; }
       const id = r.dataset.id;
       window._DETAIL_ID = (window._DETAIL_ID === id) ? null : id;
       renderNodes();
