@@ -354,7 +354,7 @@ function switchDomain(dom) {
   // 环境域 → 默认回集群视图；数据域 → HDFS 工作台
   if (dom === 'env') showView('cluster');
   else if (dom === 'data') { showView('hdfs'); renderHdfs(); detectComponents(); }
-  else if (dom === 'job') { showView('yarn'); renderYarn(); }
+  else if (dom === 'job') { showView('yarn'); renderYarn(); detectComponents(); }
   else if (dom === 'settings') { showView('settings'); }
 }
 
@@ -2811,12 +2811,21 @@ async function renderHbase() {
 }
 
 // 组件检测：装了 HBase 才显示 HBase 浏览
+let _COMPONENTS = null;   // 缓存组件检测结果
+
 async function detectComponents() {
   try {
     const r = await window.pywebview.api.detect_components();
-    const comp = (r && r.components) || {};
+    _COMPONENTS = (r && r.components) || {};
     const hbaseNav = document.getElementById('navHbase');
-    if (hbaseNav) hbaseNav.classList.toggle('hidden', !comp.hbase);
+    if (hbaseNav) hbaseNav.classList.toggle('hidden', !_COMPONENTS.hbase);
+    // 作业域：Spark 模板按需显示
+    const sparkNav = document.getElementById('navSpark');
+    if (sparkNav) sparkNav.classList.toggle('hidden', !_COMPONENTS.spark);
+    // 若当前在作业模板页，重渲染
+    if (document.getElementById('view-jobtpl') && !document.getElementById('view-jobtpl').classList.contains('hidden')) {
+      renderJobTemplates();
+    }
   } catch (e) {}
 }
 
@@ -2906,6 +2915,10 @@ async function renderJobTemplates() {
   let tpls = [];
   try { tpls = await window.pywebview.api.list_job_templates(); }
   catch (e) { box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  // 组件动态显示：没装 Spark 就隐藏 Spark 模板
+  if (_COMPONENTS && _COMPONENTS.spark === false) {
+    tpls = tpls.filter(tp => tp.id.indexOf('spark') !== 0);
+  }
   box.innerHTML = tpls.map(tp =>
     '<div class="jobtpl-card"><div class="jobtpl-name">' + escAll(tp.name) + '</div>' +
     '<div class="jobtpl-desc">' + escAll(tp.desc) + '</div>' +
