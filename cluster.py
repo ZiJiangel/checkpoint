@@ -1230,13 +1230,20 @@ def hive_import(hdfs_path, table, sep=",", cols=None, timeout=180):
 
 def hive_tables(timeout=60):
     """列出 Hive 数据库和表。返回 {ok, tables:[...], msg}。"""
-    ok, out = hive_exec("show tables", timeout=timeout)
+    res = hive_exec("show tables", timeout=timeout)
+    ok = res.get("ok")
+    out = res.get("out", "")
     if not ok:
         return {"ok": False, "tables": [], "msg": out}
     tables = []
     for line in (out or "").splitlines():
         line = line.strip()
-        if not line or line.lower().startswith(("tab_name", "ok", "time taken", "+", "|")):
+        if not line:
+            continue
+        # 跳过分隔线（+--+）、日志噪音；但保留 | 数据行
+        if set(line) <= set("+-| "):
+            continue
+        if line.lower().startswith(("tab_name", "ok", "time taken")):
             continue
         if line.startswith("Warning") or line.startswith("log4j") or "=" in line[:10]:
             continue
