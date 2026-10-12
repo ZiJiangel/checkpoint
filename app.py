@@ -290,6 +290,12 @@ class Api:
     def yarn_apps(self):
         return cluster.yarn_apps()
 
+    def list_job_templates(self):
+        return cluster.list_job_templates()
+
+    def run_job_template(self, tid):
+        return cluster.run_job_template(tid)
+
     def services_topology(self):
         return cluster.services_topology()
 

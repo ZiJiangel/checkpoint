@@ -86,6 +86,7 @@
           <div class="side-title"><span data-i18n="dom.job">作业</span></div>
           <div class="side-list">
             <div class="nav-item" data-pane="yarn"><span class="nav-ico">▶</span><span data-i18n="pane.yarn">YARN 作业</span></div>
+            <div class="nav-item" data-pane="jobtpl"><span class="nav-ico">▦</span><span data-i18n="pane.jobtpl">作业模板</span></div>
             <div class="nav-item" data-pane="verify"><span class="nav-ico">✓</span><span data-i18n="pane.verify">集群验证</span></div>
             <div class="nav-item" data-pane="deploycheck"><span class="nav-ico">⊕</span><span data-i18n="pane.deploycheck">部署后验证</span></div>
           </div>
@@ -275,6 +276,15 @@
           <div class="empty" data-i18n="yarn.hint">点「刷新」加载 YARN 作业</div>
         </div>
         <div class="result" id="yarnResult"></div>
+      </div>
+
+      <div class="view hidden" id="view-jobtpl">
+        <div class="obj-head" style="display:flex;align-items:center;gap:0.6rem;padding-bottom:0.8rem;border-bottom:1px solid var(--line)">
+          <span class="obj-title" data-i18n="pane.jobtpl">作业模板</span>
+          <span class="obj-sub" data-i18n="jobtpl.sub">一键提交常见作业</span>
+        </div>
+        <div id="jobtplList" class="jobtpl-grid"></div>
+        <div class="result" id="jobtplResult"></div>
       </div>
 
       <div class="view hidden" id="view-verify">

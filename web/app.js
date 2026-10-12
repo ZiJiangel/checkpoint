@@ -319,7 +319,7 @@ let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
   const doSwitch = () => {
-    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn', 'verify', 'deploycheck', 'diagpack', 'clustercfg', 'cfgtmpl'].forEach(v => {
+    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn', 'verify', 'deploycheck', 'diagpack', 'clustercfg', 'cfgtmpl', 'jobtpl'].forEach(v => {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('hidden', v !== name);
     });
@@ -373,6 +373,7 @@ function bindActivityBar() {
       if (el.dataset.pane === 'hdfs') { showView('hdfs'); renderHdfs(); }
       else if (el.dataset.pane === 'hive') { showView('hive'); }
       else if (el.dataset.pane === 'yarn') { showView('yarn'); renderYarn(); }
+      else if (el.dataset.pane === 'jobtpl') { showView('jobtpl'); renderJobTemplates(); }
       else if (el.dataset.pane === 'verify') { showView('verify'); }
       else if (el.dataset.pane === 'deploycheck') { showView('deploycheck'); }
       else if (el.dataset.pane === 'diagpack') { showView('diagpack'); }
@@ -2791,6 +2792,34 @@ async function makeDiagPack() {
   if (r.cancelled) { out.innerHTML = ''; return; }
   if (r.ok) out.innerHTML = '<div class="verify-step done"><span class="vs-ico">✓</span>' + escAll(r.msg) + '</div>';
   else out.innerHTML = '<div class="verify-step fail"><span class="vs-ico">✕</span>' + escAll(r.msg || t('ops.fail')) + '</div>';
+}
+
+// ============ 作业模板（作业域）============
+async function renderJobTemplates() {
+  const box = document.getElementById('jobtplList');
+  if (!box) return;
+  let tpls = [];
+  try { tpls = await window.pywebview.api.list_job_templates(); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  box.innerHTML = tpls.map(tp =>
+    '<div class="jobtpl-card"><div class="jobtpl-name">' + escAll(tp.name) + '</div>' +
+    '<div class="jobtpl-desc">' + escAll(tp.desc) + '</div>' +
+    '<button class="mini-btn primary" data-jobtpl="' + escAll(tp.id) + '">' + t('jobtpl.run') + '</button></div>'
+  ).join('');
+  box.querySelectorAll('[data-jobtpl]').forEach(el => el.addEventListener('click', async () => {
+    const tid = el.dataset.jobtpl;
+    const out = document.getElementById('jobtplResult');
+    if (!await uiConfirm(t('jobtpl.confirm'))) return;
+    out.innerHTML = '<div class="empty">' + t('ops.running') + '（可能较慢，请稍候）</div>';
+    await resetCmdLog();
+    let r;
+    try { r = await window.pywebview.api.run_job_template(tid); }
+    catch (e) { out.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+    const cmdHtml = await takeCmdLogHtml();
+    out.innerHTML = '<div class="verify-step ' + (r.ok ? 'done' : 'fail') + '"><span class="vs-ico">' + (r.ok ? '✓' : '✕') + '</span>' +
+      (r.ok ? t('ops.done') : t('ops.fail')) + '</div>' +
+      '<pre class="cmd-out" style="max-height:22rem">' + escAll(r.out || '') + '</pre>' + cmdHtml;
+  }));
 }
 
 // ============ 集群验证（作业域）============

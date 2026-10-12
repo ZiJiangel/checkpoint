@@ -1052,6 +1052,44 @@ def resource_metrics():
     return {"ok": True, "master": master, "hdfs": hdfs_out, "msg": ""}
 
 
+# 作业模板（声明式：id/名称/说明/命令模板）
+JOB_TEMPLATES = [
+    {"id": "wordcount", "name": "WordCount", "desc": "词频统计（MapReduce 入门）",
+     "cmd": 'hadoop jar {examples} wordcount /input /output_wc'},
+    {"id": "testdfsio_write", "name": "TestDFSIO 写", "desc": "HDFS 写入性能测试",
+     "cmd": 'hadoop jar {examples} TestDFSIO -write -nrFiles 4 -size 16MB'},
+    {"id": "testdfsio_read", "name": "TestDFSIO 读", "desc": "HDFS 读取性能测试",
+     "cmd": 'hadoop jar {examples} TestDFSIO -read -nrFiles 4 -size 16MB'},
+    {"id": "terasort", "name": "TeraSort", "desc": "大规模排序基准（需先生成数据）",
+     "cmd": 'hadoop jar {examples} teragen 100000 /tera_in && hadoop jar {examples} terasort /tera_in /tera_out'},
+]
+
+
+def list_job_templates():
+    return [{"id": t["id"], "name": t["name"], "desc": t["desc"]} for t in JOB_TEMPLATES]
+
+
+def run_job_template(tid, timeout=600):
+    """跑一个作业模板。自动定位 examples jar（版本通配）。"""
+    tpl = next((t for t in JOB_TEMPLATES if t["id"] == tid), None)
+    if not tpl:
+        return {"ok": False, "out": "未知模板：" + str(tid)}
+    m = _master_node()
+    if not m:
+        return {"ok": False, "out": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "out": "master 节点关机，请先开机"}
+    # 定位 examples jar
+    ok, jar = _hdfs_master_run(
+        "ls /root/app/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-*.jar 2>/dev/null | head -1", timeout=15)
+    jar_path = (jar or "").strip().splitlines()[-1].strip() if ok and jar.strip() else ""
+    if not jar_path:
+        return {"ok": False, "out": "未找到 hadoop-mapreduce-examples jar（Hadoop 装了吗？）"}
+    cmd = "source /etc/profile; " + tpl["cmd"].format(examples=jar_path)
+    ok2, out = _hdfs_master_run(cmd, timeout=timeout)
+    return {"ok": ok2, "out": out, "cmd": cmd}
+
+
 def yarn_apps(timeout=60):
     """查 YARN 作业列表。用 yarn application -list 解析。
     返回 {ok, apps:[{id, name, type, state, queue, start}], msg}。"""
