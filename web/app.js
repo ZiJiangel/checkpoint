@@ -319,7 +319,7 @@ let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
   const doSwitch = () => {
-    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn', 'verify'].forEach(v => {
+    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn', 'verify', 'diagpack'].forEach(v => {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('hidden', v !== name);
     });
@@ -374,6 +374,7 @@ function bindActivityBar() {
       else if (el.dataset.pane === 'hive') { showView('hive'); }
       else if (el.dataset.pane === 'yarn') { showView('yarn'); renderYarn(); }
       else if (el.dataset.pane === 'verify') { showView('verify'); }
+      else if (el.dataset.pane === 'diagpack') { showView('diagpack'); }
     });
   });
 }
@@ -2489,6 +2490,19 @@ async function runHive() {
   out.innerHTML = html + cmdHtml;
 }
 
+// ============ 脱敏诊断包（工具域）============
+async function makeDiagPack() {
+  const out = document.getElementById('diagOut');
+  if (!out) return;
+  out.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  let r;
+  try { r = await window.pywebview.api.make_diagpack(); }
+  catch (e) { out.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  if (r.cancelled) { out.innerHTML = ''; return; }
+  if (r.ok) out.innerHTML = '<div class="verify-step done"><span class="vs-ico">✓</span>' + escAll(r.msg) + '</div>';
+  else out.innerHTML = '<div class="verify-step fail"><span class="vs-ico">✕</span>' + escAll(r.msg || t('ops.fail')) + '</div>';
+}
+
 // ============ 集群验证（作业域）============
 async function runVerify() {
   const out = document.getElementById('verifyOut');
@@ -2557,6 +2571,8 @@ window.addEventListener('pywebviewready', async () => {
   if (yarnRefreshBtn) yarnRefreshBtn.addEventListener('click', renderYarn);
   const verifyRunBtn = document.getElementById('verifyRun');
   if (verifyRunBtn) verifyRunBtn.addEventListener('click', runVerify);
+  const diagMakeBtn = document.getElementById('diagMake');
+  if (diagMakeBtn) diagMakeBtn.addEventListener('click', makeDiagPack);
   // Hive 工具栏
   const hiveRunBtn = document.getElementById('hiveRun');
   if (hiveRunBtn) hiveRunBtn.addEventListener('click', runHive);

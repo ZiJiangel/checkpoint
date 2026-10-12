@@ -43,6 +43,7 @@ ensure_deps()
 import webview  # noqa
 import core
 import cluster
+import diagpack
 import services
 import vmware_env
 import diagnose
@@ -286,6 +287,20 @@ class Api:
 
     def cluster_verify(self):
         return cluster.cluster_verify()
+
+    def make_diagpack(self):
+        """生成脱敏诊断包（弹保存对话框）。"""
+        import webview
+        try:
+            w = webview.windows[0]
+            res = w.create_file_dialog(webview.SAVE_DIALOG, save_filename="checkpoint-diag.zip")
+        except Exception as e:
+            return {"ok": False, "msg": "打开保存对话框失败：" + str(e)}
+        if not res:
+            return {"ok": False, "cancelled": True, "msg": ""}
+        path = res if isinstance(res, str) else res[0]
+        ok, msg = diagpack.save_pack(path)
+        return {"ok": ok, "msg": msg, "path": path if ok else ""}
 
     def hdfs_download_dialog(self, remote_path):
         """选本地保存目录 → 从 HDFS 下载该文件。"""

@@ -88,7 +88,9 @@
         </div>
         <div class="side-domain hidden" id="sideTool">
           <div class="side-title"><span data-i18n="dom.tool">工具</span></div>
-          <div class="side-list"></div>
+          <div class="side-list">
+            <div class="nav-item" data-pane="diagpack"><span class="nav-ico">⊞</span><span data-i18n="pane.diagpack">脱敏诊断包</span></div>
+          </div>
         </div>
       </div>
       <div class="side-footer">
@@ -261,6 +263,20 @@
           </div>
         </div>
         <div class="result" id="verifyOut"></div>
+      </div>
+
+      <div class="view hidden" id="view-diagpack">
+        <div class="obj-head" style="display:flex;align-items:center;gap:0.6rem;padding-bottom:0.8rem;border-bottom:1px solid var(--line)">
+          <span class="obj-title" data-i18n="pane.diagpack">脱敏诊断包</span>
+        </div>
+        <div class="card" style="margin-top:1rem">
+          <div class="card-title" data-i18n="diag.title">生成诊断包</div>
+          <div class="hint-foot" data-i18n="diag.desc">打包系统信息 / 节点信息 / 体检结果 / 错误日志，<b>已去除密码、IP 已打码</b>，可直接发给开发者排查。</div>
+          <div class="form-row" style="margin-top:0.8rem">
+            <button class="primary" id="diagMake" data-i18n="diag.make">生成并保存…</button>
+          </div>
+        </div>
+        <div class="result" id="diagOut"></div>
       </div>
     </section>
   </main>
