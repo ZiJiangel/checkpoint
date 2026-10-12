@@ -375,6 +375,12 @@ function renderVmView(vmx) {
   const box = document.getElementById('vmDetail');
   const v = VMS.find(x => x.vmx === vmx);
   if (!v) { box.innerHTML = '<div class="empty">' + t('run.none') + '</div>'; return; }
+  // 切了 VM → 重置树状状态（否则会串到上一个 VM 的快照树）
+  if (window._SNAP_TREE_VMX !== vmx) {
+    window._SNAP_TREE = [];
+    window._SNAP_TREE_MODE = false;
+    window._SNAP_TREE_VMX = vmx;
+  }
   const dotCls = v.running ? 'st-green' : 'st-gray';
   const snaps = v.snapshots || [];
   let html = '<div class="obj-head">' +
@@ -510,6 +516,7 @@ function renderVmView(vmx) {
     } else {
       // 取树状数据
       try { window._SNAP_TREE = await window.pywebview.api.snapshot_tree(vmx); } catch (e) { window._SNAP_TREE = []; }
+      window._SNAP_TREE_VMX = vmx;
       window._SNAP_TREE_MODE = true;
       renderVmView(vmx);
     }
@@ -1042,19 +1049,32 @@ async function createClusterSnap() {
   const name = document.getElementById('clusterSnapName').value.trim();
   const res = document.getElementById('clusterSnapResult');
   if (!name) { res.innerHTML = '<span class="err">' + t('ops.needName') + '</span>'; return; }
-  POWER_RUNNING = true; setPowerBtns(true);
   const targets = snapPickedNodes();
   if (targets.length === 0) { res.innerHTML = '<span class="err">' + t('cl.noVmxNodes') + '</span>'; return; }
-  res.textContent = t('ops.running');
+  // 运行中的 VM 打快照很慢且占大量磁盘空间 → 先确认
+  const runningNodes = targets.filter(n => {
+    const vm = VMS.find(v => normVmx(v.vmx) === normVmx(n.vmx));
+    return vm && vm.running;
+  });
+  if (runningNodes.length) {
+    const names = runningNodes.map(n => n.name).join('、');
+    if (!await uiConfirm(t('cl.snapRunningWarn').replace('{n}', names))) return;
+  }
+  POWER_RUNNING = true; setPowerBtns(true);
   await resetCmdLog();
+  res.innerHTML = '<div id="cmdLiveBox"></div><div id="snapProg" class="result"></div>';
+  const liveBox = document.getElementById('cmdLiveBox');
+  const prog = document.getElementById('snapProg');
+  startLiveCmds(liveBox);
   let ok = 0, fail = 0;
   for (const n of targets) {
+    prog.textContent = t('ops.running') + ' (' + (ok + fail) + '/' + targets.length + ')';
     try {
       const r = await window.pywebview.api.snapshot(n.vmx, name);
       if (r.ok) ok++; else fail++;
     } catch (e) { fail++; }
-    res.textContent = t('ops.running') + ' (' + (ok + fail) + '/' + targets.length + ')';
   }
+  stopLiveCmds();
   res.innerHTML = '<span class="' + (fail === 0 ? 'ok' : 'err') + '">' +
     ok + ' 台成功' + (fail ? '，' + fail + ' 台失败' : '') + '</span>' + await takeCmdLogHtml();
   POWER_RUNNING = false; setPowerBtns(false);
@@ -1876,27 +1896,50 @@ async function resetCmdLog() {
   try { await window.pywebview.api.drain_cmd_log(); } catch (e) {}
 }
 
+// 把命令数组渲染成 HTML（running 状态也支持）
+function renderCmdItems(cmds, open) {
+  const items = cmds.map((c, i) => {
+    const st = c.running ? 'run' : (c.ok ? 'ok' : 'err');
+    const pre = c.running ? '⏳ ' : '$ ';
+    const out = (!c.running && c.out) ? '<div class="cmd-out">' + escAll(c.out) + '</div>' : '';
+    return '<div class="cmd-item">' +
+      '<div class="cmd-line">' +
+      (c.target ? '<span class="cmd-tgt">' + escAll(c.target) + '</span>' : '') +
+      '<span class="cmd-text ' + st + '">' + pre + escAll(c.cmd) + '</span>' +
+      '<span class="cmd-copy" data-copy="' + i + '" title="复制命令">⧉</span>' +
+      '</div>' + out + '</div>';
+  }).join('');
+  return '<div class="cmd-log">' +
+    '<div class="cmd-log-head">' + t('cmd.transparent') + '（' + cmds.length + '）' +
+    '<span class="cmd-toggle" data-toggle="1">' + (open ? t('cmd.collapse') : t('cmd.expand')) + '</span></div>' +
+    '<div class="cmd-log-body"' + (open ? '' : ' style="display:none"') + '>' + items + '</div>' +
+    '</div>';
+}
+
 async function takeCmdLogHtml(expanded) {
   let cmds = [];
   try { cmds = await window.pywebview.api.drain_cmd_log(); } catch (e) { cmds = []; }
   _CMD_CACHE = cmds || [];
   if (!_CMD_CACHE.length) return '';
-  const open = expanded !== false;   // 默认展开
-  const items = _CMD_CACHE.map((c, i) => {
-    const st = c.ok ? 'ok' : 'err';
-    const out = c.out ? '<div class="cmd-out">' + escAll(c.out) + '</div>' : '';
-    return '<div class="cmd-item">' +
-      '<div class="cmd-line">' +
-      (c.target ? '<span class="cmd-tgt">' + escAll(c.target) + '</span>' : '') +
-      '<span class="cmd-text ' + st + '">$ ' + escAll(c.cmd) + '</span>' +
-      '<span class="cmd-copy" data-copy="' + i + '" title="复制命令">⧉</span>' +
-      '</div>' + out + '</div>';
-  }).join('');
-  return '<div class="cmd-log">' +
-    '<div class="cmd-log-head">' + t('cmd.transparent') + '（' + _CMD_CACHE.length + '）' +
-    '<span class="cmd-toggle" data-toggle="1">' + (open ? t('cmd.collapse') : t('cmd.expand')) + '</span></div>' +
-    '<div class="cmd-log-body"' + (open ? '' : ' style="display:none"') + '>' + items + '</div>' +
-    '</div>';
+  return renderCmdItems(_CMD_CACHE, expanded !== false);
+}
+
+// 实时命令显示：操作执行期间，把命令区挂在某个容器上定时刷新（像 shell）
+let _LIVE_TIMER = null;
+function startLiveCmds(container) {
+  stopLiveCmds();
+  const tick = async () => {
+    let cmds = [];
+    try { cmds = await window.pywebview.api.peek_cmd_log(); } catch (e) { cmds = []; }
+    if (cmds && cmds.length) {
+      container.innerHTML = renderCmdItems(cmds, true);
+    }
+  };
+  tick();
+  _LIVE_TIMER = setInterval(tick, 600);
+}
+function stopLiveCmds() {
+  if (_LIVE_TIMER) { clearInterval(_LIVE_TIMER); _LIVE_TIMER = null; }
 }
 
 // 事件委托：命令块复制 / 折叠

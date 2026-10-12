@@ -262,6 +262,10 @@ class Api:
         """取出并清空命令日志（供前端"命令透明"展示本次操作的命令）。"""
         return core.drain_cmd_log()
 
+    def peek_cmd_log(self):
+        """看一眼命令日志（不清空），供执行中实时显示。"""
+        return core.peek_cmd_log()
+
     def check_update(self):
         return core.check_update()
 

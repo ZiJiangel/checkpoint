@@ -172,6 +172,8 @@ def ssh_exec(host, port, user, password, cmd, timeout=15, use_exit_code=False):
     except Exception as e:
         core.log("SSH 连接失败：" + str(host) + " — " + str(e))
         return False, "连接失败：" + str(e)
+    label = "ssh " + str(user) + "@" + str(host) + " \"" + str(cmd) + "\""
+    cid = core.start_cmd(label, target=str(host))
     try:
         si, so, se = cli.exec_command(cmd, timeout=timeout)
         out = so.read().decode("utf-8", "replace")
@@ -179,15 +181,13 @@ def ssh_exec(host, port, user, password, cmd, timeout=15, use_exit_code=False):
         code = so.channel.recv_exit_status()
         if err.strip():
             out = out + ("\n[STDERR] " + err if out else err)
-        core.record_cmd("ssh " + str(user) + "@" + str(host) + " \"" + str(cmd) + "\"",
-                        out, ok=(code == 0), target=str(host))
+        core.finish_cmd(cid, out, ok=(code == 0))
         if use_exit_code:
             return code == 0, out
         return True, out
     except Exception as e:
         core.log("SSH 执行失败：" + str(host) + " — " + str(e))
-        core.record_cmd("ssh " + str(user) + "@" + str(host) + " \"" + str(cmd) + "\"",
-                        str(e), ok=False, target=str(host))
+        core.finish_cmd(cid, str(e), ok=False)
         return False, "执行失败：" + str(e)
     finally:
         cli.close()

@@ -38,25 +38,64 @@ def log(msg, exc=False):
 
 # ============ 命令透明：全局命令日志（记录实际执行的命令+输出）============
 import threading
+import itertools
 _CMD_LOG = []
 _CMD_LOCK = threading.Lock()
 _CMD_MAX = 500
+_CMD_ID = itertools.count(1)
 
-def record_cmd(cmd, out="", ok=True, target=""):
-    """记录一条实际执行的命令（供界面"命令透明"展示）。"""
+def start_cmd(cmd, target=""):
+    """命令"开始执行"时记录（状态 running），返回条目 id 用于更新。"""
     try:
         with _CMD_LOCK:
-            _CMD_LOG.append({"cmd": str(cmd), "out": str(out)[:2000], "ok": bool(ok), "target": str(target)})
+            cid = next(_CMD_ID)
+            _CMD_LOG.append({"id": cid, "cmd": str(cmd), "out": "", "ok": True,
+                             "running": True, "target": str(target)})
+            if len(_CMD_LOG) > _CMD_MAX:
+                del _CMD_LOG[:-_CMD_MAX]
+            return cid
+    except Exception:
+        return None
+
+def finish_cmd(cid, out="", ok=True):
+    """命令"执行结束"时更新状态。"""
+    if cid is None:
+        return
+    try:
+        with _CMD_LOCK:
+            for it in _CMD_LOG:
+                if it.get("id") == cid:
+                    it["out"] = str(out)[:2000]
+                    it["ok"] = bool(ok)
+                    it["running"] = False
+                    return
+    except Exception:
+        pass
+
+def record_cmd(cmd, out="", ok=True, target=""):
+    """一次性记录一条已完成的命令（无 running 阶段时用）。"""
+    try:
+        with _CMD_LOCK:
+            _CMD_LOG.append({"id": next(_CMD_ID), "cmd": str(cmd), "out": str(out)[:2000],
+                             "ok": bool(ok), "running": False, "target": str(target)})
             if len(_CMD_LOG) > _CMD_MAX:
                 del _CMD_LOG[:-_CMD_MAX]
     except Exception:
         pass
 
+def peek_cmd_log():
+    """看一眼命令日志（不清空），供执行中实时显示。"""
+    try:
+        with _CMD_LOCK:
+            return [dict(x) for x in _CMD_LOG]
+    except Exception:
+        return []
+
 def drain_cmd_log():
     """取出并清空命令日志（每次操作后调用，返回本次操作产生的命令）。"""
     try:
         with _CMD_LOCK:
-            items = list(_CMD_LOG)
+            items = [dict(x) for x in _CMD_LOG]
             _CMD_LOG.clear()
             return items
     except Exception:
@@ -112,18 +151,21 @@ def run_vmrun(args, timeout=60):
     vmrun = get_vmrun()
     if not vmrun or not os.path.exists(vmrun):
         return False, "未找到 vmrun，请在设置中指定 VMware 的 vmrun 路径"
+    track = bool(args) and args[0] != "list"   # 只读的 list 不记录（避免状态轮询污染）
+    cid = start_cmd("vmrun " + " ".join(args)) if track else None
     try:
         CREATE_NO_WINDOW = 0x08000000
         p = subprocess.run([vmrun] + args, capture_output=True, text=True,
                            timeout=timeout, encoding="utf-8", errors="replace",
                            creationflags=CREATE_NO_WINDOW)
         out = ((p.stdout or "") + (p.stderr or "")).strip()
-        if args and args[0] != "list":   # 只读的 list 不记录（避免状态轮询污染）
-            record_cmd("vmrun " + " ".join(args), out, ok=(p.returncode == 0))
+        if track:
+            finish_cmd(cid, out, ok=(p.returncode == 0))
         return p.returncode == 0, out
     except Exception as e:
         log("执行 vmrun 失败：" + " ".join(args) + " — " + str(e), exc=True)
-        record_cmd("vmrun " + " ".join(args), str(e), ok=False)
+        if track:
+            finish_cmd(cid, str(e), ok=False)
         return False, str(e)
 
 
@@ -227,26 +269,71 @@ def list_snapshots(vmx):
 
 
 def list_snapshots_tree(vmx):
-    """返回树状快照 [{name, depth}]（用 -showtree 的缩进推断层级）。
-    失败则退回平铺（depth 全 0）。"""
+    """返回树状快照 [{name, depth}]。
+    首选读 .vmsd（权威，含 parent 字段），vmrun -showtree 的缩进不可靠。
+    读不到 .vmsd 时退回 vmrun 平铺（depth 全 0）。"""
     if not vmx or not os.path.exists(vmx):
         return []
-    ok, out = run_vmrun(["listSnapshots", vmx, "-showtree"])
+    vmsd = os.path.splitext(vmx)[0] + ".vmsd"
+    tree = _parse_vmsd_tree(vmsd)
+    if tree:
+        return tree
+    # 退回：vmrun 平铺
+    ok, out = run_vmrun(["listSnapshots", vmx])
     if not ok:
-        ok2, out2 = run_vmrun(["listSnapshots", vmx])
-        if not ok2:
-            return []
-        return [{"name": l.strip(), "depth": 0} for l in out2.splitlines()
-                if l.strip() and not l.lower().startswith("total")]
-    result = []
-    for line in out.splitlines():
-        if not line.strip() or line.lower().startswith("total"):
+        return []
+    return [{"name": l.strip(), "depth": 0} for l in out.splitlines()
+            if l.strip() and not l.lower().startswith("total")]
+
+
+def _parse_vmsd_tree(vmsd):
+    """解析 .vmsd 里的快照层级。返回按树序排列的 [{name, depth}]。
+    .vmsd 每行形如 snapshotN.uid/displayName/parent。"""
+    if not os.path.exists(vmsd):
+        return []
+    try:
+        raw = open(vmsd, "rb").read()
+        # 第一行 .encoding 声明文件编码（常见 GBK / UTF-8）
+        enc = "utf-8"
+        first = raw.split(b"\n", 1)[0].decode("ascii", "ignore")
+        if "encoding" in first and "=" in first:
+            enc = first.split("=", 1)[1].strip().strip('"') or "utf-8"
+        text = raw.decode(enc, "replace")
+    except Exception as e:
+        log("读 .vmsd 失败：" + str(vmsd) + " — " + str(e))
+        return []
+    import re as _re
+    uid_name, uid_parent, order = {}, {}, []
+    for line in text.splitlines():
+        m = _re.match(r"snapshot(\d+)\.(uid|displayName|parent)\s*=\s*\"?([^\"]*)\"?", line)
+        if not m:
             continue
-        # 按前导空格/制表符算层级
-        stripped = line.lstrip()
-        indent = len(line) - len(stripped)
-        depth = indent // 3   # vmrun 每层缩进 3 空格
-        result.append({"name": stripped, "depth": depth})
+        idx, key, val = m.group(1), m.group(2), m.group(3).strip()
+        if key == "uid":
+            uid_name[val] = uid_name.get(val, "")
+            order.append(val)
+        elif key == "displayName":
+            # 该 displayName 属于哪个 uid？用 snapshot<idx>.uid 找
+            mu = _re.search(r"snapshot%s\.uid\s*=\s*\"([^\"]*)\"" % idx, text)
+            if mu:
+                uid_name[mu.group(1)] = val
+        elif key == "parent":
+            mu = _re.search(r"snapshot%s\.uid\s*=\s*\"([^\"]*)\"" % idx, text)
+            if mu and val:
+                uid_parent[mu.group(1)] = val
+    # 按 uid 顺序算深度（parent 链）
+    def depth_of(uid, seen=None):
+        seen = seen or set()
+        if uid in seen or uid not in uid_parent:
+            return 0
+        seen.add(uid)
+        return 1 + depth_of(uid_parent[uid], seen)
+    result = []
+    for uid in order:
+        nm = uid_name.get(uid, "")
+        if not nm:
+            continue
+        result.append({"name": nm, "depth": depth_of(uid)})
     return result
 
 
