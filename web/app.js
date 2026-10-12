@@ -1682,8 +1682,9 @@ async function distributeConfig() {
   const root = (document.getElementById('distTarget').value || '').trim();
   const scope = root ? ('覆盖根目录 ' + root) : '同路径';
   if (!await uiConfirm('把选中的 ' + picked.length + ' 个配置分发到从节点（' + scope + '）？')) return;
-  res.textContent = t('ops.running');
   await resetCmdLog();
+  res.innerHTML = '<div id="distLiveBox"></div><div id="distProg" class="result">' + t('ops.running') + '</div>';
+  startLiveCmds(document.getElementById('distLiveBox'));
   let html = '';
   let anyFail = '';
   for (const src of picked) {
@@ -1702,6 +1703,7 @@ async function distributeConfig() {
     if (diag) html += diag;
     else html += '<div class="hint-foot">' + t('cl.distFailHint') + '</div>';
   }
+  clearLiveCmds(document.getElementById('distLiveBox'));
   html += await takeCmdLogHtml();
   res.innerHTML = html;
 }
@@ -1743,6 +1745,16 @@ async function runCluster(action) {
   POWER_RUNNING = true;
   setPowerBtns(true);
   await resetCmdLog();
+  // 实时命令区（挂 powerProgress 的兄弟，避免被 powerLog 重绘冲掉）
+  let _live = document.getElementById('clusterCmdLive');
+  if (!_live) {
+    _live = document.createElement('div');
+    _live.id = 'clusterCmdLive';
+    const pp = document.getElementById('powerProgress');
+    pp.parentNode.insertBefore(_live, pp.nextSibling);
+  }
+  _live.innerHTML = '';
+  startLiveCmds(_live);
   const svcs = await window.pywebview.api.get_services();
   const enabled = svcs.filter(s => s.enabled);
   const stages = [...new Set(enabled.map(s => s.stage))].sort((a, b) => action === 'stop' ? b - a : a - b);
@@ -1806,6 +1818,7 @@ async function runCluster(action) {
     if (!ready) {
       lines.push(renderLine('阶段0 · 等待节点就绪超时（有节点未连上）', 'fail'));
       lines.push('<div class="result err">✕ 节点未就绪，已停止（请检查虚拟机是否正常启动）</div>');
+      clearLiveCmds(document.getElementById('clusterCmdLive'));
       const _cmdHtml = await takeCmdLogHtml();
       if (_cmdHtml) lines.push(_cmdHtml);
       POWER_RUNNING = false;
@@ -1857,6 +1870,7 @@ async function runCluster(action) {
   }
   POWER_RUNNING = false;
   setPowerBtns(false);
+  clearLiveCmds(document.getElementById('clusterCmdLive'));
   if (!aborted) {
     lines.push('<div class="empty" style="margin-top:0.6rem">' + t('cl.powerDone') + '</div>');
   }
@@ -1942,6 +1956,12 @@ function stopLiveCmds() {
   if (_LIVE_TIMER) { clearInterval(_LIVE_TIMER); _LIVE_TIMER = null; }
 }
 
+// 清空并停止实时命令区（操作结束后用，避免与最终命令块重复）
+function clearLiveCmds(container) {
+  stopLiveCmds();
+  if (container) container.innerHTML = '';
+}
+
 // 事件委托：命令块复制 / 折叠
 document.addEventListener('click', (e) => {
   const cp = e.target.closest('.cmd-copy');
@@ -1988,6 +2008,15 @@ async function shutdownVms() {
   await resetCmdLog();
   const rows = {};   // id -> 状态
   targets.forEach(n => { rows[n.id] = { name: n.name, state: 'running', text: t('cl.shutdownWait') }; });
+  // 实时命令区挂在 powerProgress 的兄弟（避免被 paint 重绘冲掉）
+  let _live = document.getElementById('sdLiveBox');
+  if (!_live) {
+    _live = document.createElement('div');
+    _live.id = 'sdLiveBox';
+    const pp = document.getElementById('powerProgress');
+    pp.parentNode.insertBefore(_live, pp.nextSibling);
+  }
+  _live.innerHTML = '';
   const paint = () => {
     powerLog(targets.map(n => {
       const r = rows[n.id];
@@ -1996,6 +2025,7 @@ async function shutdownVms() {
     }).join(''));
   };
   paint();
+  startLiveCmds(_live);
   // 并发发起
   await Promise.all(targets.map(async (n) => {
     try {
@@ -2016,6 +2046,7 @@ async function shutdownVms() {
   POWER_RUNNING = false;
   setPowerBtns(false);
   const allOk = targets.every(n => rows[n.id].state === 'done');
+  clearLiveCmds(document.getElementById('sdLiveBox'));
   paint();
   const _cmdHtml = await takeCmdLogHtml();
   powerLog(targets.map(n => {
