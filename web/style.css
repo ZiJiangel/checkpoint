@@ -365,6 +365,7 @@ button.primary:hover { opacity: 0.88; }
 .cmd-cmt { font-size: 0.72rem; color: var(--muted); opacity: 0.72; margin-top: 0.5rem; line-height: 1.5; }
 .cmd-code { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink); white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
 .cmd-item-tgt { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
+.hc-tip { color: var(--muted); font-size: 0.76rem; }
 .cmd-ico { flex: none; font-size: 0.8rem; }
 .cmd-ico.ok { color: var(--ok); }
 .cmd-ico.err { color: var(--err); }

@@ -1220,17 +1220,35 @@ function bindNodeRowEvents(box) {
 }
 
 // 节点健康（就地展开，不用跳页）
+// 进程名 → 人话
+function procName(p) { const k = 'hc.p.' + p; const v = t(k); return v === k ? p : v; }
+
+// 缺失项渲染（人话：缺什么 = 什么 + 什么用）
+function renderHealthItems(h) {
+  let html = '';
+  if (h.missing && h.missing.length) {
+    html += '<div class="svc-line err">缺进程：' +
+      h.missing.map(p => procName(p)).join('、') +
+      '<span class="hc-tip">（' + t('hc.procTip') + '）</span></div>';
+  }
+  if (h.svcs_missing && h.svcs_missing.length) {
+    html += '<div class="svc-line err">缺服务：' + h.svcs_missing.join('、') +
+      '<span class="hc-tip">（' + t('hc.svcTip') + '）</span></div>';
+  }
+  if (h.ports_missing && h.ports_missing.length) {
+    html += '<div class="svc-line err">缺端口：' +
+      h.ports_missing.map(p => { const k = 'hc.port.' + p; const v = t(k); return v === k ? p : (p + ' ' + v); }).join('、') +
+      '<span class="hc-tip">（' + t('hc.portTip') + '）</span></div>';
+  }
+  return html;
+}
+
 function renderHealthInline(n) {
   const h = HEALTH[n.id];
   const st = healthStatusOf(n.id);
   if (!h) return '<div class="empty">' + t('cl.notChecked') + '</div>';
   let html = '<div class="svc-line"><span class="vm-role">' + (h.detail || '') + '</span></div>';
-  if (h.missing && h.missing.length)
-    html += '<div class="svc-line err">缺进程：' + h.missing.join(', ') + '</div>';
-  if (h.svcs_missing && h.svcs_missing.length)
-    html += '<div class="svc-line err">缺服务：' + h.svcs_missing.join(', ') + '</div>';
-  if (h.ports_missing && h.ports_missing.length)
-    html += '<div class="svc-line err">缺端口：' + h.ports_missing.join(', ') + '</div>';
+  html += renderHealthItems(h);
   const noProb = (!h.missing || !h.missing.length)
     && (!h.svcs_missing || !h.svcs_missing.length)
     && (!h.ports_missing || !h.ports_missing.length);
@@ -1332,12 +1350,7 @@ function renderHealthTab(n) {
   const h = HEALTH[n.id];
   if (!h) return '<div class="empty">' + t('cl.notChecked') + '</div>';
   let html = '<div class="result">' + (h.detail || '') + '</div>';
-  if (h.missing && h.missing.length)
-    html += '<div class="result err" style="margin-top:0.4rem">缺进程：' + h.missing.join(', ') + '</div>';
-  if (h.svcs_missing && h.svcs_missing.length)
-    html += '<div class="result err" style="margin-top:0.2rem">缺服务：' + h.svcs_missing.join(', ') + '</div>';
-  if (h.ports_missing && h.ports_missing.length)
-    html += '<div class="result err" style="margin-top:0.2rem">缺端口：' + h.ports_missing.join(', ') + '</div>';
+  html += renderHealthItems(h);
   const noProb = (!h.missing || !h.missing.length)
     && (!h.svcs_missing || !h.svcs_missing.length)
     && (!h.ports_missing || !h.ports_missing.length);
