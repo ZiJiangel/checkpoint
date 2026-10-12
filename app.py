@@ -281,6 +281,9 @@ class Api:
     def hive_exec(self, sql):
         return cluster.hive_exec(sql)
 
+    def yarn_apps(self):
+        return cluster.yarn_apps()
+
     def hdfs_download_dialog(self, remote_path):
         """选本地保存目录 → 从 HDFS 下载该文件。"""
         import webview

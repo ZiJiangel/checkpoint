@@ -791,6 +791,42 @@ def sftp_download(host, port, user, password, remote_path, local_path, timeout=3
         cli.close()
 
 
+def yarn_apps(timeout=60):
+    """查 YARN 作业列表。用 yarn application -list 解析。
+    返回 {ok, apps:[{id, name, type, state, queue, start}], msg}。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "apps": [], "msg": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "apps": [], "msg": "master 节点关机，请先开机"}
+    # -appStates ALL 拿全部（含已完成）；解析固定宽度表
+    ok, out = _hdfs_master_run("yarn application -list -appStates ALL", timeout=timeout, use_exit_code=True)
+    if not ok:
+        return {"ok": False, "apps": [], "msg": out}
+    apps = []
+    lines = out.splitlines()
+    header_idx = -1
+    for i, l in enumerate(lines):
+        if "Application-Id" in l and "Application-Name" in l:
+            header_idx = i
+            break
+    if header_idx >= 0:
+        # 简化：按连续空格切每行（列位置法留待真机校准）
+        for l in lines[header_idx + 1:]:
+            l = l.strip()
+            if not l or l.startswith("Total number") or set(l) <= set("-"):
+                continue
+            parts = l.split()
+            if len(parts) < 5:
+                continue
+            apps.append({"id": parts[0], "start": parts[1],
+                         "name": parts[2] if len(parts) > 2 else "",
+                         "type": parts[3] if len(parts) > 3 else "",
+                         "queue": parts[5] if len(parts) > 5 else "",
+                         "state": parts[6] if len(parts) > 6 else ""})
+    return {"ok": True, "apps": apps, "msg": ""}
+
+
 def hive_exec(sql, timeout=120):
     """在 master 上执行 Hive SQL。
     优先 beeline -e；失败退回 hive -e（老版本）。

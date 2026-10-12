@@ -234,6 +234,18 @@
         </div>
         <div class="result" id="hiveResult"></div>
       </div>
+
+      <div class="view hidden" id="view-yarn">
+        <div class="obj-head" style="display:flex;align-items:center;gap:0.6rem;padding-bottom:0.8rem;border-bottom:1px solid var(--line)">
+          <span class="obj-title" data-i18n="pane.yarn">YARN 作业</span>
+          <span class="bar-spacer"></span>
+          <button class="mini-btn" id="yarnRefresh" data-i18n="hdfs.refresh">刷新</button>
+        </div>
+        <div id="yarnList" style="margin-top:1rem">
+          <div class="empty" data-i18n="yarn.hint">点「刷新」加载 YARN 作业</div>
+        </div>
+        <div class="result" id="yarnResult"></div>
+      </div>
     </section>
   </main>
 

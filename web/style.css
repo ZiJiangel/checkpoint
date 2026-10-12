@@ -188,6 +188,14 @@ body {
 .hive-tbl { border-collapse: collapse; font-size: 0.82rem; }
 .hive-tbl th, .hive-tbl td { border: 1px solid var(--line); padding: 0.35rem 0.7rem; text-align: left; white-space: nowrap; }
 .hive-tbl th { background: var(--surface-2); color: var(--muted); font-weight: 600; }
+.yarn-tbl { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.yarn-tbl th, .yarn-tbl td { border-bottom: 1px solid var(--line); padding: 0.45rem 0.7rem; text-align: left; }
+.yarn-tbl th { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.yarn-tbl tr:hover td { background: var(--surface-2); }
+.yarn-state { padding: 0.1rem 0.5rem; border-radius: var(--r-tag); font-size: 0.74rem; }
+.yarn-state.RUNNING { color: var(--ok); }
+.yarn-state.FINISHED { color: var(--muted); }
+.yarn-state.FAILED { color: var(--err); }
 .side-title { display: flex; align-items: center; padding: 0.3rem 0.9rem; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .side-title span { flex: 1; }
 .side-add { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; padding: 0 0.3rem; }

@@ -319,7 +319,7 @@ let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
   const doSwitch = () => {
-    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive'].forEach(v => {
+    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn'].forEach(v => {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('hidden', v !== name);
     });
@@ -354,7 +354,7 @@ function switchDomain(dom) {
   // 环境域 → 默认回集群视图；数据域 → HDFS 工作台
   if (dom === 'env') showView('cluster');
   else if (dom === 'data') { showView('hdfs'); renderHdfs(); }
-  else if (dom === 'job') showView('hdfs');  // 暂借，后续做 YARN
+  else if (dom === 'job') { showView('yarn'); renderYarn(); }
   else if (dom === 'settings') { showView('settings'); }
 }
 
@@ -372,6 +372,7 @@ function bindActivityBar() {
       el.classList.add('active');
       if (el.dataset.pane === 'hdfs') { showView('hdfs'); renderHdfs(); }
       else if (el.dataset.pane === 'hive') { showView('hive'); }
+      else if (el.dataset.pane === 'yarn') { showView('yarn'); renderYarn(); }
     });
   });
 }
@@ -2454,8 +2455,46 @@ async function runHive() {
   out.innerHTML = html + cmdHtml;
 }
 
+// ============ YARN 作业（作业域）============
+async function renderYarn() {
+  const box = document.getElementById('yarnList');
+  if (!box) return;
+  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.yarn_apps(); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml();
+  if (!r.ok) {
+    box.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + cmdHtml;
+    return;
+  }
+  if (!r.apps.length) {
+    box.innerHTML = '<div class="empty">' + t('yarn.noApps') + '</div>' + cmdHtml;
+    return;
+  }
+  let html = '<table class="yarn-tbl"><thead><tr>' +
+    '<th>' + t('yarn.id') + '</th><th>' + t('yarn.name') + '</th><th>' + t('yarn.type') + '</th>' +
+    '<th>' + t('yarn.queue') + '</th><th>' + t('yarn.state') + '</th><th>' + t('yarn.start') + '</th>' +
+    '</tr></thead><tbody>';
+  html += r.apps.map(a =>
+    '<tr>' +
+    '<td class="vm-role">' + escAll(a.id) + '</td>' +
+    '<td>' + escAll(a.name) + '</td>' +
+    '<td>' + escAll(a.type) + '</td>' +
+    '<td>' + escAll(a.queue) + '</td>' +
+    '<td><span class="yarn-state ' + escAll(a.state) + '">' + escAll(a.state) + '</span></td>' +
+    '<td class="vm-role">' + escAll(a.start) + '</td>' +
+    '</tr>'
+  ).join('');
+  html += '</tbody></table>';
+  box.innerHTML = html + cmdHtml;
+}
+
 window.addEventListener('pywebviewready', async () => {
   bindActivityBar();
+  const yarnRefreshBtn = document.getElementById('yarnRefresh');
+  if (yarnRefreshBtn) yarnRefreshBtn.addEventListener('click', renderYarn);
   // Hive 工具栏
   const hiveRunBtn = document.getElementById('hiveRun');
   if (hiveRunBtn) hiveRunBtn.addEventListener('click', runHive);
