@@ -290,6 +290,12 @@ class Api:
     def yarn_apps(self):
         return cluster.yarn_apps()
 
+    def yarn_app_logs(self, app_id):
+        return cluster.yarn_app_logs(app_id)
+
+    def yarn_kill(self, app_id):
+        return cluster.yarn_kill(app_id)
+
     def cluster_verify(self):
         return cluster.cluster_verify()
 

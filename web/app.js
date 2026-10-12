@@ -2714,6 +2714,7 @@ async function renderYarn() {
   let html = '<table class="yarn-tbl"><thead><tr>' +
     '<th>' + t('yarn.id') + '</th><th>' + t('yarn.name') + '</th><th>' + t('yarn.type') + '</th>' +
     '<th>' + t('yarn.queue') + '</th><th>' + t('yarn.state') + '</th><th>' + t('yarn.start') + '</th>' +
+    '<th>' + t('hdfs.act') + '</th>' +
     '</tr></thead><tbody>';
   html += r.apps.map(a =>
     '<tr>' +
@@ -2723,10 +2724,35 @@ async function renderYarn() {
     '<td>' + escAll(a.queue) + '</td>' +
     '<td><span class="yarn-state ' + escAll(a.state) + '">' + escAll(a.state) + '</span></td>' +
     '<td class="vm-role">' + escAll(a.start) + '</td>' +
+    '<td class="hdfs-actions">' +
+      '<span class="svc-action" data-yarn-log="' + escAll(a.id) + '">' + t('yarn.log') + '</span>' +
+      (a.state === 'RUNNING' ? '<span class="svc-action" data-yarn-kill="' + escAll(a.id) + '" style="color:#e06c6c">' + t('yarn.kill') + '</span>' : '') +
+    '</td>' +
     '</tr>'
   ).join('');
   html += '</tbody></table>';
   box.innerHTML = html + cmdHtml;
+  // 绑定：查看日志
+  box.querySelectorAll('[data-yarn-log]').forEach(el => el.addEventListener('click', async () => {
+    const id = el.dataset.yarnLog;
+    await resetCmdLog();
+    let lr;
+    try { lr = await window.pywebview.api.yarn_app_logs(id); }
+    catch (e) { uiAlert('取日志失败：' + e); return; }
+    const cmds = await takeCmdLogHtml();
+    const box2 = document.getElementById('yarnList');
+    box2.innerHTML = '<div class="obj-sub">' + t('yarn.logOf') + escAll(id) + '</div>' +
+      '<pre class="cmd-out" style="max-height:32rem;margin-top:0.6rem">' + escAll(lr.out || '') + '</pre>' + cmds +
+      '<button class="mini-btn" id="yarnLogBack">' + t('hdfs.back') + '</button>';
+    document.getElementById('yarnLogBack').addEventListener('click', renderYarn);
+  }));
+  // 绑定：kill
+  box.querySelectorAll('[data-yarn-kill]').forEach(el => el.addEventListener('click', async () => {
+    const id = el.dataset.yarnKill;
+    if (!await uiConfirm(t('yarn.killConfirm').replace('{id}', id))) return;
+    try { await window.pywebview.api.yarn_kill(id); } catch (e) {}
+    renderYarn();
+  }));
 }
 
 window.addEventListener('pywebviewready', async () => {

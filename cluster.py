@@ -978,6 +978,28 @@ def yarn_apps(timeout=60):
     return {"ok": True, "apps": apps, "msg": ""}
 
 
+def yarn_app_logs(app_id, timeout=60):
+    """取 YARN 作业日志（yarn logs -applicationId）。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "out": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "out": "master 节点关机，请先开机"}
+    ok, out = _hdfs_master_run("yarn logs -applicationId %s" % app_id, timeout=timeout, use_exit_code=True)
+    return {"ok": ok, "out": out}
+
+
+def yarn_kill(app_id, timeout=30):
+    """kill 一个 YARN 作业。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "out": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "out": "master 节点关机，请先开机"}
+    ok, out = _hdfs_master_run("yarn application -kill %s" % app_id, timeout=timeout, use_exit_code=True)
+    return {"ok": ok, "out": out}
+
+
 def hive_exec(sql, timeout=120):
     """在 master 上执行 Hive SQL。
     优先 beeline -e；失败退回 hive -e（老版本）。
