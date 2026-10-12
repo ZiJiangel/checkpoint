@@ -342,6 +342,7 @@ const I18N = {
     "cl.busy": "Running, please wait…",
     "cl.powerDone": "Done. See node status above.",
     "cl.svcSkipped": "skipped (no matching node)",
+    "cl.aborted": "Check failed, remaining stages stopped (dependency not ready)",
     "cl.notChecked": "Not checked yet. Click 'Health Check' above.",
     "cl.serviceHint": "Service details (process/port) — coming in a later version",
     "cl.snapshots": "Snapshots",
