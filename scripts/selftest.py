@@ -99,6 +99,23 @@ check("hive_import ok", r.get("ok") is True, r)
 check("hive_import 有 ddl", "create external table" in (r.get("ddl") or ""))
 check("hive_import 列名", "c1 string" in (r.get("ddl") or "") and "c2 string" in (r.get("ddl") or ""))
 
+# ---- 测 _parse_services / _parse_jps / _parse_ports ----
+print("[解析三兄弟]")
+svc = cluster._parse_services("sshd=active\nfirewalld=inactive\nchronyd=active")
+check("services active", svc.get("sshd") is True and svc.get("firewalld") is False)
+jps = cluster._parse_jps("1234 NameNode\n5678 DataNode\n9999 Jps")
+check("jps 进程", jps == ["NameNode", "DataNode", "Jps"], jps)
+ports = cluster._parse_ports("Netid State\ntcp LISTEN 0.0.0.0:9000\ntcp LISTEN *:8088\nudp :::88")
+check("ports 解析", {9000, 8088, 88} <= ports, ports)
+
+# ---- 测脱敏（diagpack）----
+print("[脱敏]")
+import diagpack  # noqa
+check("mask_ip", diagpack._mask_ip("192.168.196.101") == "192.168.*.*", diagpack._mask_ip("192.168.196.101"))
+check("mask_ip 非法", diagpack._mask_ip("abc") == "***")
+check("mask_text", "192.168.*.*" in diagpack._mask_text("连 192.168.1.5 失败"), diagpack._mask_text("连 192.168.1.5 失败"))
+check("mask_text 多IP", diagpack._mask_text("1.2.3.4 和 5.6.7.8").count("*.*") == 2, diagpack._mask_text("1.2.3.4 和 5.6.7.8"))
+
 # ---- 测 _map_target（配置分发路径映射）----
 print("[_map_target]")
 # 无根 → 同路径
