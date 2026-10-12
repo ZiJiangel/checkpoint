@@ -2268,7 +2268,7 @@ function renderCmdItems(cmds, open) {
   return '<div class="cmd-log">' +
     '<div class="cmd-log-head">' + t('cmd.transparent') + '（' + cmds.length + '）' +
     '<span class="cmd-toggle" data-toggle="1">' + (open ? t('cmd.collapse') : t('cmd.expand')) + '</span></div>' +
-    '<div class="cmd-log-body"' + (open ? '' : ' style="display:none"') + '>' + items + '</div>' +
+    '<div class="cmd-log-body' + (open ? '' : ' cmd-collapsed') + '">' + items + '</div>' +
     '</div>';
 }
 
@@ -2326,9 +2326,8 @@ document.addEventListener('click', (e) => {
   const tg = e.target.closest('.cmd-toggle');
   if (tg) {
     const body = tg.closest('.cmd-log').querySelector('.cmd-log-body');
-    const hidden = body.style.display === 'none';
-    body.style.display = hidden ? '' : 'none';
-    tg.textContent = hidden ? t('cmd.collapse') : t('cmd.expand');
+    const collapsed = body.classList.toggle('cmd-collapsed');
+    tg.textContent = collapsed ? t('cmd.expand') : t('cmd.collapse');
   }
 });
 

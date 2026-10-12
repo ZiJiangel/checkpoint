@@ -349,6 +349,7 @@ button.primary:hover { opacity: 0.88; }
 .cmd-log { margin-top: 0.5rem; border: 1px solid var(--line); border-radius: var(--r-box); background: var(--surface); overflow: hidden; }
 .cmd-log-head { display: flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.7rem; font-size: 0.75rem; color: var(--muted); border-bottom: 1px solid var(--line); }
 .cmd-log-head .cmd-toggle { margin-left: auto; cursor: pointer; color: var(--accent); font-size: 0.72rem; }
+.cmd-log-body.cmd-collapsed { max-height: 3.6rem; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%); mask-image: linear-gradient(to bottom, #000 55%, transparent 100%); }
 .cmd-item { padding: 0.4rem 0.7rem; border-bottom: 1px solid var(--line); }
 .cmd-item:last-child { border-bottom: none; }
 .cmd-line { display: flex; align-items: flex-start; gap: 0.4rem; font-family: var(--font-mono); font-size: 0.76rem; }
