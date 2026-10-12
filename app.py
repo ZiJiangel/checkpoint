@@ -44,6 +44,7 @@ import webview  # noqa
 import core
 import cluster
 import diagpack
+import cfgtmpl
 import services
 import vmware_env
 import diagnose
@@ -291,6 +292,15 @@ class Api:
 
     def cluster_verify(self):
         return cluster.cluster_verify()
+
+    def get_cfg_template(self, name, master=None, hadoop_home=None, replication=None):
+        """取配置模板内容（替换占位符）。master 默认取当前集群的 master 节点名。"""
+        if not master:
+            m = next((n for n in cluster.list_nodes() if n.get("role") == "master"), None)
+            master = (m or {}).get("name") or "master"
+        return cfgtmpl.get_template(name, master,
+                                    hadoop_home or "/root/app/hadoop",
+                                    replication or "2")
 
     def save_text_file(self, suggested_name, content):
         """弹保存对话框，把文本写入文件。"""

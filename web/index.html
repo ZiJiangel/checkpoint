@@ -91,6 +91,7 @@
           <div class="side-list">
             <div class="nav-item" data-pane="diagpack"><span class="nav-ico">⊞</span><span data-i18n="pane.diagpack">脱敏诊断包</span></div>
             <div class="nav-item" data-pane="clustercfg"><span class="nav-ico">⌘</span><span data-i18n="pane.clustercfg">声明式集群配置</span></div>
+            <div class="nav-item" data-pane="cfgtmpl"><span class="nav-ico">⚙</span><span data-i18n="pane.cfgtmpl">配置模板</span></div>
           </div>
         </div>
       </div>
@@ -301,6 +302,26 @@
           </div>
         </div>
         <div class="result" id="ccfgOut"></div>
+      </div>
+
+      <div class="view hidden" id="view-cfgtmpl">
+        <div class="obj-head" style="display:flex;align-items:center;gap:0.6rem;padding-bottom:0.8rem;border-bottom:1px solid var(--line)">
+          <span class="obj-title" data-i18n="pane.cfgtmpl">配置模板</span>
+          <span class="obj-sub" data-i18n="cfgtmpl.sub">标准 Hadoop 配置文件模板（含主机名/路径占位）</span>
+        </div>
+        <div class="form-row" style="margin-top:1rem">
+          <select id="cfgtmplSelect" style="max-width:260px">
+            <option value="core-site.xml">core-site.xml</option>
+            <option value="hdfs-site.xml">hdfs-site.xml</option>
+            <option value="yarn-site.xml">yarn-site.xml</option>
+            <option value="mapred-site.xml">mapred-site.xml</option>
+          </select>
+          <button class="mini-btn" id="cfgtmplLoad" data-i18n="cfgtmpl.load">加载模板</button>
+          <button class="mini-btn primary" id="cfgtmplSave" data-i18n="cfgtmpl.save">保存到本地…</button>
+        </div>
+        <div class="hint-foot" data-i18n="cfgtmpl.hint">模板仅供参照，请按你的实际环境（主机名/路径）修改。Checkpoint 不会自动写入集群。</div>
+        <textarea id="cfgtmplText" class="hive-sql" style="min-height:340px;margin-top:0.8rem"></textarea>
+        <div class="result" id="cfgtmplOut"></div>
       </div>
     </section>
   </main>

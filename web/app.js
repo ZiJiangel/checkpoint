@@ -319,7 +319,7 @@ let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
   const doSwitch = () => {
-    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn', 'verify', 'diagpack', 'clustercfg'].forEach(v => {
+    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn', 'verify', 'diagpack', 'clustercfg', 'cfgtmpl'].forEach(v => {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('hidden', v !== name);
     });
@@ -376,6 +376,7 @@ function bindActivityBar() {
       else if (el.dataset.pane === 'verify') { showView('verify'); }
       else if (el.dataset.pane === 'diagpack') { showView('diagpack'); }
       else if (el.dataset.pane === 'clustercfg') { showView('clustercfg'); }
+      else if (el.dataset.pane === 'cfgtmpl') { showView('cfgtmpl'); loadCfgTemplate(); }
     });
   });
 }
@@ -2541,6 +2542,30 @@ async function runHive() {
   out.innerHTML = html + cmdHtml;
 }
 
+// ============ 配置模板（工具域）============
+async function loadCfgTemplate() {
+  const name = document.getElementById('cfgtmplSelect').value;
+  const ta = document.getElementById('cfgtmplText');
+  ta.value = t('ops.running');
+  try {
+    const content = await window.pywebview.api.get_cfg_template(name);
+    ta.value = content || '';
+  } catch (e) { ta.value = '加载失败：' + e; }
+}
+
+async function saveCfgTemplate() {
+  const name = document.getElementById('cfgtmplSelect').value;
+  const content = document.getElementById('cfgtmplText').value;
+  const out = document.getElementById('cfgtmplOut');
+  try {
+    const r = await window.pywebview.api.save_text_file(name, content);
+    if (r.cancelled) return;
+    out.innerHTML = r.ok
+      ? '<div class="verify-step done"><span class="vs-ico">✓</span>' + escAll(r.path) + '</div>'
+      : '<div class="verify-step fail"><span class="vs-ico">✕</span>' + escAll(r.msg || '') + '</div>';
+  } catch (e) { out.innerHTML = '<div class="verify-step fail">' + escAll(String(e)) + '</div>'; }
+}
+
 // ============ 结果导出（体检结果 → markdown）============
 function buildHealthMarkdown() {
   const lines = [];
@@ -2690,6 +2715,12 @@ window.addEventListener('pywebviewready', async () => {
   if (diagMakeBtn) diagMakeBtn.addEventListener('click', makeDiagPack);
   const exportResultBtn = document.getElementById('exportResult');
   if (exportResultBtn) exportResultBtn.addEventListener('click', exportResult);
+  const cfgLoad = document.getElementById('cfgtmplLoad');
+  if (cfgLoad) cfgLoad.addEventListener('click', loadCfgTemplate);
+  const cfgSave = document.getElementById('cfgtmplSave');
+  if (cfgSave) cfgSave.addEventListener('click', saveCfgTemplate);
+  const cfgSel = document.getElementById('cfgtmplSelect');
+  if (cfgSel) cfgSel.addEventListener('change', loadCfgTemplate);
   const ccfgExp = document.getElementById('ccfgExport');
   if (ccfgExp) ccfgExp.addEventListener('click', exportClusterCfg);
   const ccfgImp = document.getElementById('ccfgImport');
