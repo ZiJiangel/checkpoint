@@ -290,6 +290,12 @@ class Api:
     def yarn_apps(self):
         return cluster.yarn_apps()
 
+    def services_topology(self):
+        return cluster.services_topology()
+
+    def resource_metrics(self):
+        return cluster.resource_metrics()
+
     def yarn_app_logs(self, app_id):
         return cluster.yarn_app_logs(app_id)
 

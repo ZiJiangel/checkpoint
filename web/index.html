@@ -36,6 +36,7 @@
   </header>
 
   <main class="content">
+   <div class="workbench">
     <nav class="activitybar" id="activityBar">
       <button class="act-btn active" data-domain="env" title="环境">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
@@ -113,13 +114,33 @@
           <button class="mini-btn" id="clusterStop" data-i18n="cl.stopAll" data-i18n-title="tip.stop">一键停止</button>
           <button class="mini-btn" id="vmShutdown" data-i18n="cl.shutdownVms" data-i18n-title="tip.shutdown">关闭虚拟机</button>
         </div>
-        <div id="vmwareCard"></div>
-        <div id="clusterCard"></div>
-        <div id="clusterOverview"></div>
-        <div id="nodeList"></div>
-        <div id="powerProgress"></div>
-
-        <div class="sec-head" style="margin-top:1.4rem"><span class="sec-title" data-i18n="cl.clusterSnap">集群快照</span>
+        <div class="detail-tabs" id="clusterTabs" style="margin-top:0.8rem">
+          <button class="detail-tab active" data-ctab="overview" data-i18n="ctab.overview">概览</button>
+          <button class="detail-tab" data-ctab="nodes" data-i18n="ctab.nodes">节点</button>
+          <button class="detail-tab" data-ctab="topo" data-i18n="ctab.topo">服务拓扑</button>
+          <button class="detail-tab" data-ctab="monitor" data-i18n="ctab.monitor">资源监控</button>
+          <button class="detail-tab" data-ctab="snapshot" data-i18n="ctab.snapshot">快照</button>
+          <button class="detail-tab" data-ctab="dist" data-i18n="ctab.dist">配置分发</button>
+        </div>
+        <div class="ctab" id="ctab-overview">
+          <div id="vmwareCard"></div>
+          <div id="clusterCard"></div>
+          <div id="clusterOverview"></div>
+        </div>
+        <div class="ctab hidden" id="ctab-nodes">
+          <div id="nodeList"></div>
+          <div id="powerProgress"></div>
+        </div>
+        <div class="ctab hidden" id="ctab-topo">
+          <div id="svcTopo"><div class="empty" data-i18n="topo.hint">点上方「服务拓扑」加载：每台机器跑了哪些服务</div></div>
+        </div>
+        <div class="ctab hidden" id="ctab-monitor">
+          <div class="form-row"><button class="mini-btn" id="monRefresh" data-i18n="mon.refresh">采集</button>
+            <span class="sec-note-inline" data-i18n="mon.hint">采集各节点 CPU / 内存 / 磁盘 / HDFS 容量</span></div>
+          <div id="monitorView"><div class="empty" data-i18n="mon.empty">点「采集」获取资源占用</div></div>
+        </div>
+        <div class="ctab hidden" id="ctab-snapshot">
+        <div class="sec-head"><span class="sec-title" data-i18n="cl.clusterSnap">集群快照</span>
           <span class="sec-note-inline" data-i18n="cl.clusterSnapHint">给整个集群的节点一次性打快照 / 回滚</span>
         </div>
         <div class="form-row">
@@ -131,8 +152,10 @@
         <div id="snapNodePick" class="snap-pick"></div>
         <div class="result" id="clusterSnapResult"></div>
         <div id="clusterSnapList"></div>
+        </div>
 
-        <div class="sec-head" style="margin-top:1.4rem"><span class="sec-title" data-i18n="cl.distTitle">配置分发</span>
+        <div class="ctab hidden" id="ctab-dist">
+        <div class="sec-head"><span class="sec-title" data-i18n="cl.distTitle">配置分发</span>
           <span class="sec-note-inline" data-i18n="cl.distHint">扫描 master 上的配置目录，勾选后同步到从节点（需 SSH 免密）</span>
           <button class="mini-btn" id="distScan" style="margin-left:auto" data-i18n="cl.distScan">扫描配置目录</button>
         </div>
@@ -147,6 +170,7 @@
         </div>
         <div class="hint-foot" data-i18n="cl.distTargetHint">默认同路径分发（各节点目录结构一致时最安全）；仅当目标路径不同时才填"覆盖根目录"</div>
         <div class="result" id="distResult"></div>
+        </div>
       </div>
 
       <div class="view hidden" id="view-node">
@@ -337,6 +361,19 @@
         <div class="result" id="cfgtmplOut"></div>
       </div>
     </section>
+   </div>
+
+   <div class="bottom-panel collapsed" id="bottomPanel">
+     <div class="bp-head">
+       <button class="bp-tab active" data-bp="output" data-i18n="bp.output">输出</button>
+       <button class="bp-tab" data-bp="task" data-i18n="bp.task">任务</button>
+       <span class="bar-spacer"></span>
+       <button class="bp-icon" id="bpMax" title="最大化">⤢</button>
+       <button class="bp-icon" id="bpClose" title="收起">✕</button>
+     </div>
+     <div class="bp-body" id="bpOutput"><div class="empty" data-i18n="bp.empty">这里显示操作输出（命令 + 结果）</div></div>
+     <div class="bp-body hidden" id="bpTask"><div class="empty" data-i18n="bp.empty">这里显示任务进度</div></div>
+   </div>
   </main>
 
   <div class="modal-mask hidden" id="modalMask">

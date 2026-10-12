@@ -2028,6 +2028,132 @@ function renderLine(text, state) {
   return '<div class="result ' + cls + '">' + icon + ' ' + text + '</div>';
 }
 
+// ============ 集群视图选项卡（概览/节点/拓扑/监控/快照/分发）============
+function bindClusterTabs() {
+  document.querySelectorAll('#clusterTabs .detail-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('#clusterTabs .detail-tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      const k = t.dataset.ctab;
+      ['overview', 'nodes', 'topo', 'monitor', 'snapshot', 'dist'].forEach(c => {
+        const el = document.getElementById('ctab-' + c);
+        if (el) el.classList.toggle('hidden', c !== k);
+      });
+      if (k === 'topo') renderTopology();
+      if (k === 'monitor') renderMonitor();
+    });
+  });
+}
+
+// 服务拓扑：每台机器跑了哪些服务
+async function renderTopology() {
+  const box = document.getElementById('svcTopo');
+  if (!box) return;
+  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.services_topology(); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml();
+  if (!r.ok) { box.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + cmdHtml; return; }
+  let html = '<div class="topo">';
+  html += r.nodes.map(n => {
+    const isMaster = n.role === 'master';
+    let svc;
+    if (n.off) svc = '<div class="topo-svc" style="color:var(--muted)">' + t('topo.off') + '</div>';
+    else if (!(n.procs || []).length) svc = '<div class="topo-svc" style="color:var(--muted)">' + t('topo.none') + '</div>';
+    else svc = n.procs.map(p => '<div class="topo-svc"><span class="d"></span>' + escAll(p) + '</div>').join('');
+    return '<div class="topo-node' + (isMaster ? ' master' : '') + '">' +
+      '<div class="topo-name"><span class="status-dot ' + (n.off ? 'st-off' : 'st-green') + '"></span>' +
+      escAll(n.name) + '</div>' + svc + '</div>';
+  }).join('');
+  html += '</div>';
+  box.innerHTML = html + cmdHtml;
+}
+
+// 资源监控：CPU / 内存 / 磁盘 / HDFS 容量
+async function renderMonitor() {
+  const box = document.getElementById('monitorView');
+  if (!box) return;
+  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.resource_metrics(); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml();
+  if (!r.ok) { box.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + cmdHtml; return; }
+  const pct = (a, b) => (b && Number(b) > 0) ? Math.min(100, Math.round(Number(a) / Number(b) * 100)) : 0;
+  const cls = (p) => p >= 85 ? 'warn' : '';
+  const m = r.master || {};
+  const card = (label, val, p, cl) =>
+    '<div class="mon-card"><div class="mon-label">' + label + '</div>' +
+    '<div class="mon-val">' + val + '</div>' +
+    '<div class="bar-track"><div class="bar-fill ' + cl + '" style="width:' + p + '%"></div></div></div>';
+  let html = '<div class="mon-grid">';
+  html += card('CPU', escAll(m.cpu || '?') + '%', Number(m.cpu || 0), cls(Number(m.cpu || 0)));
+  html += card(t('mon.mem'), escAll(m.mem_used || '?') + ' / ' + escAll(m.mem_total || '?') + ' M', pct(m.mem_used, m.mem_total), cls(pct(m.mem_used, m.mem_total)));
+  html += card(t('mon.disk'), escAll(m.disk_used || '?') + ' / ' + escAll(m.disk_total || '?') + ' M', pct(m.disk_used, m.disk_total), cls(pct(m.disk_used, m.disk_total)));
+  const h = r.hdfs || {};
+  html += card('HDFS', escAll(h.used || '?') + ' / ' + escAll(h.capacity || '?'), pct(h.used_raw, h.capacity_raw), 'blue');
+  html += '</div>';
+  html += '<div class="mon-card" style="margin-top:0.2rem"><div class="mon-label">' + t('mon.trend') + '</div>' +
+    '<div class="muted" style="margin-top:0.5rem;font-size:0.8rem">' + t('mon.trendHint') + '</div></div>';
+  box.innerHTML = html + cmdHtml;
+}
+
+// ============ 底部面板（仿 VSCode，B+ 档）============
+function bindBottomPanel() {
+  const panel = document.getElementById('bottomPanel');
+  if (!panel) return;
+  // tab 切换
+  document.querySelectorAll('.bp-tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.bp-tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    const bp = t.dataset.bp;
+    document.getElementById('bpOutput').classList.toggle('hidden', bp !== 'output');
+    document.getElementById('bpTask').classList.toggle('hidden', bp !== 'task');
+  }));
+  // 折叠/展开
+  document.getElementById('bpClose').addEventListener('click', () => {
+    panel.classList.toggle('collapsed');
+  });
+  // 折叠状态下点标题栏任意处可展开
+  panel.querySelector('.bp-head').addEventListener('click', (e) => {
+    if (e.target.closest('.bp-icon') || e.target.closest('.bp-tab')) return;
+    if (panel.classList.contains('collapsed')) panel.classList.remove('collapsed');
+  });
+  // 最大化
+  document.getElementById('bpMax').addEventListener('click', () => {
+    panel.classList.toggle('maximized');
+  });
+  // 拖拽调高度（上边缘）
+  const grip = document.createElement('div');
+  grip.className = 'bp-resize';
+  panel.appendChild(grip);
+  let dragging = false, startY = 0, startH = 0;
+  grip.addEventListener('mousedown', (e) => {
+    dragging = true; startY = e.clientY; startH = panel.offsetHeight;
+    panel.classList.remove('maximized', 'collapsed');
+    document.body.style.userSelect = 'none';
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const h = Math.max(34, Math.min(window.innerHeight * 0.7, startH - (e.clientY - startY)));
+    panel.style.height = h + 'px';
+  });
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = '';
+    try { localStorage.setItem('bpHeight', panel.offsetHeight); } catch (e) {}
+  });
+  // 高度记忆
+  try {
+    const saved = localStorage.getItem('bpHeight');
+    if (saved) panel.style.height = saved + 'px';
+  } catch (e) {}
+}
+
 // ============ 命令透明：显示本次操作实际执行的命令 + 输出 ============
 // 用法：操作前 await resetCmdLog()；操作后 const cmdHtml = await takeCmdLogHtml()
 let _CMD_CACHE = [];   // 最近一次取出的命令（供复制）
@@ -2757,6 +2883,8 @@ async function renderYarn() {
 
 window.addEventListener('pywebviewready', async () => {
   bindActivityBar();
+  bindBottomPanel();
+  bindClusterTabs();
   const yarnRefreshBtn = document.getElementById('yarnRefresh');
   if (yarnRefreshBtn) yarnRefreshBtn.addEventListener('click', renderYarn);
   const verifyRunBtn = document.getElementById('verifyRun');

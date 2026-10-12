@@ -942,6 +942,116 @@ def cluster_verify(timeout=300):
     return {"ok": ok_res, "steps": steps, "result": res if ok_res else "", "msg": ""}
 
 
+def services_topology():
+    """服务拓扑：每台节点上跑了哪些服务（jps 进程）。
+    返回 {ok, nodes:[{name, role, host, procs:[...]}], msg}。"""
+    nodes = list_nodes()
+    if not nodes:
+        return {"ok": False, "nodes": [], "msg": "无节点"}
+    running_vmx = _running_vmx_set()
+    results = []
+    with ThreadPoolExecutor(max_workers=len(nodes)) as pool:
+        fut = {pool.submit(_node_procs, n, running_vmx): n for n in nodes}
+        for f in as_completed(fut):
+            try:
+                results.append(f.result())
+            except Exception as e:
+                n = fut[f]
+                results.append({"name": n.get("name"), "role": n.get("role"),
+                                "host": n.get("host"), "procs": [], "off": False, "err": str(e)})
+    order = {n["id"]: i for i, n in enumerate(nodes)}
+    results.sort(key=lambda r: order.get([n["id"] for n in nodes if n["name"] == r["name"]][0], 999))
+    return {"ok": True, "nodes": results, "msg": ""}
+
+
+def _node_procs(node, running_vmx):
+    """取单节点 jps 进程列表。"""
+    if node_vm_off(node, running_vmx):
+        return {"name": node.get("name"), "role": node.get("role"), "host": node.get("host"),
+                "procs": [], "off": True}
+    ok, out = ssh_exec(node.get("host", ""), node.get("port", 22),
+                       node.get("user", ""), node.get("pass", ""),
+                       "jps | tail -n +2 | awk '{print $2}'", timeout=12)
+    procs = []
+    if ok:
+        for line in out.splitlines():
+            line = line.strip()
+            if line and not line.startswith("[STDERR]") and line not in ("Jps",):
+                procs.append(line)
+    return {"name": node.get("name"), "role": node.get("role"), "host": node.get("host"),
+            "procs": procs, "off": False}
+
+
+def _parse_mb(s):
+    """把 '1.2 GB' / '512 MB' / '100 KB' 统一转成 MB（数值）。"""
+    if not s:
+        return 0
+    s = s.strip()
+    num = 0.0
+    for part in s.split():
+        try:
+            num = float(part)
+            break
+        except ValueError:
+            continue
+    low = s.lower()
+    if "gb" in low:
+        return num * 1024
+    if "kb" in low:
+        return num / 1024
+    return num   # 当作 MB
+
+
+def resource_metrics():
+    """资源监控：采集 master 节点 CPU / 内存 / 磁盘 + HDFS 容量（聚合视图）。
+    返回 {ok, master:{cpu, mem_used, mem_total, disk_used, disk_total}, hdfs:{used, capacity, used_raw, capacity_raw}}。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "msg": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "msg": "master 节点关机，请先开机"}
+    cmd = (
+        'echo "cpu=$(top -bn1 | grep -i Cpu | awk \'{print $2+$4}\')"; '
+        'echo "mem=$(free -m | awk \'/Mem:/ {print $3" "$2}\')"; '
+        'echo "disk=$(df -m / | awk \'NR==2 {print $3" "$2}\')"'
+    )
+    ok, out = ssh_exec(m.get("host", ""), m.get("port", 22),
+                       m.get("user", ""), m.get("pass", ""), cmd, timeout=15)
+    if not ok:
+        return {"ok": False, "msg": out}
+    kv = {}
+    for line in out.splitlines():
+        if "=" in line:
+            k, v = line.split("=", 1)
+            kv[k.strip()] = v.strip()
+    mem = (kv.get("mem", "0 0")).split()
+    disk = (kv.get("disk", "0 0")).split()
+    master = {
+        "cpu": kv.get("cpu", "0"),
+        "mem_used": mem[0] if len(mem) > 0 else "0",
+        "mem_total": mem[1] if len(mem) > 1 else "0",
+        "disk_used": disk[0] if len(disk) > 0 else "0",
+        "disk_total": disk[1] if len(disk) > 1 else "0",
+    }
+    # HDFS 容量
+    hdfs = {}
+    ok2, out2 = _hdfs_master_run("hdfs dfsadmin -report 2>/dev/null | grep -E 'DFS (Used|Remaining|Capacity)' | head -3", timeout=30)
+    if ok2:
+        for line in out2.splitlines():
+            if ":" in line:
+                k, v = line.split(":", 1)
+                hdfs[k.strip()] = v.strip()
+    used = hdfs.get("DFS Used", "")
+    cap = hdfs.get("DFS Capacity", hdfs.get("DFS Remaining", ""))
+    hdfs_out = {
+        "used": used or "?",
+        "capacity": cap or "?",
+        "used_raw": _parse_mb(used),
+        "capacity_raw": _parse_mb(cap),
+    }
+    return {"ok": True, "master": master, "hdfs": hdfs_out, "msg": ""}
+
+
 def yarn_apps(timeout=60):
     """查 YARN 作业列表。用 yarn application -list 解析。
     返回 {ok, apps:[{id, name, type, state, queue, start}], msg}。"""
