@@ -860,6 +860,48 @@ def sftp_download(host, port, user, password, remote_path, local_path, timeout=3
         cli.close()
 
 
+def post_deploy_verify():
+    """部署后验证：进程/端口在不在之外，查 HDFS 是否真的有 DataNode 注册。
+    （体检只看进程，这里看 HDFS 内部状态——更硬）
+    返回 {ok, items:[{label,ok,value}], detail}。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "items": [], "detail": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "items": [], "detail": "master 节点关机，请先开机"}
+    items = []
+
+    def probe(label, cmd, good, t=30):
+        ok, out = _hdfs_master_run(cmd, timeout=t)
+        val = (out or "").strip().splitlines()[-1] if out and out.strip() else ""
+        is_ok = ok and good(out or "")
+        items.append({"label": label, "ok": is_ok, "value": val[:120]})
+        return is_ok, out
+
+    # 1) HDFS 可访问
+    probe("HDFS 可访问（hdfs dfsadmin -report）",
+          "hdfs dfsadmin -report", lambda o: "Live datanodes" in o or "Name:" in o)
+    # 2) DataNode 数量 > 0
+    ok_dn, out_dn = _hdfs_master_run("hdfs dfsadmin -report | grep -c 'Name:'", timeout=30)
+    dn_count = 0
+    try:
+        dn_count = int((out_dn or "0").strip().splitlines()[-1])
+    except Exception:
+        dn_count = 0
+    items.append({"label": "DataNode 已注册", "ok": dn_count > 0, "value": "%d 个" % dn_count})
+    # 3) 安全模式关闭（能写）
+    ok_sm, out_sm = _hdfs_master_run("hdfs dfsadmin -safemode get", timeout=15)
+    sm_off = "OFF" in (out_sm or "").upper()
+    items.append({"label": "安全模式已关闭（可写）", "ok": sm_off,
+                  "value": "关闭" if sm_off else "开启（只读）"})
+    # 4) NameNode 进程（jps）
+    ok_nn, out_nn = _hdfs_master_run("jps | grep -c NameNode", timeout=15)
+    items.append({"label": "NameNode 进程", "ok": "1" in (out_nn or "") or "NameNode" in (out_nn or ""),
+                  "value": (out_nn or "").strip()[:60]})
+    all_ok = all(it["ok"] for it in items)
+    return {"ok": all_ok, "items": items, "detail": ""}
+
+
 def cluster_verify(timeout=300):
     """集群验证：跑一个 WordCount 冒烟测试，验证 MapReduce 全链路。
     步骤：准备样例数据 → 上传 HDFS → 跑 wordcount → 读结果。

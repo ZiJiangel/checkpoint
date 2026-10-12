@@ -293,6 +293,9 @@ class Api:
     def cluster_verify(self):
         return cluster.cluster_verify()
 
+    def post_deploy_verify(self):
+        return cluster.post_deploy_verify()
+
     def get_cfg_template(self, name, master=None, hadoop_home=None, replication=None):
         """取配置模板内容（替换占位符）。master 默认取当前集群的 master 节点名。"""
         if not master:

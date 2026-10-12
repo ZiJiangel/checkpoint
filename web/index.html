@@ -84,6 +84,7 @@
           <div class="side-list">
             <div class="nav-item" data-pane="yarn"><span class="nav-ico">▶</span><span data-i18n="pane.yarn">YARN 作业</span></div>
             <div class="nav-item" data-pane="verify"><span class="nav-ico">✓</span><span data-i18n="pane.verify">集群验证</span></div>
+            <div class="nav-item" data-pane="deploycheck"><span class="nav-ico">⊕</span><span data-i18n="pane.deploycheck">部署后验证</span></div>
           </div>
         </div>
         <div class="side-domain hidden" id="sideTool">
@@ -266,6 +267,19 @@
           </div>
         </div>
         <div class="result" id="verifyOut"></div>
+      </div>
+
+      <div class="view hidden" id="view-deploycheck">
+        <div class="obj-head" style="display:flex;align-items:center;gap:0.6rem;padding-bottom:0.8rem;border-bottom:1px solid var(--line)">
+          <span class="obj-title" data-i18n="pane.deploycheck">部署后验证</span>
+          <span class="obj-sub" data-i18n="dcheck.sub">查 HDFS 内部状态（DataNode 注册/安全模式）——比"进程在"更硬</span>
+          <span class="bar-spacer"></span>
+          <button class="mini-btn primary" id="dcheckRun" data-i18n="dcheck.run">开始检查</button>
+        </div>
+        <div id="dcheckOut" style="margin-top:1rem">
+          <div class="empty" data-i18n="dcheck.hint">点「开始检查」验证 HDFS 是否真的就绪</div>
+        </div>
+        <div class="result" id="dcheckResult"></div>
       </div>
 
       <div class="view hidden" id="view-diagpack">

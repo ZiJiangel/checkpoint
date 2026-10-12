@@ -319,7 +319,7 @@ let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
   const doSwitch = () => {
-    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn', 'verify', 'diagpack', 'clustercfg', 'cfgtmpl'].forEach(v => {
+    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn', 'verify', 'deploycheck', 'diagpack', 'clustercfg', 'cfgtmpl'].forEach(v => {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('hidden', v !== name);
     });
@@ -374,6 +374,7 @@ function bindActivityBar() {
       else if (el.dataset.pane === 'hive') { showView('hive'); }
       else if (el.dataset.pane === 'yarn') { showView('yarn'); renderYarn(); }
       else if (el.dataset.pane === 'verify') { showView('verify'); }
+      else if (el.dataset.pane === 'deploycheck') { showView('deploycheck'); }
       else if (el.dataset.pane === 'diagpack') { showView('diagpack'); }
       else if (el.dataset.pane === 'clustercfg') { showView('clustercfg'); }
       else if (el.dataset.pane === 'cfgtmpl') { showView('cfgtmpl'); loadCfgTemplate(); }
@@ -2542,6 +2543,29 @@ async function runHive() {
   out.innerHTML = html + cmdHtml;
 }
 
+// ============ 部署后验证（作业域）============
+async function runDeployCheck2() {
+  const out = document.getElementById('dcheckOut');
+  if (!out) return;
+  out.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.post_deploy_verify(); }
+  catch (e) { out.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml();
+  if (!r.items || !r.items.length) {
+    out.innerHTML = '<div class="empty err">' + escAll(r.detail || t('ops.fail')) + '</div>' + cmdHtml;
+    return;
+  }
+  let html = r.items.map(it =>
+    '<div class="verify-step ' + (it.ok ? 'done' : 'fail') + '">' +
+    '<span class="vs-ico">' + (it.ok ? '✓' : '✕') + '</span>' + escAll(it.label) + '：<b>' + escAll(it.value || '') + '</b></div>'
+  ).join('');
+  html += '<div class="verify-step ' + (r.ok ? 'done' : 'fail') + '" style="margin-top:0.5rem"><span class="vs-ico">' + (r.ok ? '✓' : '✕') + '</span>' +
+    (r.ok ? t('dcheck.pass') : t('dcheck.fail')) + '</div>';
+  out.innerHTML = html + cmdHtml;
+}
+
 // ============ 配置模板（工具域）============
 async function loadCfgTemplate() {
   const name = document.getElementById('cfgtmplSelect').value;
@@ -2715,6 +2739,8 @@ window.addEventListener('pywebviewready', async () => {
   if (diagMakeBtn) diagMakeBtn.addEventListener('click', makeDiagPack);
   const exportResultBtn = document.getElementById('exportResult');
   if (exportResultBtn) exportResultBtn.addEventListener('click', exportResult);
+  const dcheckRunBtn = document.getElementById('dcheckRun');
+  if (dcheckRunBtn) dcheckRunBtn.addEventListener('click', runDeployCheck2);
   const cfgLoad = document.getElementById('cfgtmplLoad');
   if (cfgLoad) cfgLoad.addEventListener('click', loadCfgTemplate);
   const cfgSave = document.getElementById('cfgtmplSave');
