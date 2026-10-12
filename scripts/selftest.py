@@ -91,6 +91,18 @@ check("detect ok", r["ok"])
 check("detect hive", r["components"].get("hive") is True)
 check("detect hbase 未装", "hbase" not in r["components"])
 
+# ---- 测 _map_target（配置分发路径映射）----
+print("[_map_target]")
+# 无根 → 同路径
+check("同路径", cluster._map_target({}, "/root/app/hadoop/etc", "") == "/root/app/hadoop/etc")
+# 全局根替换 /root/app
+check("全局根替换", cluster._map_target({}, "/root/app/hadoop/etc", "/opt") == "/opt/hadoop/etc",
+      cluster._map_target({}, "/root/app/hadoop/etc", "/opt"))
+# 节点自己的根优先
+check("节点根优先", cluster._map_target({"cfg_root": "/data"}, "/root/app/x", "/opt") == "/data/x")
+# 系统路径不动
+check("系统路径不动", cluster._map_target({}, "/etc/hosts", "/opt") == "/etc/hosts")
+
 # ---- 测 _parse_mb ----
 print("[_parse_mb]")
 check("parse 1.5 GB", abs(cluster._parse_mb("1.5 GB") - 1536) < 1, cluster._parse_mb("1.5 GB"))
