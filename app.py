@@ -278,6 +278,9 @@ class Api:
         ok, out = cluster.hdfs_rm(path, recursive)
         return {"ok": ok, "msg": out}
 
+    def hive_exec(self, sql):
+        return cluster.hive_exec(sql)
+
     def hdfs_download_dialog(self, remote_path):
         """选本地保存目录 → 从 HDFS 下载该文件。"""
         import webview

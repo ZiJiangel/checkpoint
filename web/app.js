@@ -319,7 +319,7 @@ let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
   const doSwitch = () => {
-    ['cluster', 'node', 'vm', 'settings', 'hdfs'].forEach(v => {
+    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive'].forEach(v => {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('hidden', v !== name);
     });
@@ -371,6 +371,7 @@ function bindActivityBar() {
       document.querySelectorAll('[data-pane]').forEach(x => x.classList.remove('active'));
       el.classList.add('active');
       if (el.dataset.pane === 'hdfs') { showView('hdfs'); renderHdfs(); }
+      else if (el.dataset.pane === 'hive') { showView('hive'); }
     });
   });
 }
@@ -2408,8 +2409,58 @@ async function renderHdfs() {
   }));
 }
 
+// ============ Hive 查询（数据域工作台）============
+function parseBeelineTable(text) {
+  // beeline --silent 输出：表头 + 数据行，用 | 分隔（默认）
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  // 找表头行（第一个含 | 的）
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes('|') && !lines[i].startsWith('+')) { start = i; break; }
+  }
+  if (start < 0) return null;
+  const splitRow = (l) => l.split('|').map(c => c.trim()).filter((c, idx, arr) => !(idx === 0 && c === '') && !(idx === arr.length - 1 && c === ''));
+  const headers = splitRow(lines[start]);
+  const rows = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    if (lines[i].startsWith('+')) continue;
+    if (!lines[i].includes('|')) break;
+    rows.push(splitRow(lines[i]));
+  }
+  return { headers, rows };
+}
+
+async function runHive() {
+  const sql = (document.getElementById('hiveSql').value || '').trim();
+  const out = document.getElementById('hiveOut');
+  if (!sql) return;
+  out.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.hive_exec(sql); }
+  catch (e) { out.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml();
+  const tbl = parseBeelineTable(r.out || '');
+  let html = '';
+  if (tbl && tbl.headers.length) {
+    html = '<table class="hive-tbl"><thead><tr>' +
+      tbl.headers.map(h => '<th>' + escAll(h) + '</th>').join('') +
+      '</tr></thead><tbody>' +
+      tbl.rows.map(row => '<tr>' + row.map(c => '<td>' + escAll(c) + '</td>').join('') + '</tr>').join('') +
+      '</tbody></table>';
+  } else {
+    html = '<pre class="cmd-out" style="max-height:24rem">' + escAll(r.out || '') + '</pre>';
+  }
+  out.innerHTML = html + cmdHtml;
+}
+
 window.addEventListener('pywebviewready', async () => {
   bindActivityBar();
+  // Hive 工具栏
+  const hiveRunBtn = document.getElementById('hiveRun');
+  if (hiveRunBtn) hiveRunBtn.addEventListener('click', runHive);
+  const hiveClearBtn = document.getElementById('hiveClear');
+  if (hiveClearBtn) hiveClearBtn.addEventListener('click', () => { document.getElementById('hiveSql').value = ''; document.getElementById('hiveOut').innerHTML = ''; });
   const s = await window.pywebview.api.get_settings();
   initLang(s.lang);
   document.getElementById('vmrunPath').value = s.vmrun || '';

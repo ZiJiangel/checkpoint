@@ -791,6 +791,27 @@ def sftp_download(host, port, user, password, remote_path, local_path, timeout=3
         cli.close()
 
 
+def hive_exec(sql, timeout=120):
+    """在 master 上执行 Hive SQL。
+    优先 beeline -e；失败退回 hive -e（老版本）。
+    返回 {ok, out, is_select}。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "out": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "out": "master 节点关机，请先开机"}
+    # 用 -e 执行；输出带分隔符解析
+    # 先试 beeline（HiveServer2，返回规整）；再退 hive -e
+    sql_esc = sql.replace('"', '\\"')
+    cmd_beeline = 'beeline -u "jdbc:hive2://localhost:10000" --silent=true -e "%s"' % sql_esc
+    ok, out = _hdfs_master_run(cmd_beeline, timeout=timeout, use_exit_code=True)
+    if not ok:
+        cmd_hive = 'hive -e "%s"' % sql_esc
+        ok2, out2 = _hdfs_master_run(cmd_hive, timeout=timeout, use_exit_code=True)
+        return {"ok": ok2, "out": out2}
+    return {"ok": ok, "out": out}
+
+
 def hdfs_download(remote_path, local_dir):
     """把 HDFS 文件下载到本地目录。
     步骤：master 上 hdfs dfs -get 到 /tmp → SFTP 下载到本地。"""

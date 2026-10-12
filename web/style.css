@@ -183,6 +183,11 @@ body {
 .hdfs-name:hover { color: var(--accent); }
 .hdfs-actions { display: flex; gap: 0.5rem; }
 .hdfs-actions .svc-action { font-size: 0.76rem; }
+.hive-sql { width: 100%; min-height: 120px; margin-top: 1rem; font-family: var(--font-mono); font-size: 0.85rem; padding: 0.7rem; border: 1px solid var(--line); border-radius: var(--r-box); background: var(--surface); color: var(--ink); resize: vertical; }
+.hive-out { margin-top: 1rem; overflow-x: auto; }
+.hive-tbl { border-collapse: collapse; font-size: 0.82rem; }
+.hive-tbl th, .hive-tbl td { border: 1px solid var(--line); padding: 0.35rem 0.7rem; text-align: left; white-space: nowrap; }
+.hive-tbl th { background: var(--surface-2); color: var(--muted); font-weight: 600; }
 .side-title { display: flex; align-items: center; padding: 0.3rem 0.9rem; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .side-title span { flex: 1; }
 .side-add { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.9rem; padding: 0 0.3rem; }

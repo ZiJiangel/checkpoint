@@ -75,7 +75,8 @@
         <div class="side-domain hidden" id="sideData">
           <div class="side-title"><span data-i18n="dom.data">数据</span></div>
           <div class="side-list">
-            <div class="nav-item" data-pane="hdfs"><span class="nav-ico">▤</span><span data-i18n="pane.hdfs">HDFS 操作</span></div>
+            <div class="nav-item active" data-pane="hdfs"><span class="nav-ico">▤</span><span data-i18n="pane.hdfs">HDFS 操作</span></div>
+            <div class="nav-item" data-pane="hive"><span class="nav-ico">▥</span><span data-i18n="pane.hive">Hive 查询</span></div>
           </div>
         </div>
         <div class="side-domain hidden" id="sideJob">
@@ -217,6 +218,21 @@
           </div>
         </div>
         <div class="result" id="hdfsResult"></div>
+      </div>
+
+      <div class="view hidden" id="view-hive">
+        <div class="obj-head" style="display:flex;align-items:center;gap:0.6rem;padding-bottom:0.8rem;border-bottom:1px solid var(--line)">
+          <span class="obj-title" data-i18n="pane.hive">Hive 查询</span>
+          <span class="obj-sub" id="hiveDb">default</span>
+          <span class="bar-spacer"></span>
+          <button class="mini-btn primary" id="hiveRun" data-i18n="hive.run">执行</button>
+          <button class="mini-btn" id="hiveClear" data-i18n="hive.clear">清空</button>
+        </div>
+        <textarea id="hiveSql" class="hive-sql" placeholder="SELECT * FROM ...;"></textarea>
+        <div class="hive-out" id="hiveOut">
+          <div class="empty" data-i18n="hive.hint">输入 SQL，点「执行」</div>
+        </div>
+        <div class="result" id="hiveResult"></div>
       </div>
     </section>
   </main>
