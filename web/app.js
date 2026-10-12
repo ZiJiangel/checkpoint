@@ -319,7 +319,7 @@ let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
   const doSwitch = () => {
-    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn', 'verify', 'deploycheck', 'diagpack', 'clustercfg', 'cfgtmpl', 'jobtpl'].forEach(v => {
+    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'tables', 'import', 'yarn', 'verify', 'deploycheck', 'diagpack', 'clustercfg', 'cfgtmpl', 'jobtpl'].forEach(v => {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('hidden', v !== name);
     });
@@ -372,6 +372,8 @@ function bindActivityBar() {
       el.classList.add('active');
       if (el.dataset.pane === 'hdfs') { showView('hdfs'); renderHdfs(); }
       else if (el.dataset.pane === 'hive') { showView('hive'); }
+      else if (el.dataset.pane === 'tables') { showView('tables'); renderTables(); }
+      else if (el.dataset.pane === 'import') { showView('import'); }
       else if (el.dataset.pane === 'yarn') { showView('yarn'); renderYarn(); }
       else if (el.dataset.pane === 'jobtpl') { showView('jobtpl'); renderJobTemplates(); }
       else if (el.dataset.pane === 'verify') { showView('verify'); }
@@ -2833,6 +2835,85 @@ async function makeDiagPack() {
   else out.innerHTML = '<div class="verify-step fail"><span class="vs-ico">✕</span>' + escAll(r.msg || t('ops.fail')) + '</div>';
 }
 
+// ============ 数据导入（数据域）============
+let _importCols = '';
+
+async function previewImport() {
+  const path = (document.getElementById('importPath').value || '').trim();
+  const box = document.getElementById('importPreviewBox');
+  if (!path) return;
+  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.hive_preview(path); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml();
+  const lines = (r.out || '').split('\n').filter(Boolean);
+  // 按第一行的分隔符数量推算列数，生成默认列名
+  const first = lines[0] || '';
+  const ncol = Math.max(1, first.split(',').length);
+  _importCols = Array.from({length: ncol}, (_, i) => 'c' + (i + 1)).join(',');
+  box.innerHTML = '<pre class="cmd-out" style="max-height:10rem">' + escAll(lines.slice(0, 8).join('\n')) + '</pre>' +
+    '<div class="hint-foot">' + t('import.detected') + ncol + t('import.cols') + '</div>' + cmdHtml;
+  document.getElementById('importStep2').style.display = '';
+  const colsInput = document.getElementById('importCols');
+  if (colsInput) colsInput.value = _importCols;
+}
+
+async function doImport() {
+  const path = (document.getElementById('importPath').value || '').trim();
+  const table = (document.getElementById('importTable').value || '').trim();
+  const sep = document.getElementById('importSep').value || ',';
+  const cols = (_importCols || '');
+  const out = document.getElementById('importResult');
+  if (!path || !table) { uiAlert(t('import.needAll')); return; }
+  if (!await uiConfirm(t('import.confirm'))) return;
+  out.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.hive_import(path, table, sep, cols); }
+  catch (e) { out.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml();
+  out.innerHTML = '<div class="verify-step ' + (r.ok ? 'done' : 'fail') + '"><span class="vs-ico">' + (r.ok ? '✓' : '✕') + '</span>' +
+    escAll(r.msg || '') + '</div>' +
+    (r.ddl ? '<div class="hint-foot">DDL: ' + escAll(r.ddl) + '</div>' : '') +
+    '<pre class="cmd-out" style="max-height:16rem">' + escAll(r.out || '') + '</pre>' + cmdHtml;
+}
+
+// ============ 表管理（数据域）============
+async function renderTables() {
+  const box = document.getElementById('tablesList');
+  if (!box) return;
+  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.hive_tables(); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml();
+  if (!r.ok) { box.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + cmdHtml; return; }
+  if (!r.tables.length) { box.innerHTML = '<div class="empty">' + t('tables.none') + '</div>' + cmdHtml; return; }
+  let html = '<table class="yarn-tbl"><thead><tr><th>' + t('tables.name') + '</th><th>' + t('hdfs.act') + '</th></tr></thead><tbody>';
+  html += r.tables.map(tb =>
+    '<tr><td>' + escAll(tb) + '</td><td class="hdfs-actions">' +
+    '<span class="svc-action" data-table-desc="' + escAll(tb) + '">' + t('tables.desc') + '</span>' +
+    '</td></tr>').join('');
+  html += '</tbody></table>';
+  box.innerHTML = html + cmdHtml;
+  box.querySelectorAll('[data-table-desc]').forEach(el => el.addEventListener('click', async () => {
+    const tb = el.dataset.tableDesc;
+    await resetCmdLog();
+    let dr;
+    try { dr = await window.pywebview.api.hive_describe(tb); }
+    catch (e) { uiAlert('查表失败：' + e); return; }
+    const cmds = await takeCmdLogHtml();
+    const box2 = document.getElementById('tablesList');
+    box2.innerHTML = '<div class="obj-sub">describe ' + escAll(tb) + '</div>' +
+      '<pre class="cmd-out" style="max-height:24rem;margin-top:0.6rem">' + escAll(dr.out || '') + '</pre>' + cmds +
+      '<button class="mini-btn" id="tablesBack">' + t('hdfs.back') + '</button>';
+    document.getElementById('tablesBack').addEventListener('click', renderTables);
+  }));
+}
+
 // ============ 作业模板（作业域）============
 async function renderJobTemplates() {
   const box = document.getElementById('jobtplList');
@@ -2955,6 +3036,12 @@ window.addEventListener('pywebviewready', async () => {
   bindClusterTabs();
   const yarnRefreshBtn = document.getElementById('yarnRefresh');
   if (yarnRefreshBtn) yarnRefreshBtn.addEventListener('click', renderYarn);
+  const tablesRefreshBtn = document.getElementById('tablesRefresh');
+  if (tablesRefreshBtn) tablesRefreshBtn.addEventListener('click', renderTables);
+  const impPrev = document.getElementById('importPreview');
+  if (impPrev) impPrev.addEventListener('click', previewImport);
+  const impGo = document.getElementById('importGo');
+  if (impGo) impGo.addEventListener('click', doImport);
   const verifyRunBtn = document.getElementById('verifyRun');
   if (verifyRunBtn) verifyRunBtn.addEventListener('click', runVerify);
   const diagMakeBtn = document.getElementById('diagMake');

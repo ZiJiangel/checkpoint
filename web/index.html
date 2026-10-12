@@ -80,6 +80,8 @@
           <div class="side-list">
             <div class="nav-item active" data-pane="hdfs"><span class="nav-ico">▤</span><span data-i18n="pane.hdfs">HDFS 操作</span></div>
             <div class="nav-item" data-pane="hive"><span class="nav-ico">▥</span><span data-i18n="pane.hive">Hive 查询</span></div>
+            <div class="nav-item" data-pane="tables"><span class="nav-ico">▤</span><span data-i18n="pane.tables">表管理</span></div>
+            <div class="nav-item" data-pane="import"><span class="nav-ico">⇪</span><span data-i18n="pane.import">数据导入</span></div>
           </div>
         </div>
         <div class="side-domain hidden" id="sideJob">
@@ -271,6 +273,43 @@
           <div class="empty" data-i18n="hive.hint">输入 SQL，点「执行」</div>
         </div>
         <div class="result" id="hiveResult"></div>
+      </div>
+
+      <div class="view hidden" id="view-tables">
+        <div class="obj-head" style="display:flex;align-items:center;gap:0.6rem;padding-bottom:0.8rem;border-bottom:1px solid var(--line)">
+          <span class="obj-title" data-i18n="pane.tables">表管理</span>
+          <span class="obj-sub" id="tablesDb">default</span>
+          <span class="bar-spacer"></span>
+          <button class="mini-btn" id="tablesRefresh" data-i18n="hdfs.refresh">刷新</button>
+        </div>
+        <div id="tablesList" style="margin-top:1rem"><div class="empty" data-i18n="tables.hint">点「刷新」加载 Hive 表</div></div>
+        <div class="result" id="tablesResult"></div>
+      </div>
+
+      <div class="view hidden" id="view-import">
+        <div class="obj-head" style="display:flex;align-items:center;gap:0.6rem;padding-bottom:0.8rem;border-bottom:1px solid var(--line)">
+          <span class="obj-title" data-i18n="pane.import">数据导入</span>
+          <span class="obj-sub" data-i18n="import.sub">HDFS 文件 → Hive 表</span>
+        </div>
+        <div class="card" style="margin-top:1rem">
+          <div class="card-title" data-i18n="import.step1">选择 HDFS 文件</div>
+          <div class="form-row" style="margin-top:0.6rem">
+            <input id="importPath" placeholder="/input/data.csv" style="flex:1">
+            <button class="mini-btn primary" id="importPreview" data-i18n="import.preview">预览</button>
+          </div>
+          <div id="importPreviewBox" style="margin-top:0.8rem"></div>
+        </div>
+        <div class="card" id="importStep2" style="display:none">
+          <div class="card-title" data-i18n="import.step2">建表并导入</div>
+          <div class="form-row" style="margin-top:0.6rem">
+            <input id="importTable" placeholder="表名" style="max-width:200px">
+            <input id="importSep" value="," placeholder="分隔符" style="max-width:100px">
+            <input id="importCols" placeholder="列名 c1,c2,…" style="max-width:200px">
+            <button class="mini-btn primary" id="importGo" data-i18n="import.go">建表 + 导入</button>
+          </div>
+          <div class="hint-foot" data-i18n="import.hint">将创建外部表（分隔符按上面填），并把文件 LOAD 进去</div>
+        </div>
+        <div class="result" id="importResult"></div>
       </div>
 
       <div class="view hidden" id="view-yarn">

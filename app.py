@@ -287,6 +287,19 @@ class Api:
     def hive_exec(self, sql):
         return cluster.hive_exec(sql)
 
+    def hive_tables(self):
+        return cluster.hive_tables()
+
+    def hive_preview(self, hdfs_path):
+        ok, out = cluster.hive_preview(hdfs_path)
+        return {"ok": ok, "out": out}
+
+    def hive_import(self, hdfs_path, table, sep=",", cols=None):
+        return cluster.hive_import(hdfs_path, table, sep, cols)
+
+    def hive_describe(self, table):
+        return cluster.hive_describe(table)
+
     def yarn_apps(self):
         return cluster.yarn_apps()
 

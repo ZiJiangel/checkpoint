@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """集群节点管理 + SSH 连接 + 健康检查"""
 import os
+import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -1146,6 +1147,65 @@ def yarn_kill(app_id, timeout=30):
         return {"ok": False, "out": "master 节点关机，请先开机"}
     ok, out = _hdfs_master_run("yarn application -kill %s" % app_id, timeout=timeout, use_exit_code=True)
     return {"ok": ok, "out": out}
+
+
+def hive_preview(hdfs_path, timeout=60):
+    """预览 HDFS 文件前几行（用于导入向导）。"""
+    return _hdfs_master_run('hdfs dfs -cat "%s" 2>/dev/null | head -20' % hdfs_path, timeout=timeout)
+
+
+def hive_import(hdfs_path, table, sep=",", cols=None, timeout=180):
+    """建表并 LOAD 数据。cols: 列名列表（逗号分隔字符串）；不传则按 c1,c2... 生成。
+    返回 {ok, out, msg, ddl}。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "out": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "out": "master 节点关机，请先开机"}
+    sep_char = (sep or ",")[0]
+    # 列定义：用户给了就用，否则按 c1,c2...（数量由前端按预览推算）
+    if cols:
+        col_def = ", ".join("%s string" % c.strip() for c in cols.split(",") if c.strip())
+    else:
+        col_def = "c1 string"
+    ddl = ("create external table if not exists %s (%s) "
+           "row format delimited fields terminated by '%s' "
+           "stored as textfile "
+           "location '%s'" % (table, col_def, sep_char,
+                              hdfs_path.rstrip("/").rsplit("/", 1)[0]))
+    ok, out = hive_exec(ddl, timeout=timeout)
+    if not ok:
+        return {"ok": False, "out": out, "msg": "建表失败", "ddl": ddl}
+    load = "load data inpath '%s' into table %s" % (hdfs_path, table)
+    ok2, out2 = hive_exec(load, timeout=timeout)
+    return {"ok": True, "out": (out or "") + "\n" + (out2 or ""), "msg": "导入完成", "ddl": ddl}
+
+
+def hive_tables(timeout=60):
+    """列出 Hive 数据库和表。返回 {ok, tables:[...], msg}。"""
+    ok, out = hive_exec("show tables", timeout=timeout)
+    if not ok:
+        return {"ok": False, "tables": [], "msg": out}
+    tables = []
+    for line in (out or "").splitlines():
+        line = line.strip()
+        if not line or line.lower().startswith(("tab_name", "ok", "time taken", "+", "|")):
+            continue
+        if line.startswith("Warning") or line.startswith("log4j") or "=" in line[:10]:
+            continue
+        # beeline 表格行：| tabname | 或无边框时纯表名
+        if line.startswith("|"):
+            parts = [c.strip() for c in line.split("|") if c.strip()]
+            if parts and parts[0].lower() not in ("tab_name", "database_name"):
+                tables.append(parts[0])
+        elif re.match(r"^[A-Za-z_][\w]*$", line):
+            tables.append(line)
+    return {"ok": True, "tables": tables, "msg": ""}
+
+
+def hive_describe(table, timeout=60):
+    """查表结构（desc）。返回 {ok, out, msg}。"""
+    return hive_exec("describe %s" % table, timeout=timeout)
 
 
 def hive_exec(sql, timeout=120):
