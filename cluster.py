@@ -1220,12 +1220,12 @@ def hive_import(hdfs_path, table, sep=",", cols=None, timeout=180):
            "stored as textfile "
            "location '%s'" % (table, col_def, sep_char,
                               hdfs_path.rstrip("/").rsplit("/", 1)[0]))
-    ok, out = hive_exec(ddl, timeout=timeout)
-    if not ok:
-        return {"ok": False, "out": out, "msg": "建表失败", "ddl": ddl}
+    r1 = hive_exec(ddl, timeout=timeout)
+    if not r1.get("ok"):
+        return {"ok": False, "out": r1.get("out", ""), "msg": "建表失败", "ddl": ddl}
     load = "load data inpath '%s' into table %s" % (hdfs_path, table)
-    ok2, out2 = hive_exec(load, timeout=timeout)
-    return {"ok": True, "out": (out or "") + "\n" + (out2 or ""), "msg": "导入完成", "ddl": ddl}
+    r2 = hive_exec(load, timeout=timeout)
+    return {"ok": True, "out": (r1.get("out", "") or "") + "\n" + (r2.get("out", "") or ""), "msg": "导入完成", "ddl": ddl}
 
 
 def hive_tables(timeout=60):

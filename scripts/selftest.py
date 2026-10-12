@@ -91,6 +91,14 @@ check("detect ok", r["ok"])
 check("detect hive", r["components"].get("hive") is True)
 check("detect hbase 未装", "hbase" not in r["components"])
 
+# ---- 测 hive_import（防止 dict/tuple 解包 bug 回归）----
+print("[hive_import]")
+patch(fake_hdfs=lambda cmd, timeout=180, use_exit_code=True: (True, "OK"))
+r = cluster.hive_import("/input/data.csv", "t1", ",", "c1,c2")
+check("hive_import ok", r.get("ok") is True, r)
+check("hive_import 有 ddl", "create external table" in (r.get("ddl") or ""))
+check("hive_import 列名", "c1 string" in (r.get("ddl") or "") and "c2 string" in (r.get("ddl") or ""))
+
 # ---- 测 _map_target（配置分发路径映射）----
 print("[_map_target]")
 # 无根 → 同路径
