@@ -90,6 +90,7 @@
           <div class="side-title"><span data-i18n="dom.tool">工具</span></div>
           <div class="side-list">
             <div class="nav-item" data-pane="diagpack"><span class="nav-ico">⊞</span><span data-i18n="pane.diagpack">脱敏诊断包</span></div>
+            <div class="nav-item" data-pane="clustercfg"><span class="nav-ico">⌘</span><span data-i18n="pane.clustercfg">声明式集群配置</span></div>
           </div>
         </div>
       </div>
@@ -277,6 +278,28 @@
           </div>
         </div>
         <div class="result" id="diagOut"></div>
+      </div>
+
+      <div class="view hidden" id="view-clustercfg">
+        <div class="obj-head" style="display:flex;align-items:center;gap:0.6rem;padding-bottom:0.8rem;border-bottom:1px solid var(--line)">
+          <span class="obj-title" data-i18n="pane.clustercfg">声明式集群配置</span>
+          <span class="obj-sub" data-i18n="ccfg.sub">把集群导出/导入为一份配置文件（拓扑即数据）</span>
+        </div>
+        <div class="card" style="margin-top:1rem">
+          <div class="card-title" data-i18n="ccfg.export">导出当前集群</div>
+          <div class="hint-foot" data-i18n="ccfg.exportDesc">把当前集群的节点拓扑保存为 JSON（不含密码，可分享/存档）。</div>
+          <div class="form-row" style="margin-top:0.8rem">
+            <button class="primary" id="ccfgExport" data-i18n="ccfg.exportBtn">导出为文件…</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="ccfg.import">导入集群配置</div>
+          <div class="hint-foot" data-i18n="ccfg.importDesc">从 JSON 创建节点（密码需导入后手动填）。</div>
+          <div class="form-row" style="margin-top:0.8rem">
+            <button class="primary" id="ccfgImport" data-i18n="ccfg.importBtn">从文件导入…</button>
+          </div>
+        </div>
+        <div class="result" id="ccfgOut"></div>
       </div>
     </section>
   </main>

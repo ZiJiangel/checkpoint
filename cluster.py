@@ -84,6 +84,65 @@ def list_templates():
     return [{"id": k, "name": v["name"], "count": len(v["nodes"])} for k, v in CLUSTER_TEMPLATES.items()]
 
 
+# ============ 声明式集群配置（拓扑即数据，参考 Vagrant）============
+
+def export_cluster_config(cluster_name=None):
+    """把当前集群导出成声明式配置（dict）。不含密码（敏感）。
+    可保存为文件、分享、或再导入。"""
+    cluster_name = cluster_name or get_current_cluster()
+    nodes = list_nodes(cluster_name)
+    spec_nodes = []
+    for n in nodes:
+        spec_nodes.append({
+            "name": n.get("name", ""),
+            "role": n.get("role", "worker"),
+            "host": n.get("host", ""),
+            "port": n.get("port", 22),
+            "user": n.get("user", "root"),
+            "note": n.get("note", ""),
+            "vmx": n.get("vmx", ""),
+            "cfg_root": n.get("cfg_root", ""),
+            # 不含 pass —— 导出配置不携带密码
+        })
+    return {
+        "checkpoint_config": 1,
+        "cluster": cluster_name,
+        "nodes": spec_nodes,
+    }
+
+
+def import_cluster_config(config, cluster_name=None):
+    """从声明式配置创建集群节点。
+    config: dict（含 nodes 列表）；cluster_name: 归入哪个集群（默认用配置里的）。
+    返回 {ok, created, skipped, msg}。"""
+    if not isinstance(config, dict) or "nodes" not in config:
+        return {"ok": False, "created": 0, "skipped": 0, "msg": "配置格式不对（缺 nodes）"}
+    cluster_name = cluster_name or config.get("cluster") or get_current_cluster()
+    created = 0
+    skipped = 0
+    for spec in config.get("nodes", []):
+        if not isinstance(spec, dict) or not spec.get("name"):
+            skipped += 1
+            continue
+        node = {
+            "name": spec.get("name"),
+            "host": spec.get("host", ""),
+            "port": spec.get("port", 22),
+            "user": spec.get("user", "root"),
+            "pass": "",   # 密码不导入，需用户自己填
+            "role": spec.get("role", "worker"),
+            "note": spec.get("note", ""),
+            "vmx": spec.get("vmx", ""),
+            "cfg_root": spec.get("cfg_root", ""),
+            "cluster": cluster_name,
+            "tags": {}, "enabled": True,
+        }
+        add_node(node)
+        created += 1
+    return {"ok": True, "created": created, "skipped": skipped,
+            "msg": "导入 %d 个节点（密码需手动填）" % created}
+
+
 def create_from_template(tid, cluster_name):
     """按模板创建节点骨架（归入指定集群）。返回新节点列表。"""
     tpl = CLUSTER_TEMPLATES.get(tid)

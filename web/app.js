@@ -319,7 +319,7 @@ let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
   const doSwitch = () => {
-    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn', 'verify', 'diagpack'].forEach(v => {
+    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'yarn', 'verify', 'diagpack', 'clustercfg'].forEach(v => {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('hidden', v !== name);
     });
@@ -375,6 +375,7 @@ function bindActivityBar() {
       else if (el.dataset.pane === 'yarn') { showView('yarn'); renderYarn(); }
       else if (el.dataset.pane === 'verify') { showView('verify'); }
       else if (el.dataset.pane === 'diagpack') { showView('diagpack'); }
+      else if (el.dataset.pane === 'clustercfg') { showView('clustercfg'); }
     });
   });
 }
@@ -2490,6 +2491,37 @@ async function runHive() {
   out.innerHTML = html + cmdHtml;
 }
 
+// ============ 声明式集群配置（工具域）============
+async function exportClusterCfg() {
+  const out = document.getElementById('ccfgOut');
+  if (!out) return;
+  out.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  let r;
+  try { r = await window.pywebview.api.export_cluster_config(); }
+  catch (e) { out.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  if (r.cancelled) { out.innerHTML = ''; return; }
+  if (r.ok) out.innerHTML = '<div class="verify-step done"><span class="vs-ico">✓</span>' + escAll(r.msg) + '（' + r.count + ' 节点）</div>';
+  else out.innerHTML = '<div class="verify-step fail"><span class="vs-ico">✕</span>' + escAll(r.msg || t('ops.fail')) + '</div>';
+}
+
+async function importClusterCfg() {
+  const out = document.getElementById('ccfgOut');
+  if (!out) return;
+  out.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  let r;
+  try { r = await window.pywebview.api.import_cluster_config(); }
+  catch (e) { out.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  if (r.cancelled) { out.innerHTML = ''; return; }
+  if (r.ok) {
+    out.innerHTML = '<div class="verify-step done"><span class="vs-ico">✓</span>' + escAll(r.msg || '') + '</div>';
+    await loadClusters();
+    await loadNodes();
+    renderSidebar();
+  } else {
+    out.innerHTML = '<div class="verify-step fail"><span class="vs-ico">✕</span>' + escAll(r.msg || t('ops.fail')) + '</div>';
+  }
+}
+
 // ============ 脱敏诊断包（工具域）============
 async function makeDiagPack() {
   const out = document.getElementById('diagOut');
@@ -2573,6 +2605,10 @@ window.addEventListener('pywebviewready', async () => {
   if (verifyRunBtn) verifyRunBtn.addEventListener('click', runVerify);
   const diagMakeBtn = document.getElementById('diagMake');
   if (diagMakeBtn) diagMakeBtn.addEventListener('click', makeDiagPack);
+  const ccfgExp = document.getElementById('ccfgExport');
+  if (ccfgExp) ccfgExp.addEventListener('click', exportClusterCfg);
+  const ccfgImp = document.getElementById('ccfgImport');
+  if (ccfgImp) ccfgImp.addEventListener('click', importClusterCfg);
   // Hive 工具栏
   const hiveRunBtn = document.getElementById('hiveRun');
   if (hiveRunBtn) hiveRunBtn.addEventListener('click', runHive);

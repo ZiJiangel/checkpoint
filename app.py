@@ -288,6 +288,47 @@ class Api:
     def cluster_verify(self):
         return cluster.cluster_verify()
 
+    def export_cluster_config(self, cluster_name=None):
+        """把当前集群导出为声明式配置文件（保存对话框）。"""
+        import webview, json
+        cfg = cluster.export_cluster_config(cluster_name)
+        try:
+            w = webview.windows[0]
+            res = w.create_file_dialog(webview.SAVE_DIALOG,
+                                       save_filename="checkpoint-cluster.json")
+        except Exception as e:
+            return {"ok": False, "msg": "打开保存对话框失败：" + str(e)}
+        if not res:
+            return {"ok": False, "cancelled": True, "msg": ""}
+        path = res if isinstance(res, str) else res[0]
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, ensure_ascii=False, indent=2)
+            return {"ok": True, "msg": "已导出：" + path, "path": path, "count": len(cfg["nodes"])}
+        except Exception as e:
+            return {"ok": False, "msg": "写文件失败：" + str(e)}
+
+    def import_cluster_config(self, cluster_name=None):
+        """从声明式配置文件导入集群节点（打开对话框选文件）。"""
+        import webview, json
+        try:
+            w = webview.windows[0]
+            res = w.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False,
+                                       file_types=('JSON (*.json)', 'All (*.*)'))
+        except Exception as e:
+            return {"ok": False, "msg": "打开对话框失败：" + str(e)}
+        if not res:
+            return {"ok": False, "cancelled": True, "msg": ""}
+        path = res[0] if isinstance(res, (list, tuple)) else res
+        try:
+            with open(path, encoding="utf-8") as f:
+                cfg = json.load(f)
+        except Exception as e:
+            return {"ok": False, "msg": "读文件失败：" + str(e)}
+        r = cluster.import_cluster_config(cfg, cluster_name)
+        r["path"] = path
+        return r
+
     def make_diagpack(self):
         """生成脱敏诊断包（弹保存对话框）。"""
         import webview
