@@ -209,6 +209,13 @@
             <span data-i18n="set.autoCheck">打开集群页时自动体检</span>
           </label>
         </div>
+        <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="set.features">功能开关</span></div>
+        <div class="form-row">
+          <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;cursor:pointer">
+            <input type="checkbox" id="kerberosSwitch" style="width:auto;min-width:0">
+            <span data-i18n="set.kerberos">启用 Kerberos（一键启停时包含 KDC 阶段）</span>
+          </label>
+        </div>
         <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="set.vmware">VMware 路径</span></div>
         <div class="form-row">
           <input id="vmrunPath" data-i18n-ph="ph.vmrun" placeholder="vmrun.exe 路径">
@@ -377,12 +384,18 @@
      <div class="bp-head">
        <button class="bp-tab active" data-bp="output" data-i18n="bp.output">输出</button>
        <button class="bp-tab" data-bp="task" data-i18n="bp.task">任务</button>
+       <button class="bp-tab" data-bp="term" data-i18n="bp.term">终端</button>
        <span class="bar-spacer"></span>
+       <select id="bpTermNode" class="bp-term-node hidden" style="font-size:0.78rem;max-width:160px"></select>
        <button class="bp-icon" id="bpMax" title="最大化">⤢</button>
        <button class="bp-icon" id="bpClose" title="收起">✕</button>
      </div>
      <div class="bp-body" id="bpOutput"><div class="empty" data-i18n="bp.empty">这里显示操作输出（命令 + 结果）</div></div>
      <div class="bp-body hidden" id="bpTask"><div class="empty" data-i18n="bp.empty">这里显示任务进度</div></div>
+     <div class="bp-body hidden bp-term" id="bpTerm">
+       <div class="term-out" id="bpTermOut"><div class="empty" data-i18n="term.hint">选择节点，输入命令回车执行</div></div>
+       <div class="term-input"><span class="term-prompt">$</span><input id="bpTermCmd" placeholder="输入命令，回车…" autocomplete="off"></div>
+     </div>
    </div>
   </main>
 

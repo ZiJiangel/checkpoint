@@ -2113,7 +2113,38 @@ function bindBottomPanel() {
     const bp = t.dataset.bp;
     document.getElementById('bpOutput').classList.toggle('hidden', bp !== 'output');
     document.getElementById('bpTask').classList.toggle('hidden', bp !== 'task');
+    document.getElementById('bpTerm').classList.toggle('hidden', bp !== 'term');
+    const sel = document.getElementById('bpTermNode');
+    if (sel) sel.classList.toggle('hidden', bp !== 'term');
+    if (bp === 'term') {
+      if (panel.classList.contains('collapsed')) panel.classList.remove('collapsed');
+      fillTermNodeSelect();
+    }
   }));
+  // 终端：节点选择 + 输入
+  const termSel = document.getElementById('bpTermNode');
+  const termCmd = document.getElementById('bpTermCmd');
+  if (termCmd) termCmd.addEventListener('keydown', async (e) => {
+    if (e.key !== 'Enter') return;
+    const cmd = termCmd.value.trim();
+    if (!cmd) return;
+    const nid = termSel && termSel.value;
+    const n = NODES.find(x => x.id === nid);
+    if (!n) { uiAlert(t('term.pickNode')); return; }
+    termCmd.value = '';
+    const out = document.getElementById('bpTermOut');
+    out.innerHTML += '<div class="term-line cmd">$ ' + escAll(cmd) + '</div>';
+    out.innerHTML += '<div class="term-line run">' + t('term.running') + '</div>';
+    out.scrollTop = out.scrollHeight;
+    try {
+      const r = await window.pywebview.api.node_exec(n, cmd);
+      out.querySelector('.term-line.run:last-of-type') && out.lastElementChild.remove();
+      out.innerHTML += '<div class="term-line ' + (r.ok ? '' : 'err') + '">' + escAll(r.out || '(无输出)') + '</div>';
+    } catch (err) {
+      out.innerHTML += '<div class="term-line err">' + escAll(String(err)) + '</div>';
+    }
+    out.scrollTop = out.scrollHeight;
+  });
   // 折叠/展开
   document.getElementById('bpClose').addEventListener('click', () => {
     panel.classList.toggle('collapsed');
@@ -2153,6 +2184,14 @@ function bindBottomPanel() {
     const saved = localStorage.getItem('bpHeight');
     if (saved) panel.style.height = saved + 'px';
   } catch (e) {}
+}
+
+function fillTermNodeSelect() {
+  const sel = document.getElementById('bpTermNode');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = NODES.map(n => '<option value="' + n.id + '">' + escAll(n.name) + '</option>').join('');
+  if (cur) sel.value = cur;
 }
 
 // ============ 命令透明：显示本次操作实际执行的命令 + 输出 ============
@@ -2920,6 +2959,18 @@ window.addEventListener('pywebviewready', async () => {
   if (verifyRunBtn) verifyRunBtn.addEventListener('click', runVerify);
   const diagMakeBtn = document.getElementById('diagMake');
   if (diagMakeBtn) diagMakeBtn.addEventListener('click', makeDiagPack);
+  // Kerberos 开关（= kdc service 的 enable 状态）
+  const kbSwitch = document.getElementById('kerberosSwitch');
+  if (kbSwitch) {
+    try {
+      const svcs = await window.pywebview.api.get_services();
+      const kdc = svcs.find(s => s.id === 'kdc');
+      kbSwitch.checked = kdc ? kdc.enabled : false;
+    } catch (e) {}
+    kbSwitch.addEventListener('change', async () => {
+      try { await window.pywebview.api.set_service_enabled('kdc', kbSwitch.checked); } catch (e) {}
+    });
+  }
   const exportResultBtn = document.getElementById('exportResult');
   if (exportResultBtn) exportResultBtn.addEventListener('click', exportResult);
   const dcheckRunBtn = document.getElementById('dcheckRun');
