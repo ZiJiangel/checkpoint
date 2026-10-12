@@ -365,6 +365,53 @@ CONFIG_CANDIDATES = {
 }
 
 
+def hbase_tables(timeout=60):
+    """列 HBase 表。返回 {ok, tables, msg}。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "tables": [], "msg": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "tables": [], "msg": "master 节点关机"}
+    ok, out = _hdfs_master_run('echo "list" | hbase shell -n 2>/dev/null', timeout=timeout)
+    tables = []
+    if ok:
+        for line in (out or "").splitlines():
+            line = line.strip()
+            if not line or "TABLE" in line or line.startswith("ROW") or line.startswith("("):
+                continue
+            if re.match(r"^[A-Za-z_][\w.-]*$", line):
+                tables.append(line)
+    return {"ok": ok, "tables": tables, "msg": out if not ok else ""}
+
+
+def detect_components():
+    """检测集群装了哪些组件（按配置目录/命令探测）。
+    返回 {ok, components: {hive:bool, hbase:bool, spark:bool, ...}, msg}。
+    用于前端"组件动态显示"（没装 HBase 就不显示 HBase 浏览）。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "components": {}, "msg": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "components": {}, "msg": "master 节点关机"}
+    # 探测命令：which/目录存在
+    checks = {
+        "hive": 'which hive >/dev/null 2>&1 || test -d /root/app/hive',
+        "hbase": 'which hbase >/dev/null 2>&1 || test -d /root/app/hbase',
+        "spark": 'which spark-submit >/dev/null 2>&1 || test -d /root/app/spark',
+        "hdfs": 'which hdfs >/dev/null 2>&1',
+        "yarn": 'which yarn >/dev/null 2>&1',
+    }
+    cmds = "; ".join('(%s) && echo "OK|%s"' % (c, k) for k, c in checks.items())
+    ok, out = ssh_exec(m.get("host", ""), m.get("port", 22),
+                       m.get("user", ""), m.get("pass", ""), cmds, timeout=20)
+    comp = {}
+    if ok:
+        for line in out.splitlines():
+            if line.startswith("OK|"):
+                comp[line.split("|", 1)[1].strip()] = True
+    return {"ok": True, "components": comp, "msg": ""}
+
+
 def scan_config_dirs():
     """在 master 节点扫描存在的配置目录（不写死，以实际为准）。
     返回 [{software, path, exists}]"""

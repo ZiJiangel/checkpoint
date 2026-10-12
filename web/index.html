@@ -82,6 +82,7 @@
             <div class="nav-item" data-pane="hive"><span class="nav-ico">▥</span><span data-i18n="pane.hive">Hive 查询</span></div>
             <div class="nav-item" data-pane="tables"><span class="nav-ico">▤</span><span data-i18n="pane.tables">表管理</span></div>
             <div class="nav-item" data-pane="import"><span class="nav-ico">⇪</span><span data-i18n="pane.import">数据导入</span></div>
+            <div class="nav-item hidden" id="navHbase" data-pane="hbase"><span class="nav-ico">▥</span><span data-i18n="pane.hbase">HBase 浏览</span></div>
           </div>
         </div>
         <div class="side-domain hidden" id="sideJob">
@@ -273,6 +274,16 @@
           <div class="empty" data-i18n="hive.hint">输入 SQL，点「执行」</div>
         </div>
         <div class="result" id="hiveResult"></div>
+      </div>
+
+      <div class="view hidden" id="view-hbase">
+        <div class="obj-head" style="display:flex;align-items:center;gap:0.6rem;padding-bottom:0.8rem;border-bottom:1px solid var(--line)">
+          <span class="obj-title" data-i18n="pane.hbase">HBase 浏览</span>
+          <span class="bar-spacer"></span>
+          <button class="mini-btn" id="hbaseRefresh" data-i18n="hdfs.refresh">刷新</button>
+        </div>
+        <div id="hbaseList" style="margin-top:1rem"><div class="empty" data-i18n="hbase.hint">点「刷新」加载 HBase 表</div></div>
+        <div class="result" id="hbaseResult"></div>
       </div>
 
       <div class="view hidden" id="view-tables">

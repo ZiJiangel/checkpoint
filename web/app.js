@@ -319,7 +319,7 @@ let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
   const doSwitch = () => {
-    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'tables', 'import', 'yarn', 'verify', 'deploycheck', 'diagpack', 'clustercfg', 'cfgtmpl', 'jobtpl'].forEach(v => {
+    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'tables', 'import', 'hbase', 'yarn', 'verify', 'deploycheck', 'diagpack', 'clustercfg', 'cfgtmpl', 'jobtpl'].forEach(v => {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('hidden', v !== name);
     });
@@ -353,7 +353,7 @@ function switchDomain(dom) {
   });
   // 环境域 → 默认回集群视图；数据域 → HDFS 工作台
   if (dom === 'env') showView('cluster');
-  else if (dom === 'data') { showView('hdfs'); renderHdfs(); }
+  else if (dom === 'data') { showView('hdfs'); renderHdfs(); detectComponents(); }
   else if (dom === 'job') { showView('yarn'); renderYarn(); }
   else if (dom === 'settings') { showView('settings'); }
 }
@@ -374,6 +374,7 @@ function bindActivityBar() {
       else if (el.dataset.pane === 'hive') { showView('hive'); }
       else if (el.dataset.pane === 'tables') { showView('tables'); renderTables(); }
       else if (el.dataset.pane === 'import') { showView('import'); }
+      else if (el.dataset.pane === 'hbase') { showView('hbase'); renderHbase(); }
       else if (el.dataset.pane === 'yarn') { showView('yarn'); renderYarn(); }
       else if (el.dataset.pane === 'jobtpl') { showView('jobtpl'); renderJobTemplates(); }
       else if (el.dataset.pane === 'verify') { showView('verify'); }
@@ -2670,6 +2671,34 @@ async function makeDiagPack() {
   else out.innerHTML = '<div class="verify-step fail"><span class="vs-ico">✕</span>' + escAll(r.msg || t('ops.fail')) + '</div>';
 }
 
+// ============ HBase 浏览（数据域，按需显示）============
+async function renderHbase() {
+  const box = document.getElementById('hbaseList');
+  if (!box) return;
+  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.hbase_tables(); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml();
+  if (!r.tables || !r.tables.length) {
+    box.innerHTML = '<div class="empty">' + (r.ok ? t('hbase.none') : escAll(r.msg || '')) + '</div>' + cmdHtml;
+    return;
+  }
+  box.innerHTML = '<table class="yarn-tbl"><thead><tr><th>' + t('hbase.table') + '</th></tr></thead><tbody>' +
+    r.tables.map(tb => '<tr><td>' + escAll(tb) + '</td></tr>').join('') + '</tbody></table>' + cmdHtml;
+}
+
+// 组件检测：装了 HBase 才显示 HBase 浏览
+async function detectComponents() {
+  try {
+    const r = await window.pywebview.api.detect_components();
+    const comp = (r && r.components) || {};
+    const hbaseNav = document.getElementById('navHbase');
+    if (hbaseNav) hbaseNav.classList.toggle('hidden', !comp.hbase);
+  } catch (e) {}
+}
+
 // ============ 数据导入（数据域）============
 let _importCols = '';
 
@@ -2873,6 +2902,8 @@ window.addEventListener('pywebviewready', async () => {
   if (yarnRefreshBtn) yarnRefreshBtn.addEventListener('click', renderYarn);
   const tablesRefreshBtn = document.getElementById('tablesRefresh');
   if (tablesRefreshBtn) tablesRefreshBtn.addEventListener('click', renderTables);
+  const hbaseRefreshBtn = document.getElementById('hbaseRefresh');
+  if (hbaseRefreshBtn) hbaseRefreshBtn.addEventListener('click', renderHbase);
   const impPrev = document.getElementById('importPreview');
   if (impPrev) impPrev.addEventListener('click', previewImport);
   const impGo = document.getElementById('importGo');

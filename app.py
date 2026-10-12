@@ -309,6 +309,12 @@ class Api:
     def run_job_template(self, tid):
         return cluster.run_job_template(tid)
 
+    def detect_components(self):
+        return cluster.detect_components()
+
+    def hbase_tables(self):
+        return cluster.hbase_tables()
+
     def services_topology(self):
         return cluster.services_topology()
 
