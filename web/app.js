@@ -3138,3 +3138,24 @@ window.addEventListener('pywebviewready', async () => {
   // 无边框窗口：补回可拖拽边缘（延迟到窗口完全就绪）
   try { await window.pywebview.api.enable_resize(); } catch (e) {}
 });
+
+// 全局兜底：任一未捕获的 promise 异常若中断了长流程，复位 POWER_RUNNING 锁，
+// 避免界面按钮永久变灰（需重开软件）。这是对"长流程无 try/finally"的通用保险。
+window.addEventListener('unhandledrejection', (e) => {
+  try {
+    if (typeof POWER_RUNNING !== 'undefined' && POWER_RUNNING) {
+      POWER_RUNNING = false;
+      if (typeof setPowerBtns === 'function') setPowerBtns(false);
+      if (typeof stopLiveCmds === 'function') stopLiveCmds();
+    }
+  } catch (err) {}
+  console.error('未处理的异常：', e.reason);
+});
+window.addEventListener('error', () => {
+  try {
+    if (typeof POWER_RUNNING !== 'undefined' && POWER_RUNNING) {
+      POWER_RUNNING = false;
+      if (typeof setPowerBtns === 'function') setPowerBtns(false);
+    }
+  } catch (err) {}
+});
