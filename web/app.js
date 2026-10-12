@@ -2123,7 +2123,8 @@ function explainPart(part) {
   if (has('whoami')) return t('cmd.e.whoami');
   if (has('vmrun start')) return t('cmd.e.vmStart');
   if (has('vmrun stop')) return t('cmd.e.vmStop');
-  if (has('vmrun list')) return t('cmd.e.vmList');
+  if (has('vmrun listSnapshots')) return t('cmd.e.vmSnapList');
+  if (/vmrun list(\s|$)/.test(p)) return t('cmd.e.vmList');
   if (has('vmrun snapshot')) return t('cmd.e.vmSnap');
   if (has('revertToSnapshot')) return t('cmd.e.vmRevert');
   if (has('deleteSnapshot')) return t('cmd.e.vmSnapDel');
@@ -2169,7 +2170,8 @@ function describeCmd(cmd) {
   // vmrun 系列
   if (has('vmrun start')) return t('cmd.x.vmStart');
   if (has('vmrun stop')) return t('cmd.x.vmStop');
-  if (has('vmrun list')) return t('cmd.x.vmList');
+  if (has('vmrun listSnapshots')) return t('cmd.x.snapList');
+  if (/vmrun list(\s|$)/.test(c)) return t('cmd.x.vmList');
   if (has('vmrun snapshot')) return t('cmd.x.snap');
   if (has('vmrun revertToSnapshot')) return t('cmd.x.revert');
   if (has('vmrun deleteSnapshot')) return t('cmd.x.snapDel');
@@ -2217,7 +2219,8 @@ function annotateOutput(cmd, out, ok) {
   if (has('ss -tln') || has('netstat')) return '# 节点监听的端口';
   if (has('hdfs dfs -ls')) return '# HDFS 目录内容';
   if (has('systemctl is-active')) return '# 服务运行状态';
-  if (has('vmrun list')) return '# 运行中的虚拟机';
+  if (has('vmrun listSnapshots')) return '# 虚拟机的快照列表';
+  if (/vmrun list(\s|$)/.test(c)) return '# 运行中的虚拟机';
   if (has('yarn application -list')) return '# YARN 作业列表';
   if (has('dfsadmin -report')) return '# HDFS 集群状态';
   if (has('safemode')) return '# HDFS 安全模式';
