@@ -1,6 +1,6 @@
 # Checkpoint
 
-The **"diagnose + rescue" tool** for a **local VM cluster** — built for students running Hadoop / big-data experiments on local virtual machines.
+The **"diagnose/rescue + experiment helper"** tool for a **local VM cluster** — built for students running Hadoop / big-data experiments on local virtual machines.
 
 It bundles snapshot rollback, health check, one-click start/stop, fault diagnosis, and config distribution into one UI: **snapshot before experiments, plain-language health checks when things go wrong, one-click revert when it breaks.**
 
@@ -19,7 +19,7 @@ Students learning big data often build clusters (Hadoop / Hive / Spark / Kerbero
 3. **Tedious operations** — starting a cluster means memorizing a pile of commands, one node at a time
 4. **Environment is not reusable** — once Kerberos is installed, the environment is "specialized" and awkward for other experiments
 
-Enterprise cluster-management tools (built for server ops) are too heavy; general open-source tools are too geeky; snapshot tools do only one thing — **none fits the "local VMs + student experiments" scenario**. Checkpoint fills that gap: lightweight (pywebview, ~18MB exe), beginner-friendly (traffic lights + plain-language errors + one-click), but it only does **diagnosis and rescue** — it won't think for the student.
+Enterprise cluster-management tools (built for server ops) are too heavy; general open-source tools are too geeky; snapshot tools do only one thing — **none fits the "local VMs + student experiments" scenario**. Checkpoint fills that gap: lightweight (pywebview, ~18MB exe), beginner-friendly (traffic lights + plain-language errors + one-click), and it **shows the commands behind every action** so students learn as they go — but it only does **diagnosis and rescue** — it won't think for the student.
 
 > Docs tell you the "steps"; this tool covers the blind spot: **when something breaks, it helps you find and fix it.**
 
@@ -100,12 +100,15 @@ This tool is for **local VM cluster experiments**. You need:
 
 ## Quick Start
 
-1. **Open the app** → go to the "Cluster" tab
+1. **Open the app** → go to the cluster page under the "Environment" section
 2. Click **＋ New Cluster** (or **⊞ Template** to generate a standard skeleton)
 3. **Add nodes**: fill IP / user / password / role (linking a VM auto-fills config)
 4. Click **Health Check** → see traffic lights (🟢 ok / 🟡 partial / 🔴 error / ⚪ off)
 5. Problems? Use **Deploy Check**; start/stop failures show **plain-language diagnosis**
 6. **Snapshot** before experiments; one-click **revert** if things break
+7. Transfer data / run queries / watch jobs? Switch to the **Data** / **Jobs** section (HDFS / Hive / YARN)
+
+> Each action shows the commands it runs (collapsible) — **hover a command to see what it does; you'll learn the CLI as you go.**
 
 ---
 
