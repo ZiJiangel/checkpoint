@@ -460,13 +460,15 @@ function renderVmView(vmx) {
 
   // 绑定
   document.getElementById('vmStartBtn').addEventListener('click', async () => {
+    await resetCmdLog();
     const r = await window.pywebview.api.start_vm(vmx);
-    document.getElementById('vmOpResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.started') : r.out) + '</span>';
+    document.getElementById('vmOpResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.started') : r.out) + '</span>' + await takeCmdLogHtml();
     await loadVms();
   });
   document.getElementById('vmStopBtn').addEventListener('click', async () => {
+    await resetCmdLog();
     const r = await window.pywebview.api.stop_vm(vmx);
-    document.getElementById('vmOpResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.stopped') : r.out) + '</span>';
+    document.getElementById('vmOpResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.stopped') : r.out) + '</span>' + await takeCmdLogHtml();
     await loadVms();
   });
   document.getElementById('vmSnapCreate').addEventListener('click', async () => {
@@ -474,26 +476,31 @@ function renderVmView(vmx) {
     const res = document.getElementById('vmSnapResult');
     if (!name) { res.innerHTML = '<span class="err">' + t('ops.needName') + '</span>'; return; }
     res.textContent = t('ops.running');
+    await resetCmdLog();
     const r = await window.pywebview.api.snapshot(vmx, name);
-    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>';
+    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>' + await takeCmdLogHtml();
     await loadVms(false, true);
     renderVmView(vmx);
   });
   box.querySelectorAll('[data-vm-snap-rev]').forEach(el => el.addEventListener('click', async () => {
     const s = el.dataset.vmSnapRev;
     if (!await uiConfirm(t('ops.revert') + '：' + s + ' ?')) return;
+    await resetCmdLog();
     const r = await window.pywebview.api.revert(vmx, s);
-    document.getElementById('vmSnapResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>';
+    const cmdHtml = await takeCmdLogHtml();
     await loadVms(false, true);
     renderVmView(vmx);
+    document.getElementById('vmSnapResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>' + cmdHtml;
   }));
   box.querySelectorAll('[data-vm-snap-del]').forEach(el => el.addEventListener('click', async () => {
     const s = el.dataset.vmSnapDel;
     if (!await uiConfirm(t('ops.delete') + '：' + s + ' ?')) return;
+    await resetCmdLog();
     const r = await window.pywebview.api.delete_snap(vmx, s);
-    document.getElementById('vmSnapResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.deleted') : r.out) + '</span>';
+    const cmdHtml = await takeCmdLogHtml();
     await loadVms(false, true);
     renderVmView(vmx);
+    document.getElementById('vmSnapResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.deleted') : r.out) + '</span>' + cmdHtml;
   }));
   const treeToggle = document.getElementById('vmSnapTreeToggle');
   if (treeToggle) treeToggle.addEventListener('click', async () => {
@@ -544,8 +551,9 @@ function renderVmView(vmx) {
       host: g('.vc-host').trim(), port: parseInt(g('.vc-port')) || 22,
       user: g('.vc-user').trim(), pass: g('.vc-pass'),
     });
+    await resetCmdLog();
     const r = await window.pywebview.api.test_node(node);
-    document.getElementById('vcResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + r.out + '</span>';
+    document.getElementById('vcResult').innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + r.out + '</span>' + await takeCmdLogHtml();
   });
   const vcAdd = document.getElementById('vcAddNode');
   if (vcAdd) vcAdd.addEventListener('click', () => {
@@ -1433,28 +1441,34 @@ function bindSnapshotTab(n) {
     const name = box.querySelector('.nd-snapname').value.trim();
     if (!name) { res.innerHTML = '<span class="err">' + t('ops.needName') + '</span>'; return; }
     res.textContent = t('ops.running');
+    await resetCmdLog();
     const r = await window.pywebview.api.snapshot(n.vmx, name);
-    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>';
+    const cmdHtml = await takeCmdLogHtml();
     await loadVms(false, true);
     showDetail(n.id);
+    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>' + cmdHtml;
   });
   box.querySelectorAll('[data-snap-rev]').forEach(el => el.addEventListener('click', async () => {
     const s = el.dataset.snapRev;
     if (!await uiConfirm(t('ops.revert') + '：' + s + ' ?')) return;
     res.textContent = t('ops.running');
+    await resetCmdLog();
     const r = await window.pywebview.api.revert(n.vmx, s);
-    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>';
+    const cmdHtml = await takeCmdLogHtml();
     await loadVms(false, true);
     showDetail(n.id);
+    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.done') : r.out) + '</span>' + cmdHtml;
   }));
   box.querySelectorAll('[data-snap-del]').forEach(el => el.addEventListener('click', async () => {
     const s = el.dataset.snapDel;
     if (!await uiConfirm(t('ops.delete') + '：' + s + ' ?')) return;
     res.textContent = t('ops.running');
+    await resetCmdLog();
     const r = await window.pywebview.api.delete_snap(n.vmx, s);
-    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.deleted') : r.out) + '</span>';
+    const cmdHtml = await takeCmdLogHtml();
     await loadVms(false, true);
     showDetail(n.id);
+    res.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + (r.ok ? t('ops.deleted') : r.out) + '</span>' + cmdHtml;
   }));
 }
 
@@ -1530,8 +1544,9 @@ async function testDetail(n) {
   const node = readDetailForm(base);
   const box = document.getElementById('ndResult');
   box.textContent = t('cl.testing');
+  await resetCmdLog();
   const r = await window.pywebview.api.test_node(node);
-  box.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + r.out + '</span>';
+  box.innerHTML = '<span class="' + (r.ok ? 'ok' : 'err') + '">' + r.out + '</span>' + await takeCmdLogHtml();
 }
 
 async function delNode(id) {
@@ -1927,6 +1942,7 @@ async function shutdownVms() {
   if (targets.length === 0) { powerLog('<div class="empty">' + t('cl.noVmxNodes') + '</div>'); return; }
   POWER_RUNNING = true;
   setPowerBtns(true);
+  await resetCmdLog();
   const rows = {};   // id -> 状态
   targets.forEach(n => { rows[n.id] = { name: n.name, state: 'running', text: t('cl.shutdownWait') }; });
   const paint = () => {
@@ -1958,11 +1974,12 @@ async function shutdownVms() {
   setPowerBtns(false);
   const allOk = targets.every(n => rows[n.id].state === 'done');
   paint();
+  const _cmdHtml = await takeCmdLogHtml();
   powerLog(targets.map(n => {
     const r = rows[n.id];
     return renderLine(n.name + ' — ' + r.text, r.state === 'done' ? 'done' : 'fail');
   }).join('') + '<div class="empty" style="margin-top:0.5rem">' +
-    (allOk ? t('cl.allShutdown') : t('cl.shutdownTimeout')) + '</div>');
+    (allOk ? t('cl.allShutdown') : t('cl.shutdownTimeout')) + '</div>' + _cmdHtml);
   refreshVmStatus();
 }
 document.getElementById('vmShutdown').addEventListener('click', shutdownVms);
