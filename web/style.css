@@ -342,6 +342,7 @@ body {
 .cbk-desc { color: var(--muted); font-family: inherit; font-size: 0.75rem; margin-left: 0.6rem; }
 .cbk-list.cbk-clip { max-height: 15rem; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%); mask-image: linear-gradient(to bottom, #000 70%, transparent 100%); }
 .cbk-toggle { color: var(--accent); cursor: pointer; font-size: 0.78rem; padding: 4px 0; }
+.cbk-warn { color: #d9a441; font-size: 0.82rem; padding: 0.5rem 0; }
 .kerb-bar { height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; margin: 0.4rem 0; }
 .kerb-bar-fill { height: 100%; background: var(--ok, #4caf50); transition: width .3s; }
 .kerb-sum { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.6rem; }

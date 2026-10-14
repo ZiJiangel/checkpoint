@@ -3242,6 +3242,22 @@ async function doBackup() {
   loadBackups();
 }
 
+async function checkConfigChanges() {
+  const box = document.getElementById('cbkChanges');
+  if (!box) return;
+  let r;
+  try { r = await window.pywebview.api.detect_config_changes(); }
+  catch (e) { box.innerHTML = ''; return; }
+  const changed = (r && r.changed) || [];
+  if (!changed.length) { box.innerHTML = ''; return; }
+  box.innerHTML =
+    '<div class="cbk-warn">⚠ ' + t('cbk.changedHint').replace('{n}', changed.length) + '</div>' +
+    changed.map(function(c) {
+      return '<div class="kerb-item"><span class="kerb-name">' + escAll(c.path) + '</span>' +
+        '<span class="kerb-detail">' + escAll(c.why || '') + '</span></div>';
+    }).join('');
+}
+
 async function loadBackups() {
   const box = document.getElementById('cbkList');
   if (!box) return;
@@ -3249,6 +3265,7 @@ async function loadBackups() {
   let r;
   try { r = await window.pywebview.api.list_backups(); }
   catch (e) { box.innerHTML = '<div class="empty err">' + escAll(String(e)) + '</div>'; return; }
+  checkConfigChanges();
   const items = (r && r.items) || [];
   if (!items.length) { box.innerHTML = '<div class="empty">' + t('cbk.noHistory') + '</div>'; return; }
   box.innerHTML = items.map(it =>
