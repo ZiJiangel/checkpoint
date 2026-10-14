@@ -3018,6 +3018,26 @@ const KERB_STATE = {
   unknown: { dot: 'st-gray' },
 };
 
+async function fixSshKeys() {
+  if (!await uiConfirm(t('kerb.fixSshHint'))) return;
+  const box = document.getElementById('kerbKinitOut');
+  if (!box) return;
+  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.fix_ssh_keys(); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + escAll(String(e)) + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml(false);
+  let html = '<div class="sec-head"><span class="sec-title">' + t('kerb.fixSsh') + '</span></div>';
+  (r.steps || []).forEach(function(s) {
+    html += '<div class="verify-step ' + (s.ok ? 'done' : 'fail') + '"><span class="vs-ico">' + (s.ok ? '✓' : '✕') + '</span>' + escAll(s.label) + (s.out ? '：' + escAll(String(s.out).split('\n')[0]) : '') + '</div>';
+  });
+  html += '<div class="verify-step ' + (r.ok ? 'done' : 'fail') + '" style="margin-top:0.5rem"><span class="vs-ico">' + (r.ok ? '✓' : '✕') + '</span>' + (r.ok ? t('kerb.fixSshDone') : escAll(r.msg || t('ops.fail'))) + '</div>';
+  box.innerHTML = html + cmdHtml;
+  // 补完自动刷新检测
+  if (r.ok) runKerberosCheck();
+}
+
 async function runKerberosCheck() {
   const box = document.getElementById('kerbView');
   const out = document.getElementById('kerbOut');
@@ -3607,6 +3627,8 @@ window.addEventListener('pywebviewready', async () => {
   if (cbkRefresh) cbkRefresh.addEventListener('click', loadBackups);
   const kerbRunBtn = document.getElementById('kerbRun');
   if (kerbRunBtn) kerbRunBtn.addEventListener('click', runKerberosCheck);
+  const kerbFixBtn = document.getElementById('kerbFixSsh');
+  if (kerbFixBtn) kerbFixBtn.addEventListener('click', fixSshKeys);
   const cbkManual = document.getElementById('cbkManual');
   if (cbkManual) cbkManual.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;

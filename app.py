@@ -360,6 +360,9 @@ class Api:
     def kerberos_check(self):
         return kerberos_check.run_checks()
 
+    def fix_ssh_keys(self):
+        return kerberos_check.fix_ssh_keys()
+
     def resource_metrics(self):
         return cluster.resource_metrics()
 

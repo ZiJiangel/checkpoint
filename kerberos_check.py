@@ -187,6 +187,37 @@ def run_checks():
     else:
         add("system", "keytab 分发到 worker", "unknown", "无 worker 或无 keytab")
 
+    # 13. hdfs/yarn 用户免密（装 Kerberos 后 start-dfs.sh/start-yarn.sh 要用专用用户跑 → 必须免密）
+    need_users = ["hdfs", "yarn"]
+    test_targets = [n for n in cluster.list_nodes("*") if n.get("role") in ("master", "worker")]
+    if m and test_targets:
+        bad = []
+        detail_parts = []
+        for u in need_users:
+            # 该用户是否存在
+            _, uo = _sh(m, "id %s >/dev/null 2>&1 && echo YES || echo NO" % u, t=8)
+            if "YES" not in (uo or ""):
+                bad.append("%s(无此用户)" % u)
+                continue
+            miss = []
+            for w in test_targets:
+                if cluster.node_vm_off(w):
+                    continue
+                _, o = _sh(m, "su - %s -c 'ssh -o BatchMode=yes -o StrictHostKeyChecking=no %s echo OK' 2>&1 | tail -1" % (u, w.get("name")), t=10)
+                if "OK" not in (o or ""):
+                    miss.append(w.get("name"))
+            if miss:
+                bad.append("%s→%s" % (u, "、".join(miss)))
+            else:
+                detail_parts.append("%s 免密 OK" % u)
+        if not bad:
+            add("system", "hdfs/yarn 用户免密（start 脚本用）", "ok", "；".join(detail_parts))
+        else:
+            add("system", "hdfs/yarn 用户免密（start 脚本用）", "missing",
+                "缺：" + "；".join(bad) + "（会导致 start-dfs.sh 起不来）")
+    else:
+        add("system", "hdfs/yarn 用户免密（start 脚本用）", "unknown", "无 master/worker 节点")
+
     # 汇总
     total = len(items)
     ok_n = sum(1 for i in items if i["state"] == "ok")
@@ -197,3 +228,71 @@ def run_checks():
             "summary": {"total": total, "ok": ok_n, "partial": partial_n,
                         "missing": missing_n, "unknown": unknown_n},
             "msg": ""}
+
+
+def fix_ssh_keys(users=None):
+    """一键补 hdfs/yarn 用户免密（声明式、命令可见）。
+    用 root 通道帮各用户生成密钥并分发到 master/worker 节点。
+    返回 {ok, steps:[{label, ok, out}], msg}。"""
+    import os as _os
+    users = users or ["hdfs", "yarn"]
+    steps = []
+
+    def run(label, cmd, t=40):
+        ok, out = cluster._hdfs_master_run(cmd, timeout=t, use_exit_code=False)
+        steps.append({"label": label, "ok": ok, "out": (out or "")[:400]})
+        return ok, out
+
+    m = cluster._master_node()
+    if not m:
+        return {"ok": False, "steps": [], "msg": "未找到 master 节点"}
+    if cluster.node_vm_off(m):
+        return {"ok": False, "steps": [], "msg": "master 节点关机，请先开机"}
+
+    targets = [n for n in cluster.list_nodes("*") if n.get("role") in ("master", "worker")]
+    online_targets = [n for n in targets if not cluster.node_vm_off(n)]
+
+    for u in users:
+        # 1) 该用户存在吗
+        _, uo = cluster._hdfs_master_run("id %s >/dev/null 2>&1 && echo YES || echo NO" % u, timeout=10, use_exit_code=False)
+        if "YES" not in (uo or ""):
+            steps.append({"label": "%s 用户存在" % u, "ok": False, "out": "节点上没有 %s 用户（需先按文档创建）" % u})
+            continue
+        # 2) 生成密钥
+        run("%s 生成密钥（master）" % u,
+            "mkdir -p /home/{u}/.ssh; "
+            "test -f /home/{u}/.ssh/id_rsa || ssh-keygen -q -t rsa -N '' -f /home/{u}/.ssh/id_rsa; "
+            "chown -R {u}:hadoop /home/{u}/.ssh; chmod 700 /home/{u}/.ssh; "
+            "chmod 600 /home/{u}/.ssh/id_rsa 2>/dev/null; echo DONE".format(u=u))
+        # 取公钥
+        _, pub = cluster._hdfs_master_run("cat /home/%s/.ssh/id_rsa.pub" % u, timeout=10, use_exit_code=False)
+        pub = (pub or "").strip().splitlines()[-1].strip() if pub and pub.strip() else ""
+        if not pub:
+            steps.append({"label": "%s 读取公钥" % u, "ok": False, "out": "读不到公钥"})
+            continue
+        # 3) 分发到各节点
+        for n in online_targets:
+            cmd = (
+                "mkdir -p /home/{u}/.ssh && "
+                "grep -qF '{k}' /home/{u}/.ssh/authorized_keys 2>/dev/null || echo '{k}' >> /home/{u}/.ssh/authorized_keys; "
+                "chown -R {u}:hadoop /home/{u}/.ssh; chmod 700 /home/{u}/.ssh; "
+                "chmod 600 /home/{u}/.ssh/authorized_keys; echo OK"
+            ).format(u=u, k=pub)
+            ok, out = cluster.ssh_exec(n.get("host", ""), n.get("port", 22),
+                                       n.get("user", ""), n.get("pass", ""), cmd, timeout=20)
+            steps.append({"label": "%s → %s 分发公钥" % (u, n.get("name")),
+                          "ok": ok and "OK" in (out or ""),
+                          "out": "OK" if (ok and "OK" in (out or "")) else (out or "")[:200]})
+        # 4) 验证
+        miss = []
+        for n in online_targets:
+            _, o = cluster._hdfs_master_run(
+                "su - {u} -c 'ssh -o BatchMode=yes -o StrictHostKeyChecking=no {h} echo OK' 2>&1 | tail -1".format(u=u, h=n.get("name")),
+                timeout=12, use_exit_code=False)
+            if "OK" not in (o or ""):
+                miss.append(n.get("name"))
+        steps.append({"label": "%s 免密验证" % u, "ok": not miss,
+                      "out": "全部 OK" if not miss else ("仍失败：" + "、".join(miss))})
+
+    all_ok = all(s["ok"] for s in steps) if steps else False
+    return {"ok": all_ok, "steps": steps, "msg": "" if all_ok else "部分步骤未成功（见明细）"}
