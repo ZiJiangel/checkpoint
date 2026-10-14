@@ -65,7 +65,8 @@ RULES = [
     },
     {
         "id": "perm_denied",
-        "match": ["Permission denied", "认证失败", "Authentication failed"],
+        "match": ["Permission denied (publickey", "Permission denied, please try again",
+                  "认证失败", "Authentication failed"],
         "title": "认证/权限失败",
         "meaning": "密码不对，或 Kerberos 认证没过（时间不同步也会导致）",
         "fix": "检查密码；若是 Kerberos，先确认时间同步 + KDC 已启动",
@@ -201,6 +202,22 @@ RULES = [
         "meaning": "命令里引用的路径不对，或前置步骤（创建目录/上传）没做",
         "fix": "核对路径拼写与目录是否存在；HDFS 路径用 hdfs dfs -ls 确认",
         "sev": "warn",
+    },
+    {
+        "id": "hdfs_permission",
+        "match": ["Permission denied: user=", "access=WRITE", "AccessControlException: Permission denied"],
+        "title": "HDFS 权限不足（写不了这个目录）",
+        "meaning": "HDFS 根目录归 hdfs 用户（守护进程身份），当前用户不是它的超级用户，所以写不了。",
+        "fix": "换个可写目录：用 /tmp 或 /user/<你的用户名>；或用 hdfs 身份操作：sudo -u hdfs hadoop fs ...",
+        "sev": "error",
+    },
+    {
+        "id": "hdfs_supergroup",
+        "match": ["supergroup", "inode=\"/\"", "inode=\"/user\""],
+        "title": "HDFS 根目录归属",
+        "meaning": "HDFS 的 / 或 /user 归 hdfs 用户，不是 root——所以 root 直接写会被拒。",
+        "fix": "数据放 /tmp（谁都能写）或 /user/<你的用户名>；想保持原路径就用 sudo -u hdfs。",
+        "sev": "info",
     },
 ]
 

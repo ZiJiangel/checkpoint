@@ -343,6 +343,11 @@ body {
 .cbk-list.cbk-clip { max-height: 15rem; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%); mask-image: linear-gradient(to bottom, #000 70%, transparent 100%); }
 .cbk-toggle { color: var(--accent); cursor: pointer; font-size: 0.78rem; padding: 4px 0; }
 .cbk-warn { color: #d9a441; font-size: 0.82rem; padding: 0.5rem 0; }
+.kerb-notice { margin-top: 0.8rem; padding: 0.7rem 0.9rem; border-left: 3px solid #e0a34a; background: rgba(224,163,74,0.12); border-radius: var(--r-box); }
+.kerb-notice-title { color: #e0a34a; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.35rem; }
+.kerb-notice-why { color: var(--ink); font-size: 0.8rem; line-height: 1.6; margin-bottom: 0.35rem; }
+.kerb-notice-opt { margin-top: 0.25rem; font-size: 0.82rem; color: var(--ink-2); }
+.kerb-notice code { background: rgba(0,0,0,0.3); color: #7fd4a0; padding: 1px 5px; border-radius: 4px; font-family: var(--font-mono); }
 .kerb-bar { height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; margin: 0.4rem 0; }
 .kerb-bar-fill { height: 100%; background: var(--ok, #4caf50); transition: width .3s; }
 .kerb-sum { display: flex; align-items: center; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.6rem; }

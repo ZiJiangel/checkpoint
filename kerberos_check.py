@@ -55,6 +55,7 @@ def run_checks():
         'echo "===KT==="; ls -1 /etc/security/keytab/*.keytab /etc/security/keytabs/*.keytab 2>/dev/null | xargs -n1 basename 2>/dev/null || echo NONE; '
         'echo "===KTPERM==="; for f in /etc/security/keytab/*.keytab /etc/security/keytabs/*.keytab; do [ -f "$f" ] && stat -c "%%a %%n" "$f"; done 2>/dev/null; '
         'echo "===NNSTART==="; ps -eo lstart,cmd 2>/dev/null | grep "[N]ameNode" | head -1; '
+        'echo "===NNUSER==="; ps -eo user,cmd 2>/dev/null | grep "[N]ameNode" | head -1 | cut -d" " -f1; '
         'echo "===MTIME==="; stat -c "%%Y" "%s/core-site.xml" "%s/hdfs-site.xml" 2>/dev/null'
     ) % (conf, conf, conf, conf)
     ok, out = cluster._hdfs_master_run(big, timeout=25, use_exit_code=False)
@@ -72,6 +73,7 @@ def run_checks():
     kt = seg("KT")
     ktperm = seg("KTPERM")
     nnstart = seg("NNSTART")
+    nnuser = seg("NNUSER")
     mtime = seg("MTIME")
 
     # ===== 系统层 =====
@@ -217,6 +219,27 @@ def run_checks():
                 "缺：" + "；".join(bad) + "（会导致 start-dfs.sh 起不来）")
     else:
         add("system", "hdfs/yarn 用户免密（start 脚本用）", "unknown", "无 master/worker 节点")
+
+    # 14. HDFS 归属：守护进程身份决定 HDFS 根归谁
+    #     kerberos 模式下"用 hdfs/yarn 跑"是正确做法 → 绿；
+    #     切回 simple 后它成"残留"（root 写不了根）→ 黄提醒（切 simple 不改此项）。
+    cur_mode = (_xml_val(core, "hadoop.security.authentication") or "").lower()
+    if nnuser:
+        u = nnuser.strip().splitlines()[-1].strip() if nnuser.strip() else ""
+        if not u:
+            add("effective", "HDFS 归属（守护进程身份）", "unknown", "未读到 NameNode 进程属主")
+        elif u == "root":
+            add("effective", "HDFS 归属（守护进程身份）", "ok", "NameNode 以 root 运行（HDFS 根归 root）")
+        else:
+            # 非 root
+            if cur_mode == "kerberos":
+                add("effective", "HDFS 归属（守护进程身份）", "ok",
+                    "NameNode 以 %s 运行（Kerberos 模式下属正常做法）" % u)
+            else:
+                add("effective", "HDFS 归属（守护进程身份）", "partial",
+                    "NameNode 以 %s 运行 → HDFS 根归 %s，root 写不了根（Kerberos 残留，切 simple 不会改）。往 HDFS 写请用 /tmp、/user/<用户>，或用 %s 身份" % (u, u, u))
+    else:
+        add("effective", "HDFS 归属（守护进程身份）", "unknown", "NameNode 未运行或未读到")
 
     # 汇总
     total = len(items)

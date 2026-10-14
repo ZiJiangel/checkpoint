@@ -22,6 +22,17 @@ function showModal(opts) {
   });
 }
 function uiAlert(body, title) { return showModal({ body: body, title: title, confirm: false }); }
+// 出错弹窗：原始报错 + 人话诊断（位置建议等）
+async function uiAlertDiag(rawMsg, title) {
+  let extra = '';
+  try {
+    const hits = await window.pywebview.api.diagnose(rawMsg || '');
+    if (hits && hits.length) {
+      extra = '\n\n' + hits.map(h => '💡 ' + h.title + '\n' + h.meaning + '\n👉 ' + h.fix).join('\n\n');
+    }
+  } catch (e) {}
+  return uiAlert((rawMsg || '') + extra, title);
+}
 function uiConfirm(body, title) { return showModal({ body: body, title: title, confirm: true }); }
 
 // 节点表单弹窗（新建/编辑节点，一步填全）
@@ -2134,6 +2145,11 @@ function bindBottomPanel() {
       const r = await window.pywebview.api.node_exec(n, cmd);
       out.querySelector('.term-line.run:last-of-type') && out.lastElementChild.remove();
       out.innerHTML += '<div class="term-line ' + (r.ok ? '' : 'err') + '">' + escAll(r.out || '(无输出)') + '</div>';
+      // 命中诊断规则 → 追加人话建议（如 HDFS 权限）
+      if (!r.ok && r.out) {
+        const dh = await diagnoseHtml(r.out);
+        if (dh) out.innerHTML += dh;
+      }
     } catch (err) {
       out.innerHTML += '<div class="term-line err">' + escAll(String(err)) + '</div>';
     }
@@ -2788,7 +2804,8 @@ async function renderHdfs() {
   try { r = await window.pywebview.api.hdfs_ls(HDFS_PATH); }
   catch (e) { list.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
   if (!r.ok) {
-    list.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + await takeCmdLogHtml();
+    const diag = await diagnoseHtml(r.msg || '');
+    list.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + diag + await takeCmdLogHtml();
     return;
   }
   // 左侧目录树（可展开）
@@ -2851,7 +2868,7 @@ async function renderHdfs() {
     const dir = p.replace(/\/[^/]*$/, '');
     const dst = (dir ? dir : '') + '/' + nn;
     const rr = await window.pywebview.api.hdfs_rename(p, dst);
-    if (!rr.ok) uiAlert(rr.msg || '');
+    if (!rr.ok) await uiAlertDiag(rr.msg || '', t('hdfs.rename'));
     renderHdfs();
   }));
   // 绑定：删除
@@ -2860,7 +2877,7 @@ async function renderHdfs() {
     if (!await uiConfirm(t('hdfs.delConfirm').replace('{n}', p))) return;
     const rec = el.dataset.hdfsDir === '1';
     const rr = await window.pywebview.api.hdfs_rm(p, rec);
-    if (!rr.ok) uiAlert(rr.msg || '');
+    if (!rr.ok) await uiAlertDiag(rr.msg || '', t('hdfs.del'));
     renderHdfs();
   }));
 }
@@ -3095,6 +3112,17 @@ async function switchKerberosMode(mode) {
   });
   const okTxt = mode === 'simple' ? t('kerb.switchSimpleOk') : t('kerb.switchKerbOk');
   html += '<div class="verify-step ' + (r.ok ? 'done' : 'fail') + '" style="margin-top:0.5rem"><span class="vs-ico">' + (r.ok ? '✓' : '✕') + '</span>' + (r.ok ? okTxt : escAll(r.msg || t('ops.fail'))) + '</div>';
+  // 切到 simple 成功 → 醒目提示：做实验时 HDFS 写权限的注意点（很多同学用自己终端做作业，看不到诊断）
+  if (r.ok && mode === 'simple') {
+    html += '<div class="kerb-notice">' +
+      '<div class="kerb-notice-title">⚠ ' + t('kerb.simpleNoticeTitle') + '</div>' +
+      '<div class="kerb-notice-why">' + t('kerb.simpleNoticeWhy') + '</div>' +
+      '<div class="kerb-notice-opt"><b>' + t('kerb.simpleNoticeOptA') + '</b>' +
+        '<code>hadoop fs -mkdir /tmp/test</code></div>' +
+      '<div class="kerb-notice-opt"><b>' + t('kerb.simpleNoticeOptB') + '</b>' +
+        '<code>sudo -u hdfs hadoop fs -mkdir /test</code></div>' +
+      '</div>';
+  }
   box.innerHTML = html + cmdHtml;
   // 切完刷新检测（模式变了，检测结果应更新）
   if (r.ok) { runKerberosCheck(); updateKerbModeUI(); }
@@ -3795,7 +3823,7 @@ window.addEventListener('pywebviewready', async () => {
     if (!name) return;
     const p = (HDFS_PATH.replace(/\/$/, '') + '/' + name);
     const rr = await window.pywebview.api.hdfs_mkdir(p);
-    if (!rr.ok) uiAlert(rr.msg || '');
+    if (!rr.ok) await uiAlertDiag(rr.msg || '', t('hdfs.mkdir'));
     renderHdfs();
   });
   const hu = document.getElementById('hdfsUpload');
@@ -3805,7 +3833,7 @@ window.addEventListener('pywebviewready', async () => {
     try { r = await window.pywebview.api.hdfs_pick_and_upload(HDFS_PATH); }
     catch (e) { uiAlert('上传失败：' + e); return; }
     if (r.cancelled) return;
-    if (!r.ok) { uiAlert('上传失败：' + (r.msg || '')); }
+    if (!r.ok) { await uiAlertDiag(r.msg || '', t('hdfs.upload')); }
     renderHdfs();
   });
   await loadHealthCache();   // 恢复上次体检结果
