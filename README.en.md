@@ -6,7 +6,7 @@ It bundles snapshot rollback, health check, one-click start/stop, fault diagnosi
 
 > **Simple to operate, but it won't think for you** — one-click actions and plain-language errors, but only advice, never auto-fix. Learning preserved.
 
-> Current version: **v0.10.0**
+> Current version: **v0.11.0**
 
 ---
 
@@ -155,6 +155,7 @@ Generated at runtime **next to the program**:
 
 ## Changelog
 
+- **v0.11.0** (2026-10-15): **Kerberos environment management** — config backup/restore + change alert, Kerberos config check (13 items, tri-state), one-click hdfs/yarn SSH key setup, one-click kerberos↔simple switch (declarative + auto-backup + visible commands), config diff view; **frameless window resize** via native pywebview API; bottom **Output panel** (command history); collapsed command blocks by default, tab caching (no flicker), shutdown no longer misreports failure when VM is already off.
 - **v0.10.0** (2026-10-12): **UI revamp** (left activity bar + object tabs + bottom panel), **visible commands** (every action shows the commands it runs + comments), **HDFS / Hive / Table manager / Data import / HBase / YARN / Job templates**, **cluster + post-deploy verification**, **sanitized diagnostic pack**, **declarative cluster config**, **config templates**, **node terminal**, **result export**, **service topology + resource monitor**, 24 diagnosis rules, Kerberos switch. See the dev log.
 - **v0.9.4** (2026-10-11): Fixed theme-switch bug (switching back to "Default" left stale theme DOM, losing rounded corners).
 - **v0.9.3** (2026-10-11): **UI style themes** (Dashboard / Terminal / Blueprint, each with its own layout & colors), **UI zoom** (Ctrl +/-/0), **frameless window edge-resize**, **scrollbar polish** (hidden until scrolling).
