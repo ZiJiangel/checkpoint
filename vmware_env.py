@@ -9,6 +9,25 @@ import core
 CREATE_NO_WINDOW = 0x08000000
 VMWARE_EXE = r"D:\VM\VM170603\vmware.exe"
 
+
+def _powershell_exe():
+    """定位 powershell.exe。优先 PATH；找不到就用 System32 绝对路径
+    （有的机器 PATH 被改过，会 WinError 2）。"""
+    import shutil
+    p = shutil.which("powershell") or shutil.which("powershell.exe")
+    if p:
+        return p
+    sysroot = os.environ.get("SystemRoot") or r"C:\Windows"
+    cand = os.path.join(sysroot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+    if os.path.exists(cand):
+        return cand
+    # 再兜底几个常见位置
+    for c in (r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+              r"C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe"):
+        if os.path.exists(c):
+            return c
+    return "powershell"   # 都没找到，退回原样（至少不会更糟）
+
 # VMware 服务：critical=vmrun/联网必需
 VMWARE_SERVICES = [
     {"name": "VMAuthdService", "label": "授权服务", "critical": True,
@@ -27,7 +46,7 @@ VMWARE_SERVICES = [
 def _ps(cmd, timeout=30):
     """运行 PowerShell 命令，返回输出文本"""
     try:
-        p = subprocess.run(["powershell", "-NoProfile", "-Command", cmd],
+        p = subprocess.run([_powershell_exe(), "-NoProfile", "-Command", cmd],
                            capture_output=True, text=True, timeout=timeout,
                            encoding="utf-8", errors="replace",
                            creationflags=CREATE_NO_WINDOW)
@@ -54,7 +73,7 @@ def _run_elevated_ps(script, timeout=90):
         if _is_admin():
             # 已是管理员，直接跑，不弹任何窗
             p = subprocess.run(
-                ["powershell", "-NoProfile", "-WindowStyle", "Hidden",
+                [_powershell_exe(), "-NoProfile", "-WindowStyle", "Hidden",
                  "-EncodedCommand", encoded],
                 capture_output=True, text=True, timeout=timeout,
                 encoding="utf-8", errors="replace",
@@ -67,7 +86,7 @@ def _run_elevated_ps(script, timeout=90):
         # 结果写入临时文件，供提权进程回传（否则拿不到真实结果）
         outer = ("Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList "
                  "'-NoProfile','-WindowStyle','Hidden','-EncodedCommand','%s' -Wait") % encoded
-        p = subprocess.run(["powershell", "-NoProfile", "-Command", outer],
+        p = subprocess.run([_powershell_exe(), "-NoProfile", "-Command", outer],
                            timeout=timeout, creationflags=CREATE_NO_WINDOW)
         # 提权进程正常退出即认为操作已发起（UAC 被拒会抛异常）
         return p.returncode == 0
