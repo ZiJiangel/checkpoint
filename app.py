@@ -45,6 +45,7 @@ import core
 import cluster
 import config_backup
 import kerberos_check
+import kerberos_switch
 import diagpack
 import cfgtmpl
 import services
@@ -362,6 +363,9 @@ class Api:
 
     def fix_ssh_keys(self):
         return kerberos_check.fix_ssh_keys()
+
+    def switch_kerberos(self, mode):
+        return kerberos_switch.switch_mode(mode)
 
     def resource_metrics(self):
         return cluster.resource_metrics()

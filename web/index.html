@@ -191,6 +191,14 @@
           </div>
           <div id="kerbKinitOut"></div>
           <div id="kerbView"><div class="empty" data-i18n="kerb.empty">点「检测」查看 Kerberos 配置完成度</div></div>
+          <div class="sec-head" style="margin-top:1.2rem"><span class="sec-title" data-i18n="kerb.switchTitle">切换认证模式</span>
+            <span class="sec-note-inline" data-i18n="kerb.switchHint">改配置 + 重启 HDFS/YARN；切换前会自动备份配置</span>
+          </div>
+          <div class="form-row">
+            <button class="mini-btn" id="kerbToSimple" data-i18n="kerb.toSimple">切换到 simple</button>
+            <button class="mini-btn" id="kerbToKerberos" data-i18n="kerb.toKerberos">切换到 Kerberos</button>
+          </div>
+          <div class="result" id="kerbSwitchOut"></div>
           <div class="result" id="kerbOut"></div>
         </div>
       </div>

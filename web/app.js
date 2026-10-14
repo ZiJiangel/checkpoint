@@ -3040,6 +3040,27 @@ async function fixSshKeys() {
   if (r.ok) runKerberosCheck();
 }
 
+async function switchKerberosMode(mode) {
+  if (!await uiConfirm(t('kerb.switchConfirm'))) return;
+  const box = document.getElementById('kerbSwitchOut');
+  if (!box) return;
+  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.switch_kerberos(mode); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + escAll(String(e)) + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml(false);
+  let html = '<div class="sec-head"><span class="sec-title">' + t('kerb.switchTitle') + '</span></div>';
+  (r.steps || []).forEach(function(s) {
+    html += '<div class="verify-step ' + (s.ok ? 'done' : 'fail') + '"><span class="vs-ico">' + (s.ok ? '✓' : '✕') + '</span>' + escAll(s.label) + (s.out ? '：' + escAll(String(s.out).split('\n')[0]) : '') + '</div>';
+  });
+  const okTxt = mode === 'simple' ? t('kerb.switchSimpleOk') : t('kerb.switchKerbOk');
+  html += '<div class="verify-step ' + (r.ok ? 'done' : 'fail') + '" style="margin-top:0.5rem"><span class="vs-ico">' + (r.ok ? '✓' : '✕') + '</span>' + (r.ok ? okTxt : escAll(r.msg || t('ops.fail'))) + '</div>';
+  box.innerHTML = html + cmdHtml;
+  // 切完刷新检测（模式变了，检测结果应更新）
+  if (r.ok) runKerberosCheck();
+}
+
 async function runKerberosCheck() {
   const box = document.getElementById('kerbView');
   const out = document.getElementById('kerbOut');
@@ -3631,6 +3652,10 @@ window.addEventListener('pywebviewready', async () => {
   if (kerbRunBtn) kerbRunBtn.addEventListener('click', runKerberosCheck);
   const kerbFixBtn = document.getElementById('kerbFixSsh');
   if (kerbFixBtn) kerbFixBtn.addEventListener('click', fixSshKeys);
+  const kerbToSimple = document.getElementById('kerbToSimple');
+  if (kerbToSimple) kerbToSimple.addEventListener('click', () => switchKerberosMode('simple'));
+  const kerbToKerberos = document.getElementById('kerbToKerberos');
+  if (kerbToKerberos) kerbToKerberos.addEventListener('click', () => switchKerberosMode('kerberos'));
   const cbkManual = document.getElementById('cbkManual');
   if (cbkManual) cbkManual.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
