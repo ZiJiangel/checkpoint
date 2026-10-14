@@ -1,6 +1,6 @@
 ﻿; Checkpoint 安装脚本
 #define MyAppName "Checkpoint"
-#define MyAppVersion "0.11.2"
+#define MyAppVersion "0.11.3"
 #define MyAppExeName "Checkpoint.exe"
 
 [Setup]
