@@ -44,6 +44,7 @@ import webview  # noqa
 import core
 import cluster
 import config_backup
+import kerberos_check
 import diagpack
 import cfgtmpl
 import services
@@ -354,6 +355,10 @@ class Api:
 
     def detect_config_changes(self):
         return config_backup.detect_changes()
+
+    # ===== Kerberos 检测 =====
+    def kerberos_check(self):
+        return kerberos_check.run_checks()
 
     def resource_metrics(self):
         return cluster.resource_metrics()

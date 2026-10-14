@@ -212,9 +212,24 @@ def stop_vms():
     return {"ok": True, "results": results}
 
 
+def _running_vmx():
+    """当前运行中的 VM 路径集合（小写规范化）。"""
+    s = set()
+    try:
+        ok, out = core.run_vmrun(["list"])
+        if ok:
+            for line in (out or "").splitlines():
+                line = line.strip()
+                if line.lower().endswith(".vmx"):
+                    s.add(os.path.normcase(os.path.abspath(line)))
+    except Exception:
+        pass
+    return s
+
+
 def stop_vm_node(nid):
     """关闭单个节点的虚拟机（供前端并发调用 + 显示进度）。
-    返回 {ok, mode: 'soft'|'hard', detail}"""
+    返回 {ok, mode: 'soft'|'hard'|'off', detail}"""
     n = None
     for x in cluster.list_nodes():
         if x.get("id") == nid:
@@ -225,6 +240,10 @@ def stop_vm_node(nid):
     vmx = n.get("vmx", "")
     if not vmx:
         return {"ok": False, "mode": "", "detail": "未配置虚拟机路径"}
+    # 0. 先看它是否本来就没运行 → 已是关机，算成功
+    running = _running_vmx()
+    if running and os.path.normcase(os.path.abspath(vmx)) not in running:
+        return {"ok": True, "mode": "off", "detail": ""}
     # 1. 先软关机（优雅），超时 25 秒
     ok, out = core.run_vmrun(["stop", vmx, "soft"], timeout=25)
     if ok:
@@ -234,4 +253,8 @@ def stop_vm_node(nid):
     ok2, out2 = core.run_vmrun(["stop", vmx, "hard"], timeout=60)
     if ok2:
         return {"ok": True, "mode": "hard", "detail": ""}
-    return {"ok": False, "mode": "hard", "detail": str(out2 or out)}
+    # 3. 硬关也报"未开机" → 视为已关机
+    o = str(out2 or out)
+    if "not powered on" in o.lower() or "powered off" in o.lower():
+        return {"ok": True, "mode": "off", "detail": ""}
+    return {"ok": False, "mode": "hard", "detail": o}

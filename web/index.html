@@ -127,6 +127,7 @@
           <button class="detail-tab" data-ctab="monitor" data-i18n="ctab.monitor">资源监控</button>
           <button class="detail-tab" data-ctab="snapshot" data-i18n="ctab.snapshot">快照</button>
           <button class="detail-tab" data-ctab="dist" data-i18n="ctab.dist">配置分发</button>
+          <button class="detail-tab" data-ctab="kerb" data-i18n="ctab.kerb">Kerberos</button>
         </div>
         <div class="ctab" id="ctab-overview">
           <div id="vmwareCard"></div>
@@ -139,7 +140,9 @@
           <div id="powerProgress"></div>
         </div>
         <div class="ctab hidden" id="ctab-topo">
-          <div id="svcTopo"><div class="empty" data-i18n="topo.hint">点上方「服务拓扑」加载：每台机器跑了哪些服务</div></div>
+          <div class="form-row"><button class="mini-btn" id="topoRefresh" data-i18n="topo.refresh">刷新</button>
+            <span class="sec-note-inline" data-i18n="topo.hint">每台机器跑了哪些服务（jps）</span></div>
+          <div id="svcTopo"><div class="empty" data-i18n="topo.loadingHint">点「刷新」加载</div></div>
         </div>
         <div class="ctab hidden" id="ctab-monitor">
           <div class="form-row"><button class="mini-btn" id="monRefresh" data-i18n="mon.refresh">采集</button>
@@ -177,6 +180,17 @@
         </div>
         <div class="hint-foot" data-i18n="cl.distTargetHint">默认同路径分发（各节点目录结构一致时最安全）；仅当目标路径不同时才填"覆盖根目录"</div>
         <div class="result" id="distResult"></div>
+        </div>
+
+        <div class="ctab hidden" id="ctab-kerb">
+          <div class="sec-head">
+            <span class="sec-title" data-i18n="kerb.title">Kerberos 配置检测</span>
+            <span class="sec-note-inline" data-i18n="kerb.hint">静态检查配置本身，不用集群跑起来</span>
+            <button class="mini-btn" id="kerbRun" style="margin-left:auto" data-i18n="kerb.run">检测</button>
+          </div>
+          <div id="kerbKinitOut"></div>
+          <div id="kerbView"><div class="empty" data-i18n="kerb.empty">点「检测」查看 Kerberos 配置完成度</div></div>
+          <div class="result" id="kerbOut"></div>
         </div>
       </div>
 

@@ -1917,7 +1917,10 @@ function renderLine(text, state) {
 // ============ Kerberos 一键认证 ============
 async function runKinit() {
   const btn = document.getElementById('kinitBtn');
-  const box = document.getElementById('clusterOverview');
+  // 结果就近显示：在 Kerberos 选项卡里就写那里，否则写概览
+  const kerbTab = document.querySelector('#clusterTabs .detail-tab[data-ctab="kerb"]');
+  const onKerb = kerbTab && kerbTab.classList.contains('active');
+  const box = onKerb ? document.getElementById('kerbKinitOut') : document.getElementById('clusterOverview');
   if (!box) return;
   await resetCmdLog();
   const old = btn.textContent;
@@ -1935,6 +1938,8 @@ async function runKinit() {
   else html += '<div class="verify-step fail" style="margin-top:0.5rem"><span class="vs-ico">✕</span>' + escAll(r.msg || t('ops.fail')) + '</div>';
   box.innerHTML = html + cmdHtml;
   btn.disabled = false; btn.textContent = old;
+  if (!r.ok && r.need_config) uiAlert(t('cl.kinitNeedCfg'));
+  if (r.ok && document.getElementById('kerbView')) runKerberosCheck();
 }
 
 // ============ 集群视图选项卡（概览/节点/拓扑/监控/快照/分发）============
@@ -1944,21 +1949,30 @@ function bindClusterTabs() {
       document.querySelectorAll('#clusterTabs .detail-tab').forEach(x => x.classList.remove('active'));
       t.classList.add('active');
       const k = t.dataset.ctab;
-      ['overview', 'nodes', 'topo', 'monitor', 'snapshot', 'dist'].forEach(c => {
+      ['overview', 'nodes', 'topo', 'monitor', 'snapshot', 'dist', 'kerb'].forEach(c => {
         const el = document.getElementById('ctab-' + c);
         if (el) el.classList.toggle('hidden', c !== k);
       });
-      if (k === 'topo') renderTopology();
-      if (k === 'monitor') renderMonitor();
+      if (k === 'topo' && !_TOPO_LOADED) renderTopology();
+      if (k === 'monitor' && !_MON_LOADED) renderMonitor();
+      if (k === 'kerb' && !_KERB_LOADED) runKerberosCheck();
     });
   });
+  const topoR = document.getElementById('topoRefresh');
+  if (topoR) topoR.addEventListener('click', renderTopology);
 }
 
 // 服务拓扑：每台机器跑了哪些服务
+let _TOPO_LOADED = false;
+let _MON_LOADED = false;
+let _KERB_LOADED = false;
+
 async function renderTopology() {
   const box = document.getElementById('svcTopo');
   if (!box) return;
-  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  const reload = _TOPO_LOADED;      // 已加载过 → 保留旧内容，不清空
+  _TOPO_LOADED = true;
+  if (!reload) box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
   await resetCmdLog();
   let r;
   try { r = await window.pywebview.api.services_topology(); }
@@ -2000,7 +2014,9 @@ function sparkline(values, color, max) {
 async function renderMonitor() {
   const box = document.getElementById('monitorView');
   if (!box) return;
-  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  const reload = _MON_LOADED;       // 已加载过 → 保留旧内容
+  _MON_LOADED = true;
+  if (!reload) box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
   await resetCmdLog();
   let r;
   try { r = await window.pywebview.api.resource_metrics(); }
@@ -2470,7 +2486,8 @@ async function shutdownVms() {
       const r = await window.pywebview.api.stop_vm_node(n.id);
       if (r.ok) {
         rows[n.id].state = 'done';
-        rows[n.id].text = r.mode === 'hard' ? t('cl.shutdownHard') : t('cl.shutdownSoft');
+        rows[n.id].text = r.mode === 'hard' ? t('cl.shutdownHard')
+                        : (r.mode === 'off' ? t('cl.shutdownOff') : t('cl.shutdownSoft'));
       } else {
         rows[n.id].state = 'fail';
         rows[n.id].text = t('cl.shutdownFail') + ': ' + (r.detail || '');
@@ -2991,6 +3008,57 @@ async function saveCfgTemplate() {
       ? '<div class="verify-step done"><span class="vs-ico">✓</span>' + escAll(r.path) + '</div>'
       : '<div class="verify-step fail"><span class="vs-ico">✕</span>' + escAll(r.msg || '') + '</div>';
   } catch (e) { out.innerHTML = '<div class="verify-step fail">' + escAll(String(e)) + '</div>'; }
+}
+
+// ============ Kerberos 配置检测（集群页选项卡）============
+const KERB_STATE = {
+  ok: { dot: 'st-green' },
+  partial: { dot: 'st-yellow' },
+  missing: { dot: 'st-red' },
+  unknown: { dot: 'st-gray' },
+};
+
+async function runKerberosCheck() {
+  const box = document.getElementById('kerbView');
+  const out = document.getElementById('kerbOut');
+  const reload = _KERB_LOADED;      // 已加载过 → 保留旧内容
+  _KERB_LOADED = true;
+  if (!reload) box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.kerberos_check(); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + escAll(String(e)) + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml(false);
+  out.innerHTML = cmdHtml;
+  if (!r.ok) { box.innerHTML = '<div class="empty err">' + escAll(r.msg || t('ops.fail')) + '</div>'; return; }
+
+  const s = r.summary || {};
+  const done = (s.ok || 0);
+  const total = s.total || 0;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  let html = '<div class="kerb-bar"><div class="kerb-bar-fill" style="width:' + pct + '%"></div></div>' +
+    '<div class="kerb-sum">' + t('kerb.progress') + ' ' + done + '/' + total +
+    '<span class="status-dot st-green kerb-sd"></span>' + (s.ok || 0) +
+    '<span class="status-dot st-yellow kerb-sd"></span>' + (s.partial || 0) +
+    '<span class="status-dot st-red kerb-sd"></span>' + (s.missing || 0) +
+    '<span class="status-dot st-gray kerb-sd"></span>' + (s.unknown || 0) + '</div>';
+
+  // 按层分组
+  const layers = [['system', 'kerb.layer.system'], ['config', 'kerb.layer.config'], ['effective', 'kerb.layer.effective']];
+  layers.forEach(function(pair) {
+    const key = pair[0], label = t(pair[1]);
+    const items = (r.items || []).filter(function(i) { return i.layer === key; });
+    if (!items.length) return;
+    html += '<div class="kerb-layer"><div class="kerb-layer-title">' + escAll(label) + '</div>';
+    items.forEach(function(i) {
+      const st = KERB_STATE[i.state] || KERB_STATE.unknown;
+      html += '<div class="kerb-item"><span class="status-dot ' + st.dot + '"></span>' +
+        '<span class="kerb-name">' + escAll(i.name) + '</span>' +
+        '<span class="kerb-detail">' + escAll(i.detail || '') + '</span></div>';
+    });
+    html += '</div>';
+  });
+  box.innerHTML = html;
 }
 
 // ============ 配置备份 / 恢复（工具域）============
@@ -3537,6 +3605,8 @@ window.addEventListener('pywebviewready', async () => {
   if (cbkBackup) cbkBackup.addEventListener('click', doBackup);
   const cbkRefresh = document.getElementById('cbkRefresh');
   if (cbkRefresh) cbkRefresh.addEventListener('click', loadBackups);
+  const kerbRunBtn = document.getElementById('kerbRun');
+  if (kerbRunBtn) kerbRunBtn.addEventListener('click', runKerberosCheck);
   const cbkManual = document.getElementById('cbkManual');
   if (cbkManual) cbkManual.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;

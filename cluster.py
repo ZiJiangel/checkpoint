@@ -420,7 +420,7 @@ def kerberos_auth():
     # 3) kinit
     if not principal:
         steps.append({"label": "获取票据 (kinit)", "ok": False, "out": "未配置 principal（去设置页填 realm / principal / keytab 或密码）"})
-        return {"ok": False, "steps": steps, "msg": "缺少 Kerberos 配置"}
+        return {"ok": False, "steps": steps, "msg": "缺少 Kerberos 配置", "need_config": True}
     if keytab:
         ok_k, out_k = run("获取票据 (kinit)", "kinit -kt %s %s && echo OK" % (keytab, principal), 30)
     elif password:
