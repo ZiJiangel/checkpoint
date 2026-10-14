@@ -345,7 +345,7 @@ body {
 .cbk-warn { color: #d9a441; font-size: 0.82rem; padding: 0.5rem 0; }
 .kerb-bar { height: 6px; background: var(--surface); border-radius: 3px; overflow: hidden; margin: 0.4rem 0; }
 .kerb-bar-fill { height: 100%; background: var(--ok, #4caf50); transition: width .3s; }
-.kerb-sum { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.6rem; }
+.kerb-sum { display: flex; align-items: center; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.6rem; }
 .kerb-layer { margin-bottom: 0.8rem; }
 .kerb-layer-title { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 0.3rem; }
 .kerb-item { display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0; font-size: 0.83rem; }
@@ -353,6 +353,8 @@ body {
 .kerb-item .kerb-name { flex: none; }
 .kerb-item .kerb-detail { color: var(--muted); font-size: 0.76rem; overflow-wrap: anywhere; }
 .kerb-sum .kerb-sd { margin: 0 0.2rem 0 0.6rem; }
+.kerb-toggle { margin-left: 1rem; color: var(--accent); cursor: pointer; font-size: 0.72rem; }
+.kerb-detail.hidden { display: none; }
 input, select { padding: 0.45rem 0.7rem; border-radius: var(--r-ctl); border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 0.85rem; font-family: inherit; outline: none; }
 input:focus, select:focus { border-color: var(--muted); }
 input { flex: 1; min-width: 180px; }

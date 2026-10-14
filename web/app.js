@@ -1968,6 +1968,8 @@ function bindClusterTabs() {
 let _TOPO_LOADED = false;
 let _MON_LOADED = false;
 let _KERB_LOADED = false;
+let _KERB_EXPANDED = true;    // Kerberos 检测详情默认展开
+let _DIFF_EXPANDED = false;   // diff 详情默认收起
 
 async function renderTopology(silent) {
   const box = document.getElementById('svcTopo');
@@ -3054,10 +3056,27 @@ async function showKerberosDiff() {
     return items.map(i => '<div class="kerb-item"><span class="kerb-name">' + escAll(i.file) + '</span>' +
       '<span class="kerb-detail">' + escAll(i.key) + ' = ' + escAll(i.val || '(空)') + '</span></div>').join('');
   }
-  let html = '<div class="kerb-sum">' + t('kerb.diffMode') + '：<b>' + escAll(r.mode || '?') + '</b></div>';
-  if (core.length) html += '<div class="kerb-layer"><div class="kerb-layer-title">' + t('kerb.diffCore') + '</div>' + rows(core) + '</div>';
-  if (extra.length) html += '<div class="kerb-layer"><div class="kerb-layer-title">' + t('kerb.diffExtra') + '</div>' + rows(extra) + '</div>';
-  box.innerHTML = html;
+  let head = '<div class="kerb-sum">' + t('kerb.diffMode') + '：<b>' + escAll(r.mode || '?') + '</b>' +
+    '（' + (r.items || []).length + '）' +
+    '<span class="kerb-toggle" data-diff-toggle="1" style="margin-left:auto">' + (_DIFF_EXPANDED ? t('cmd.collapse') : t('cmd.expand')) + '</span></div>';
+  let detail = '';
+  if (core.length) detail += '<div class="kerb-layer"><div class="kerb-layer-title">' + t('kerb.diffCore') + '</div>' + rows(core) + '</div>';
+  if (extra.length) detail += '<div class="kerb-layer"><div class="kerb-layer-title">' + t('kerb.diffExtra') + '</div>' + rows(extra) + '</div>';
+  box.innerHTML = head + '<div class="kerb-detail' + (_DIFF_EXPANDED ? '' : ' hidden') + '">' + detail + '</div>';
+}
+
+async function updateKerbModeUI() {
+  // 当前模式：读 diff（含 mode）
+  let mode = "";
+  try { const d = await window.pywebview.api.diff_kerberos(); mode = d.mode || ""; } catch (e) {}
+  const hint = document.getElementById('kerbModeHint');
+  const bSimple = document.getElementById('kerbToSimple');
+  const bKerb = document.getElementById('kerbToKerberos');
+  const isKerb = mode === "kerberos";
+  const isSimple = mode === "simple";
+  if (hint) hint.textContent = mode ? (t('kerb.currentMode') + '：' + mode) : '';
+  if (bSimple) bSimple.disabled = isSimple || !mode;
+  if (bKerb) bKerb.disabled = isKerb || !mode;
 }
 
 async function switchKerberosMode(mode) {
@@ -3078,7 +3097,7 @@ async function switchKerberosMode(mode) {
   html += '<div class="verify-step ' + (r.ok ? 'done' : 'fail') + '" style="margin-top:0.5rem"><span class="vs-ico">' + (r.ok ? '✓' : '✕') + '</span>' + (r.ok ? okTxt : escAll(r.msg || t('ops.fail'))) + '</div>';
   box.innerHTML = html + cmdHtml;
   // 切完刷新检测（模式变了，检测结果应更新）
-  if (r.ok) runKerberosCheck();
+  if (r.ok) { runKerberosCheck(); updateKerbModeUI(); }
 }
 
 async function runKerberosCheck() {
@@ -3099,29 +3118,33 @@ async function runKerberosCheck() {
   const done = (s.ok || 0);
   const total = s.total || 0;
   const pct = total ? Math.round(done / total * 100) : 0;
-  let html = '<div class="kerb-bar"><div class="kerb-bar-fill" style="width:' + pct + '%"></div></div>' +
+  // 顶部：进度 + 汇总 + 展开开关（始终可见）
+  let head = '<div class="kerb-bar"><div class="kerb-bar-fill" style="width:' + pct + '%"></div></div>' +
     '<div class="kerb-sum">' + t('kerb.progress') + ' ' + done + '/' + total +
     '<span class="status-dot st-green kerb-sd"></span>' + (s.ok || 0) +
     '<span class="status-dot st-yellow kerb-sd"></span>' + (s.partial || 0) +
     '<span class="status-dot st-red kerb-sd"></span>' + (s.missing || 0) +
-    '<span class="status-dot st-gray kerb-sd"></span>' + (s.unknown || 0) + '</div>';
+    '<span class="status-dot st-gray kerb-sd"></span>' + (s.unknown || 0) +
+    '<span class="kerb-toggle" data-kerb-toggle="1" style="margin-left:auto">' + (_KERB_EXPANDED ? t('cmd.collapse') : t('cmd.expand')) + '</span></div>';
 
-  // 按层分组
+  // 详情（默认收起）
+  let detail = '';
   const layers = [['system', 'kerb.layer.system'], ['config', 'kerb.layer.config'], ['effective', 'kerb.layer.effective']];
   layers.forEach(function(pair) {
     const key = pair[0], label = t(pair[1]);
     const items = (r.items || []).filter(function(i) { return i.layer === key; });
     if (!items.length) return;
-    html += '<div class="kerb-layer"><div class="kerb-layer-title">' + escAll(label) + '</div>';
+    detail += '<div class="kerb-layer"><div class="kerb-layer-title">' + escAll(label) + '</div>';
     items.forEach(function(i) {
       const st = KERB_STATE[i.state] || KERB_STATE.unknown;
-      html += '<div class="kerb-item"><span class="status-dot ' + st.dot + '"></span>' +
+      detail += '<div class="kerb-item"><span class="status-dot ' + st.dot + '"></span>' +
         '<span class="kerb-name">' + escAll(i.name) + '</span>' +
         '<span class="kerb-detail">' + escAll(i.detail || '') + '</span></div>';
     });
-    html += '</div>';
+    detail += '</div>';
   });
-  box.innerHTML = html;
+  box.innerHTML = head + '<div class="kerb-detail' + (_KERB_EXPANDED ? '' : ' hidden') + '">' + detail + '</div>';
+  updateKerbModeUI();
 }
 
 // ============ 配置备份 / 恢复（工具域）============
@@ -3687,6 +3710,25 @@ window.addEventListener('pywebviewready', async () => {
   if (cbkRefresh) cbkRefresh.addEventListener('click', loadBackups);
   const kerbRunBtn = document.getElementById('kerbRun');
   if (kerbRunBtn) kerbRunBtn.addEventListener('click', runKerberosCheck);
+  // Kerberos 详情/diff 展开：事件委托（容器重渲染也不失效）
+  const kerbViewEl = document.getElementById('kerbView');
+  if (kerbViewEl) kerbViewEl.addEventListener('click', (e) => {
+    const tg = e.target.closest('[data-kerb-toggle]');
+    if (!tg) return;
+    _KERB_EXPANDED = !_KERB_EXPANDED;
+    const det = kerbViewEl.querySelector('.kerb-detail');
+    if (det) det.classList.toggle('hidden', !_KERB_EXPANDED);
+    tg.textContent = _KERB_EXPANDED ? t('cmd.collapse') : t('cmd.expand');
+  });
+  const kerbDiffEl = document.getElementById('kerbDiffView');
+  if (kerbDiffEl) kerbDiffEl.addEventListener('click', (e) => {
+    const tg = e.target.closest('[data-diff-toggle]');
+    if (!tg) return;
+    _DIFF_EXPANDED = !_DIFF_EXPANDED;
+    const det = kerbDiffEl.querySelector('.kerb-detail');
+    if (det) det.classList.toggle('hidden', !_DIFF_EXPANDED);
+    tg.textContent = _DIFF_EXPANDED ? t('cmd.collapse') : t('cmd.expand');
+  });
   const kerbFixBtn = document.getElementById('kerbFixSsh');
   if (kerbFixBtn) kerbFixBtn.addEventListener('click', fixSshKeys);
   const kerbToSimple = document.getElementById('kerbToSimple');
