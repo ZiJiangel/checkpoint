@@ -16,6 +16,10 @@ SIMPLE_EDITS = [
     {"file": "core-site.xml", "key": "hadoop.security.authorization", "val": "false"},
     {"file": "core-site.xml", "key": "hadoop.http.authentication.type", "val": "simple"},
     {"file": "hdfs-site.xml", "key": "dfs.block.access.token.enable", "val": "false"},
+    # Kerberos 化一并引入的：HTTPS + 安全容器执行器 → 切回默认
+    {"file": "hdfs-site.xml", "key": "dfs.http.policy", "val": "HTTP_ONLY"},
+    {"file": "yarn-site.xml", "key": "yarn.nodemanager.container-executor.class",
+     "val": "org.apache.hadoop.yarn.server.nodemanager.DefaultContainerExecutor"},
 ]
 
 KERBEROS_EDITS = [
@@ -23,6 +27,10 @@ KERBEROS_EDITS = [
     {"file": "core-site.xml", "key": "hadoop.security.authorization", "val": "true"},
     {"file": "core-site.xml", "key": "hadoop.http.authentication.type", "val": "kerberos"},
     {"file": "hdfs-site.xml", "key": "dfs.block.access.token.enable", "val": "true"},
+    # 反向：HTTPS + 安全容器执行器
+    {"file": "hdfs-site.xml", "key": "dfs.http.policy", "val": "HTTPS_ONLY"},
+    {"file": "yarn-site.xml", "key": "yarn.nodemanager.container-executor.class",
+     "val": "org.apache.hadoop.yarn.server.nodemanager.LinuxContainerExecutor"},
 ]
 
 # 远端 python 编辑器（2.7/3 兼容）：用正则替换 <name>key</name>...<value>val</value>
@@ -40,7 +48,15 @@ for e in edits:
     pat = r"(<name>\s*" + re.escape(key) + r"\s*</name>\s*<value>)([^<]*)(</value>)"
     new_s, n = re.subn(pat, lambda m: m.group(1) + val + m.group(3), s)
     if n == 0:
-        print("MISS " + key)
+        # key not found: insert before </configuration>
+        prop = "  <property><name>%s</name><value>%s</value></property>\n</configuration>" % (key, val)
+        if "</configuration>" in s:
+            new_s = s.replace("</configuration>", prop, 1)
+            with open(path, "w") as f:
+                f.write(new_s)
+            print("ADD " + key + " = " + val)
+        else:
+            print("MISS " + key)
     else:
         with open(path, "w") as f:
             f.write(new_s)
