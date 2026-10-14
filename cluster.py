@@ -215,10 +215,11 @@ def delete_node(nid):
 
 # ============ 连接层：SSH 唯一出口 ============
 
-def ssh_exec(host, port, user, password, cmd, timeout=15, use_exit_code=False):
+def ssh_exec(host, port, user, password, cmd, timeout=15, use_exit_code=False, silent=False):
     """在远程节点执行一条命令。
     use_exit_code=False（默认）：ok = 是否成功执行（SSH 连上并跑完）
     use_exit_code=True：ok = 命令退出码是否为 0（用于自检/条件判断）
+    silent=True：不记入"命令透明"（供资源轮询等高频后台采集，避免刷屏操作明细）
     返回 (ok, 输出文本)。"""
     try:
         import paramiko
@@ -234,7 +235,7 @@ def ssh_exec(host, port, user, password, cmd, timeout=15, use_exit_code=False):
         cli.close()   # 连接失败也要关，避免泄漏
         return False, "连接失败：" + str(e)
     # 命令透明：只记"虚拟机内实际执行的命令"，不显示 ssh 外壳（主机放 target）
-    cid = core.start_cmd(str(cmd), target=str(host))
+    cid = None if silent else core.start_cmd(str(cmd), target=str(host))
     try:
         si, so, se = cli.exec_command(cmd, timeout=timeout)
         out = so.read().decode("utf-8", "replace")
@@ -242,13 +243,15 @@ def ssh_exec(host, port, user, password, cmd, timeout=15, use_exit_code=False):
         code = so.channel.recv_exit_status()
         if err.strip():
             out = out + ("\n[STDERR] " + err if out else err)
-        core.finish_cmd(cid, out, ok=(code == 0))
+        if cid is not None:
+            core.finish_cmd(cid, out, ok=(code == 0))
         if use_exit_code:
             return code == 0, out
         return True, out
     except Exception as e:
         core.log("SSH 执行失败：" + str(host) + " — " + str(e))
-        core.finish_cmd(cid, str(e), ok=False)
+        if cid is not None:
+            core.finish_cmd(cid, str(e), ok=False)
         return False, "执行失败：" + str(e)
     finally:
         cli.close()
@@ -1148,54 +1151,69 @@ def _parse_mb(s):
     return num   # 当作 MB
 
 
-def resource_metrics():
-    """资源监控：采集 master 节点 CPU / 内存 / 磁盘 + HDFS 容量（聚合视图）。
-    返回 {ok, master:{cpu, mem_used, mem_total, disk_used, disk_total}, hdfs:{used, capacity, used_raw, capacity_raw}}。"""
-    m = _master_node()
-    if not m:
-        return {"ok": False, "msg": "未找到 master 节点"}
-    if node_vm_off(m):
-        return {"ok": False, "msg": "master 节点关机，请先开机"}
-    cmd = (
-        'echo "cpu=$(top -bn1 | grep -i Cpu | awk \'{print $2+$4}\')"; '
-        'echo "mem=$(free -m | awk \'/Mem:/ {print $3" "$2}\')"; '
-        'echo "disk=$(df -m / | awk \'NR==2 {print $3" "$2}\')"'
-    )
-    ok, out = ssh_exec(m.get("host", ""), m.get("port", 22),
-                       m.get("user", ""), m.get("pass", ""), cmd, timeout=15)
-    if not ok:
-        return {"ok": False, "msg": out}
+_METRIC_CMD = (
+    'echo "cpu=$(top -bn1 | grep -i Cpu | awk \'{print $2+$4}\')"; '
+    'echo "mem=$(free -m | awk \'/Mem:/ {print $3" "$2}\')"; '
+    'echo "disk=$(df -m / | awk \'NR==2 {print $3" "$2}\')"'
+)
+
+
+def _parse_metrics(out):
     kv = {}
-    for line in out.splitlines():
+    for line in (out or "").splitlines():
         if "=" in line:
             k, v = line.split("=", 1)
             kv[k.strip()] = v.strip()
     mem = (kv.get("mem", "0 0")).split()
     disk = (kv.get("disk", "0 0")).split()
-    master = {
+    return {
         "cpu": kv.get("cpu", "0"),
         "mem_used": mem[0] if len(mem) > 0 else "0",
         "mem_total": mem[1] if len(mem) > 1 else "0",
         "disk_used": disk[0] if len(disk) > 0 else "0",
         "disk_total": disk[1] if len(disk) > 1 else "0",
     }
-    # HDFS 容量
-    hdfs = {}
-    ok2, out2 = _hdfs_master_run("hdfs dfsadmin -report 2>/dev/null | grep -E 'DFS (Used|Remaining|Capacity)' | head -3", timeout=30)
-    if ok2:
-        for line in out2.splitlines():
-            if ":" in line:
-                k, v = line.split(":", 1)
-                hdfs[k.strip()] = v.strip()
-    used = hdfs.get("DFS Used", "")
-    cap = hdfs.get("DFS Capacity", hdfs.get("DFS Remaining", ""))
-    hdfs_out = {
-        "used": used or "?",
-        "capacity": cap or "?",
-        "used_raw": _parse_mb(used),
-        "capacity_raw": _parse_mb(cap),
-    }
-    return {"ok": True, "master": master, "hdfs": hdfs_out, "msg": ""}
+
+
+def resource_metrics(silent=True):
+    """资源监控：并发采集所有节点 CPU / 内存 / 磁盘 + master 的 HDFS 容量（silent 供轮询不记命令）。
+    返回 {ok, master:{cpu, mem_used, mem_total, disk_used, disk_total}, hdfs:{used, capacity, used_raw, capacity_raw}}。"""
+    from concurrent.futures import ThreadPoolExecutor
+    nodes = list_nodes("*")
+    if not nodes:
+        return {"ok": False, "nodes": [], "master": {}, "hdfs": {}, "msg": "无节点"}
+    running = _running_vmx_set()
+
+    def one(n):
+        if node_vm_off(n, running):
+            return {"name": n.get("name"), "role": n.get("role"), "off": True}
+        ok, out = ssh_exec(n.get("host", ""), n.get("port", 22),
+                           n.get("user", ""), n.get("pass", ""), _METRIC_CMD,
+                           timeout=15, silent=silent)
+        if not ok:
+            return {"name": n.get("name"), "role": n.get("role"), "off": False, "err": True}
+        m = _parse_metrics(out)
+        m.update({"name": n.get("name"), "role": n.get("role"), "off": False})
+        return m
+
+    with ThreadPoolExecutor(max_workers=len(nodes)) as pool:
+        results = list(pool.map(one, nodes))
+    master = next((r for r in results if r.get("role") == "master" and not r.get("off")), None)
+    # HDFS 容量（需 master 在线）
+    hdfs_out = {"used": "?", "capacity": "?", "used_raw": 0, "capacity_raw": 0}
+    mm = _master_node()
+    if mm and not node_vm_off(mm, running):
+        ok2, out2 = _hdfs_master_run("hdfs dfsadmin -report 2>/dev/null | grep -E 'DFS (Used|Remaining|Capacity)' | head -3", timeout=30)
+        if ok2:
+            h = {}
+            for line in out2.splitlines():
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    h[k.strip()] = v.strip()
+            used = h.get("DFS Used", ""); cap = h.get("DFS Capacity", h.get("DFS Remaining", ""))
+            hdfs_out = {"used": used or "?", "capacity": cap or "?",
+                        "used_raw": _parse_mb(used), "capacity_raw": _parse_mb(cap)}
+    return {"ok": True, "nodes": results, "master": master or {}, "hdfs": hdfs_out, "msg": ""}
 
 
 # 作业模板（声明式：id/名称/说明/命令模板）

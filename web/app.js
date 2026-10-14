@@ -1967,12 +1967,15 @@ function bindClusterTabs() {
         if (el) el.classList.toggle('hidden', c !== k);
       });
       if (k === 'topo') renderTopology();
-      if (k === 'monitor') renderMonitor();
+      if (k === 'monitor') { renderMonitor(); if (_MON_AUTO) startMonAuto(); }
+      else { stopMonAuto(); }        // 切走监控页 → 停自动刷新
       if (k === 'kerb' && !_KERB_LOADED) runKerberosCheck();
     });
   });
   const topoR = document.getElementById('topoRefresh');
   if (topoR) topoR.addEventListener('click', renderTopology);
+  const monR = document.getElementById('monRefresh');
+  if (monR) monR.addEventListener('click', () => renderMonitor(false));
 }
 
 // 服务拓扑：每台机器跑了哪些服务
@@ -2026,6 +2029,20 @@ function sparkline(values, color, max) {
     '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.5"/></svg>';
 }
 
+let _MON_AUTO = false;      // 自动刷新开关
+let _MON_AUTO_TIMER = null;
+function startMonAuto() {
+  stopMonAuto();
+  _MON_AUTO_TIMER = setInterval(() => {
+    // 只在监控页可见时刷
+    const el = document.getElementById('ctab-monitor');
+    if (el && !el.classList.contains('hidden')) renderMonitor(true);
+  }, 5000);
+}
+function stopMonAuto() {
+  if (_MON_AUTO_TIMER) { clearInterval(_MON_AUTO_TIMER); _MON_AUTO_TIMER = null; }
+}
+
 async function renderMonitor(silent) {
   const box = document.getElementById('monitorView');
   if (!box) return;
@@ -2034,7 +2051,7 @@ async function renderMonitor(silent) {
   if (!silent) box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
   if (!silent) await resetCmdLog();
   let r;
-  try { r = await window.pywebview.api.resource_metrics(); }
+  try { r = await window.pywebview.api.resource_metrics(!!silent); }
   catch (e) { if (!silent) box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
   const cmdHtml = silent ? '' : await takeCmdLogHtml();
   if (!r.ok) { if (!silent) box.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + cmdHtml; return; }
@@ -2044,18 +2061,48 @@ async function renderMonitor(silent) {
   if (_MON_HISTORY.length > 20) _MON_HISTORY = _MON_HISTORY.slice(-20);
   const pct = (a, b) => (b && Number(b) > 0) ? Math.min(100, Math.round(Number(a) / Number(b) * 100)) : 0;
   const cls = (p) => p >= 85 ? 'warn' : '';
-  const m = r.master || {};
   const card = (label, val, p, cl) =>
     '<div class="mon-card"><div class="mon-label">' + label + '</div>' +
     '<div class="mon-val">' + val + '</div>' +
     '<div class="bar-track"><div class="bar-fill ' + cl + '" style="width:' + p + '%"></div></div></div>';
-  let html = '<div class="mon-grid">';
-  html += card('CPU', escAll(m.cpu || '?') + '%', Number(m.cpu || 0), cls(Number(m.cpu || 0)));
-  html += card(t('mon.mem'), escAll(m.mem_used || '?') + ' / ' + escAll(m.mem_total || '?') + ' M', pct(m.mem_used, m.mem_total), cls(pct(m.mem_used, m.mem_total)));
-  html += card(t('mon.disk'), escAll(m.disk_used || '?') + ' / ' + escAll(m.disk_total || '?') + ' M', pct(m.disk_used, m.disk_total), cls(pct(m.disk_used, m.disk_total)));
-  const h = r.hdfs || {};
-  html += card('HDFS', escAll(h.used || '?') + ' / ' + escAll(h.capacity || '?'), pct(h.used_raw, h.capacity_raw), 'blue');
+  // 各节点一行：名 | CPU | 内存 | 磁盘
+  const nodes = r.nodes || [];
+  let html = '<div class="mon-nodes">';
+  html += '<div class="mon-nodes-head"><span>' + t('mon.node') + '</span><span>CPU</span><span>' + t('mon.mem') + '</span><span>' + t('mon.disk') + '</span></div>';
+  nodes.forEach(n => {
+    if (n.off) {
+      html += '<div class="mon-node-row off"><span>' + escAll(n.name) + '</span><span class="muted" style="grid-column:2/5">' + t('topo.off') + '</span></div>';
+      return;
+    }
+    if (n.err) {
+      html += '<div class="mon-node-row err"><span>' + escAll(n.name) + '</span><span class="muted" style="grid-column:2/5">' + t('mon.err') + '</span></div>';
+      return;
+    }
+    const cpuP = Math.min(100, Number(n.cpu || 0));
+    const memP = pct(n.mem_used, n.mem_total);
+    const diskP = pct(n.disk_used, n.disk_total);
+    const cell = (val, p) => '<span class="mon-cell">' + val +
+      '<span class="bar-track mon-mini"><span class="bar-fill ' + cls(p) + '" style="width:' + p + '%"></span></span></span>';
+    html += '<div class="mon-node-row">' +
+      '<span>' + escAll(n.name) + '</span>' +
+      cell(escAll(n.cpu || '?') + '%', cpuP) +
+      cell(escAll(n.mem_used || '?') + '/' + escAll(n.mem_total || '?') + 'M', memP) +
+      cell(escAll(n.disk_used || '?') + '/' + escAll(n.disk_total || '?') + 'M', diskP) +
+      '</div>';
+  });
   html += '</div>';
+  // HDFS 容量（master 上取）—— 整行横条
+  const h = r.hdfs || {};
+  const hdfsVal = (s) => {
+    s = String(s == null || s === '' ? '?' : s);
+    const m = s.match(/\(([^)]+)\)/);   // "1675264 (1.60 MB)" → "1.60 MB"
+    return m ? m[1] : s;
+  };
+  html += '<div class="mon-hdfs">' +
+    '<span class="mon-hdfs-label">HDFS</span>' +
+    '<span class="mon-hdfs-val">' + escAll(hdfsVal(h.used)) + ' / ' + escAll(hdfsVal(h.capacity)) + '</span>' +
+    '<span class="bar-track mon-hdfs-bar"><span class="bar-fill blue" style="width:' + pct(h.used_raw, h.capacity_raw) + '%"></span></span>' +
+    '</div>';
   // 趋势图（按采样历史；至少 2 次才有线）
   if (_MON_HISTORY.length >= 2) {
     const cpuV = _MON_HISTORY.map(x => x.cpu);
@@ -2536,6 +2583,20 @@ document.getElementById('autoCheck').addEventListener('change', (e) => {
   AUTO_CHECK = e.target.checked;
   window.pywebview.api.save_auto_check(AUTO_CHECK);
 });
+(function () {
+  const el = document.getElementById('monAutoSet');
+  if (!el) return;
+  el.addEventListener('change', (e) => {
+    _MON_AUTO = e.target.checked;
+    window.pywebview.api.save_mon_auto(_MON_AUTO);
+    const monEl = document.getElementById('ctab-monitor');
+    if (monEl && !monEl.classList.contains('hidden')) {
+      if (_MON_AUTO) startMonAuto(); else stopMonAuto();
+    } else {
+      stopMonAuto();
+    }
+  });
+})();
 
 
 
@@ -3799,6 +3860,8 @@ window.addEventListener('pywebviewready', async () => {
   document.getElementById('vmrunPath').value = s.vmrun || '';
   AUTO_CHECK = s.auto_check !== false;
   document.getElementById('autoCheck').checked = AUTO_CHECK;
+  _MON_AUTO = !!s.mon_auto;
+  document.getElementById('monAutoSet').checked = _MON_AUTO;
   // 加载版本 / 作者
   try {
     const meta = await window.pywebview.api.get_meta();

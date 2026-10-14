@@ -144,7 +144,7 @@ body {
 .dd-menu.open { display: block; }
 .dd-item { display: flex; align-items: center; gap: 0.55rem; padding: 0.4rem 0.5rem; border-radius: var(--r-nav); cursor: pointer; font-size: 0.84rem; color: var(--ink); }
 .dd-item:hover { background: var(--surface-2); }
-.dd-item input[type="checkbox"] {
+.dd-item input[type="checkbox"], input[type="checkbox"].ck-box {
   -webkit-appearance: none !important; appearance: none !important;
   flex: 0 0 15px !important; width: 15px !important; height: 15px !important;
   min-width: 15px !important; max-width: 15px !important;
@@ -153,11 +153,11 @@ body {
   background: transparent !important; cursor: pointer; position: relative;
   transition: all .12s; display: inline-block;
 }
-.dd-item input[type="checkbox"]:hover { border-color: var(--ink) !important; }
-.dd-item input[type="checkbox"]:checked {
+.dd-item input[type="checkbox"]:hover, input[type="checkbox"].ck-box:hover { border-color: var(--ink) !important; }
+.dd-item input[type="checkbox"]:checked, input[type="checkbox"].ck-box:checked {
   background: var(--accent) !important; border-color: var(--accent) !important;
 }
-.dd-item input[type="checkbox"]:checked::after {
+.dd-item input[type="checkbox"]:checked::after, input[type="checkbox"].ck-box:checked::after {
   content: ""; position: absolute; left: 4px; top: 1px;
   width: 4px; height: 8px; border: solid var(--bg); border-width: 0 2px 2px 0;
   transform: rotate(45deg);
@@ -203,6 +203,19 @@ body {
 .topo-svc.miss .d { background: var(--err); }
 /* 资源监控（仿原型：4 聚合卡 + 进度条）*/
 .mon-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.7rem; margin: 0.8rem 0; }
+.mon-hdfs { display: flex; align-items: center; gap: 0.8rem; border: 1px solid var(--line); border-radius: var(--r-box); background: var(--surface); padding: 0.6rem 1rem; margin: 0.6rem 0; }
+.mon-hdfs-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; flex: none; width: 44px; }
+.mon-hdfs-val { font-size: 0.82rem; color: var(--ink); flex: none; }
+.mon-hdfs-bar { flex: 1; display: block; height: 6px; }
+.mon-nodes { border: 1px solid var(--line); border-radius: var(--r-box); overflow: hidden; margin: 0.6rem 0; }
+.mon-nodes-head, .mon-node-row { display: grid; grid-template-columns: 1fr 1.3fr 1.5fr 1.5fr; gap: 1rem; padding: 0.6rem 1rem; font-size: 0.8rem; align-items: center; }
+.mon-nodes-head { color: var(--muted); border-bottom: 1px solid var(--line); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.mon-node-row { border-bottom: 1px solid rgba(255,255,255,0.04); }
+.mon-node-row:last-child { border-bottom: none; }
+.mon-node-row > span:first-child { font-weight: 600; }
+.mon-node-row.off, .mon-node-row.err { opacity: 0.6; }
+.mon-cell { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.mon-mini { display: block; height: 6px; width: 100%; }
 .mon-card { border: 1px solid var(--line); border-radius: var(--r-box); background: var(--surface); padding: 0.8rem 0.9rem; }
 .mon-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .mon-val { font-size: 1.25rem; font-weight: 650; font-family: var(--font-mono); margin: 0.4rem 0; }
@@ -213,7 +226,7 @@ body {
 .jobtpl-name { font-weight: 600; font-size: 0.92rem; }
 .jobtpl-desc { font-size: 0.78rem; color: var(--muted); flex: 1; }
 .bar-track { height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 3px; background: var(--ok); }
+.bar-fill { display: block; height: 100%; border-radius: 3px; background: var(--ok); }
 .bar-fill.warn { background: #d9a441; }
 .bar-fill.blue { background: #7aa2f7; }
 @media (max-width: 900px) { .mon-grid { grid-template-columns: repeat(2, 1fr); } }

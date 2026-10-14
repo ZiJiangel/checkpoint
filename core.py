@@ -440,6 +440,17 @@ def set_kerberos(cfg):
     save_json(SETTINGS_FILE, s)
 
 
+def get_mon_auto():
+    """资源监控自动刷新（默认关）。"""
+    return load_json(SETTINGS_FILE, {}).get("mon_auto", False)
+
+
+def set_mon_auto(enabled):
+    s = load_json(SETTINGS_FILE, {})
+    s["mon_auto"] = bool(enabled)
+    save_json(SETTINGS_FILE, s)
+
+
 def get_auto_check():
     """打开集群页时是否自动体检（默认开）"""
     return load_json(SETTINGS_FILE, {}).get("auto_check", True)

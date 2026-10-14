@@ -243,10 +243,15 @@ class Api:
 
     def get_settings(self):
         return {"vmrun": core.get_vmrun(), "lang": core.get_lang(),
-                "auto_check": core.get_auto_check()}
+                "auto_check": core.get_auto_check(),
+                "mon_auto": core.get_mon_auto()}
 
     def save_auto_check(self, enabled):
         core.set_auto_check(enabled)
+        return {"ok": True}
+
+    def save_mon_auto(self, enabled):
+        core.set_mon_auto(enabled)
         return {"ok": True}
 
     def save_lang(self, lang):
@@ -370,8 +375,8 @@ class Api:
     def diff_kerberos(self):
         return kerberos_check.diff_kerberos()
 
-    def resource_metrics(self):
-        return cluster.resource_metrics()
+    def resource_metrics(self, silent=True):
+        return cluster.resource_metrics(silent=silent)
 
     def yarn_app_logs(self, app_id):
         return cluster.yarn_app_logs(app_id)
