@@ -57,6 +57,7 @@ def scan_configs():
 
     # 一次 SSH 搞定：探测目录 + 列文件 + 系统文件，减少往返
     script = (
+        '{ '
         # 候选目录（环境变量 + which 反推 + 常见路径；涵盖多组件）
         'for d in "$HADOOP_CONF_DIR" "$HADOOP_HOME/etc/hadoop" '
         '/root/app/hadoop/etc/hadoop /opt/hadoop/etc/hadoop /usr/local/hadoop/etc/hadoop '
@@ -74,7 +75,8 @@ def scan_configs():
         # /etc/profile.d 组件环境变量
         'for f in /etc/profile.d/hadoop.sh /etc/profile.d/hive.sh /etc/profile.d/spark.sh '
         '/etc/profile.d/flume.sh /etc/profile.d/hbase.sh /etc/profile.d/zookeeper.sh; do '
-        '[ -f "$f" ] && echo "F|$f"; done'
+        '[ -f "$f" ] && echo "F|$f"; done; '
+        '} | sort -u'
     )
     ok, out = cluster._hdfs_master_run(script, timeout=20, use_exit_code=False)
     if not ok:
