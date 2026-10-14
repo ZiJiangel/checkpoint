@@ -3770,6 +3770,21 @@ window.addEventListener('pywebviewready', async () => {
   });
   const kinitBtn = document.getElementById('kinitBtn');
   if (kinitBtn) kinitBtn.addEventListener('click', runKinit);
+  const kbrFromCluster = document.getElementById('kbrFromCluster');
+  if (kbrFromCluster) kbrFromCluster.addEventListener('click', async () => {
+    const btn = kbrFromCluster;
+    const old = btn.textContent;
+    btn.disabled = true; btn.textContent = t('ops.running');
+    let r;
+    try { r = await window.pywebview.api.kerberos_defaults(); }
+    catch (e) { btn.disabled = false; btn.textContent = old; uiAlert(String(e)); return; }
+    btn.disabled = false; btn.textContent = old;
+    if (!r.ok) { uiAlert(r.msg || t('ops.fail')); return; }
+    if (r.realm) document.getElementById('kbrRealm').value = r.realm;
+    if (r.principal) document.getElementById('kbrPrincipal').value = r.principal;
+    if (r.keytab) document.getElementById('kbrKeytab').value = r.keytab;
+    uiAlert(t('set.kbrFromCluster') + ' ✓');
+  });
   const exportResultBtn = document.getElementById('exportResult');
   if (exportResultBtn) exportResultBtn.addEventListener('click', exportResult);
   const dcheckRunBtn = document.getElementById('dcheckRun');

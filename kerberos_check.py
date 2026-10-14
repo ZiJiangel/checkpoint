@@ -253,6 +253,49 @@ def run_checks():
             "msg": ""}
 
 
+def kerberos_defaults():
+    """从集群推断 Kerberos 配置默认值（供设置页一键回填）：
+    realm ← /etc/krb5.conf 的 default_realm；principal/keytab ← hdfs-site.xml 的 NameNode 项。
+    返回 {ok, realm, principal, keytab, msg}。"""
+    m = cluster._master_node()
+    if not m:
+        return {"ok": False, "msg": "未找到 master 节点"}
+    if cluster.node_vm_off(m):
+        return {"ok": False, "msg": "master 节点关机，请先开机"}
+
+    conf = _conf_dir(m) or "/root/app/hadoop/etc/hadoop"
+    cmd = (
+        'echo "===KRB5==="; cat /etc/krb5.conf 2>/dev/null; '
+        'echo "===HDFS==="; cat "%s/hdfs-site.xml" 2>/dev/null'
+    ) % conf
+    ok, out = cluster._hdfs_master_run(cmd, timeout=20, use_exit_code=False)
+    txt = out or ""
+
+    def seg(tag):
+        if "===%s===" % tag not in txt:
+            return ""
+        return txt.split("===%s===" % tag, 1)[1].split("===", 1)[0]
+
+    krb5 = seg("KRB5")
+    hdfs = seg("HDFS")
+
+    realm = ""
+    mm = re.search(r'default_realm\s*=\s*(\S+)', krb5 or "")
+    if mm:
+        realm = mm.group(1)
+
+    principal = _xml_val(hdfs, "dfs.namenode.kerberos.principal") or ""
+    keytab = _xml_val(hdfs, "dfs.namenode.keytab.file") or ""
+    # _HOST 占位符 → 换成 master 主机名
+    if principal and "_HOST" in principal:
+        principal = principal.replace("_HOST", m.get("name", "master"))
+    # realm 兜底：从 principal 的 @ 后提取
+    if not realm and "@" in principal:
+        realm = principal.rsplit("@", 1)[-1]
+
+    return {"ok": True, "realm": realm, "principal": principal, "keytab": keytab, "msg": ""}
+
+
 def diff_kerberos():
     """列出当前配置里所有 Kerberos 相关项（值），分【核心开关】和【附加项】。
     返回 {ok, mode, items:[{file,key,val,core}]}。"""

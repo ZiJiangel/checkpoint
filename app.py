@@ -369,6 +369,9 @@ class Api:
     def fix_ssh_keys(self):
         return kerberos_check.fix_ssh_keys()
 
+    def kerberos_defaults(self):
+        return kerberos_check.kerberos_defaults()
+
     def switch_kerberos(self, mode):
         return kerberos_switch.switch_mode(mode)
 

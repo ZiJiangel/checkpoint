@@ -258,6 +258,10 @@
         </div>
         <div class="hint-foot" data-i18n="set.kinitHint">填下面几项，就能在集群页点「Kerberos 认证」一键拿票据（kinit）。</div>
         <div class="form-row">
+          <button class="mini-btn" id="kbrFromCluster" data-i18n="set.kbrFromCluster">从集群读取</button>
+          <span class="sec-note-inline" data-i18n="set.kbrFromClusterHint">从 master 的 krb5.conf / hdfs-site.xml 自动填 realm、principal、keytab</span>
+        </div>
+        <div class="form-row">
           <input id="kbrRealm" placeholder="Realm（如 EXAMPLE.COM）" style="max-width:280px">
         </div>
         <div class="form-row">
