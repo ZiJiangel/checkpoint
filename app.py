@@ -367,6 +367,9 @@ class Api:
     def switch_kerberos(self, mode):
         return kerberos_switch.switch_mode(mode)
 
+    def diff_kerberos(self):
+        return kerberos_check.diff_kerberos()
+
     def resource_metrics(self):
         return cluster.resource_metrics()
 

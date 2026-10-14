@@ -230,6 +230,57 @@ def run_checks():
             "msg": ""}
 
 
+def diff_kerberos():
+    """列出当前配置里所有 Kerberos 相关项（值），分【核心开关】和【附加项】。
+    返回 {ok, mode, items:[{file,key,val,core}]}。"""
+    m = cluster._master_node()
+    if not m:
+        return {"ok": False, "items": [], "msg": "未找到 master 节点"}
+    if cluster.node_vm_off(m):
+        return {"ok": False, "items": [], "msg": "master 节点关机，请先开机"}
+
+    conf = _conf_dir(m) or "/root/app/hadoop/etc/hadoop"
+    files = ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml"]
+    cat = "; ".join('echo "===%s==="; cat "%s/%s" 2>/dev/null' % (f, conf, f) for f in files)
+    ok, out = cluster._hdfs_master_run(cat, timeout=25, use_exit_code=False)
+    txt = out or ""
+
+    def seg(tag):
+        if "===%s===" % tag not in txt:
+            return ""
+        return txt.split("===%s===" % tag, 1)[1].split("===", 1)[0]
+
+    # 关键词：判断某键是否"跟 kerberos 有关"
+    kw = ("kerberos", "security.authentication", "security.authorization",
+          "block.access.token", "authentication.type", "keytab", "principal",
+          "auth_to_local", "http.authentication")
+    # 核心开关（切 simple/kerberos 真正动的）
+    core_keys = {"hadoop.security.authentication", "hadoop.security.authorization",
+                 "hadoop.http.authentication.type", "dfs.block.access.token.enable"}
+
+    items = []
+    for f in files:
+        xml = seg(f)
+        # 逐个 <property>...</property> 解析
+        for pm in re.finditer(r'<property>(.*?)</property>', xml, re.S):
+            block = pm.group(1)
+            nm = re.search(r'<name>s*([^<]+?)s*</name>', block)
+            vm = re.search(r'<value>([^<]*)</value>', block)
+            if not nm:
+                continue
+            key = nm.group(1).strip()
+            val = (vm.group(1).strip() if vm else "").strip()
+            if any(k in key.lower() for k in kw):
+                items.append({"file": f, "key": key, "val": val, "core": key in core_keys})
+
+    # 当前模式
+    mode = "unknown"
+    for it in items:
+        if it["key"] == "hadoop.security.authentication":
+            mode = it["val"] or "unknown"
+    return {"ok": True, "items": items, "mode": mode, "msg": ""}
+
+
 def fix_ssh_keys(users=None):
     """一键补 hdfs/yarn 用户免密（声明式、命令可见）。
     用 root 通道帮各用户生成密钥并分发到 master/worker 节点。

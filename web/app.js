@@ -3040,6 +3040,26 @@ async function fixSshKeys() {
   if (r.ok) runKerberosCheck();
 }
 
+async function showKerberosDiff() {
+  const box = document.getElementById('kerbDiffView');
+  if (!box) return;
+  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  let r;
+  try { r = await window.pywebview.api.diff_kerberos(); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + escAll(String(e)) + '</div>'; return; }
+  if (!r.ok) { box.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>'; return; }
+  const core = (r.items || []).filter(i => i.core);
+  const extra = (r.items || []).filter(i => !i.core);
+  function rows(items) {
+    return items.map(i => '<div class="kerb-item"><span class="kerb-name">' + escAll(i.file) + '</span>' +
+      '<span class="kerb-detail">' + escAll(i.key) + ' = ' + escAll(i.val || '(空)') + '</span></div>').join('');
+  }
+  let html = '<div class="kerb-sum">' + t('kerb.diffMode') + '：<b>' + escAll(r.mode || '?') + '</b></div>';
+  if (core.length) html += '<div class="kerb-layer"><div class="kerb-layer-title">' + t('kerb.diffCore') + '</div>' + rows(core) + '</div>';
+  if (extra.length) html += '<div class="kerb-layer"><div class="kerb-layer-title">' + t('kerb.diffExtra') + '</div>' + rows(extra) + '</div>';
+  box.innerHTML = html;
+}
+
 async function switchKerberosMode(mode) {
   if (!await uiConfirm(t('kerb.switchConfirm'))) return;
   const box = document.getElementById('kerbSwitchOut');
@@ -3656,6 +3676,8 @@ window.addEventListener('pywebviewready', async () => {
   if (kerbToSimple) kerbToSimple.addEventListener('click', () => switchKerberosMode('simple'));
   const kerbToKerberos = document.getElementById('kerbToKerberos');
   if (kerbToKerberos) kerbToKerberos.addEventListener('click', () => switchKerberosMode('kerberos'));
+  const kerbDiffBtn = document.getElementById('kerbDiff');
+  if (kerbDiffBtn) kerbDiffBtn.addEventListener('click', showKerberosDiff);
   const cbkManual = document.getElementById('cbkManual');
   if (cbkManual) cbkManual.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
