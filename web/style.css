@@ -398,7 +398,7 @@ button.primary:hover { opacity: 0.88; }
 .cmd-line .cmd-tgt { color: var(--muted); flex: none; }
 .cmd-line .cmd-text { flex: 1; word-break: break-all; }
 .cmd-line .cmd-text.run { color: var(--muted); }
-/* 命令块 v2：主行说人话，命令缩下面 */
+/* 命令块 v2：主行为可读说明，命令缩在下面 */
 .cmd-item { padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--line); }
 .cmd-item:last-child { border-bottom: none; }
 .cmd-line-rich { align-items: center; gap: 0.5rem; }
@@ -488,7 +488,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .ov-num.ok { color: #3ecf8e; }
 .ov-num.err { color: #e06c6c; }
 .ov-label { font-size: 0.72rem; color: var(--muted); margin-top: 0.15rem; }
-/* 人话诊断 */
+/* 可读诊断 */
 .diag-box { margin: 0.5rem 0; }
 .diag-item { padding: 0.5rem 0.7rem; border-radius: var(--r-ctl); margin-top: 0.4rem; font-size: 0.8rem; border-left: 3px solid var(--muted); background: var(--surface-2); }
 .diag-item.diag-error { border-left-color: #e06c6c; }

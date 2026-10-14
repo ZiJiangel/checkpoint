@@ -2,9 +2,9 @@
 
 The **"diagnose/rescue + experiment helper"** tool for a **local VM cluster** — built for students running Hadoop / big-data experiments on local virtual machines.
 
-It bundles snapshot rollback, health check, one-click start/stop, fault diagnosis, and config distribution into one UI: **snapshot before experiments, plain-language health checks when things go wrong, one-click revert when it breaks.**
+It bundles snapshot rollback, health check, one-click start/stop, fault diagnosis, and config distribution into one UI: **snapshot before experiments, readable health checks when things go wrong, one-click revert when it breaks.**
 
-> **Simple to operate, but it won't think for you** — one-click actions and plain-language errors, but only advice, never auto-fix. Learning preserved.
+> **Simple to operate, but it won't think for you** — one-click actions and readable errors, but only advice, never auto-fix. Learning preserved.
 
 > Current version: **v0.11.1**
 
@@ -19,7 +19,7 @@ Students learning big data often build clusters (Hadoop / Hive / Spark / Kerbero
 3. **Tedious operations** — starting a cluster means memorizing a pile of commands, one node at a time
 4. **Environment is not reusable** — once Kerberos is installed, the environment is "specialized" and awkward for other experiments
 
-Enterprise cluster-management tools (built for server ops) are too heavy; general open-source tools are too geeky; snapshot tools do only one thing — **none fits the "local VMs + student experiments" scenario**. Checkpoint fills that gap: lightweight (pywebview, ~18MB exe), beginner-friendly (traffic lights + plain-language errors + one-click), and it **shows the commands behind every action** so students learn as they go — but it only does **diagnosis and rescue** — it won't think for the student.
+Enterprise cluster-management tools (built for server ops) are too heavy; general open-source tools are too geeky; snapshot tools do only one thing — **none fits the "local VMs + student experiments" scenario**. Checkpoint fills that gap: lightweight (pywebview, ~18MB exe), beginner-friendly (traffic lights + readable errors + one-click), and it **shows the commands behind every action** so students learn as they go — but it only does **diagnosis and rescue** — it won't think for the student.
 
 > Docs tell you the "steps"; this tool covers the blind spot: **when something breaks, it helps you find and fix it.**
 
@@ -104,7 +104,7 @@ This tool is for **local VM cluster experiments**. You need:
 2. Click **＋ New Cluster** (or **⊞ Template** to generate a standard skeleton)
 3. **Add nodes**: fill IP / user / password / role (linking a VM auto-fills config)
 4. Click **Health Check** → see traffic lights (🟢 ok / 🟡 partial / 🔴 error / ⚪ off)
-5. Problems? Use **Deploy Check**; start/stop failures show **plain-language diagnosis**
+5. Problems? Use **Deploy Check**; start/stop failures show **readable diagnosis**
 6. **Snapshot** before experiments; one-click **revert** if things break
 7. Transfer data / run queries / watch jobs? Switch to the **Data** / **Jobs** section (HDFS / Hive / YARN)
 
@@ -155,16 +155,16 @@ Generated at runtime **next to the program**:
 
 ## Changelog
 
-- **v0.11.1** (2026-10-15): **HDFS permission human-readable diagnosis** — on HDFS write failures (mkdir/upload/delete/rename), a dialog explains "why + what to do" (e.g. Permission denied → use /tmp or sudo -u hdfs); the built-in terminal appends suggestions too. Kerberos check adds a "HDFS ownership" item. The switch-to-simple dialog now shows a two-environment command comparison.
+- **v0.11.1** (2026-10-15): **HDFS permission readable diagnosis** — on HDFS write failures (mkdir/upload/delete/rename), a dialog explains "why + what to do" (e.g. Permission denied → use /tmp or sudo -u hdfs); the built-in terminal appends suggestions too. Kerberos check adds a "HDFS ownership" item. The switch-to-simple dialog now shows a two-environment command comparison.
 - **v0.11.0** (2026-10-15): **Kerberos environment management** — config backup/restore + change alert, Kerberos config check (13 items, tri-state), one-click hdfs/yarn SSH key setup, one-click kerberos↔simple switch (declarative + auto-backup + visible commands), config diff view; **frameless window resize** via native pywebview API; bottom **Output panel** (command history); collapsed command blocks by default, tab caching (no flicker), shutdown no longer misreports failure when VM is already off.
 - **v0.10.0** (2026-10-12): **UI revamp** (left activity bar + object tabs + bottom panel), **visible commands** (every action shows the commands it runs + comments), **HDFS / Hive / Table manager / Data import / HBase / YARN / Job templates**, **cluster + post-deploy verification**, **sanitized diagnostic pack**, **declarative cluster config**, **config templates**, **node terminal**, **result export**, **service topology + resource monitor**, 24 diagnosis rules, Kerberos switch. See the dev log.
 - **v0.9.4** (2026-10-11): Fixed theme-switch bug (switching back to "Default" left stale theme DOM, losing rounded corners).
 - **v0.9.3** (2026-10-11): **UI style themes** (Dashboard / Terminal / Blueprint, each with its own layout & colors), **UI zoom** (Ctrl +/-/0), **frameless window edge-resize**, **scrollbar polish** (hidden until scrolling).
 - **v0.9.2** (2026-10-11): First-use guide (3-step card when cluster is empty), in-app help (? button).
-- **v0.9.1** (2026-10-11): Config distribution overhaul (auto-scan + manual path + per-node root + plain-language failures), concurrency locks, skip powered-off nodes, faster startup (TCP probe), VMware pre-checks.
+- **v0.9.1** (2026-10-11): Config distribution overhaul (auto-scan + manual path + per-node root + readable failures), concurrency locks, skip powered-off nodes, faster startup (TCP probe), VMware pre-checks.
 - **v0.9.0** (2026-10-11): Config distribution (auto-scan), snapshot tree view, clone snapshot to VM, pre-deploy check, button tooltips.
-- **v0.8.0** (2026-10-11): Cluster templates, health-result persistence, UI animations, clone snapshot, pre-deploy check, config distribution, plain-language errors.
-- **v0.7.0** (2026-10-11): vCenter-style UI rebuild, multi-cluster, cluster snapshots, cluster overview, plain-language errors, pre-deploy check, config distribution.
+- **v0.8.0** (2026-10-11): Cluster templates, health-result persistence, UI animations, clone snapshot, pre-deploy check, config distribution, readable errors.
+- **v0.7.0** (2026-10-11): vCenter-style UI rebuild, multi-cluster, cluster snapshots, cluster overview, readable errors, pre-deploy check, config distribution.
 - **v0.6.0** (2026-10-11): VMware env management, cluster start/stop improvements, health check enhancements, node notes.
 - **v0.5.0** (2026-10-10): UI成型 (health card + detail tabs), port check, post-start self-check, auto health check.
 - **v0.4.0** (2026-10-10): One-click cluster start/stop (dependency-ordered).

@@ -22,7 +22,7 @@ function showModal(opts) {
   });
 }
 function uiAlert(body, title) { return showModal({ body: body, title: title, confirm: false }); }
-// 出错弹窗：原始报错 + 人话诊断（位置建议等）
+// 出错弹窗：原始报错 + 可读诊断（修复建议等）
 async function uiAlertDiag(rawMsg, title) {
   let extra = '';
   try {
@@ -1257,10 +1257,10 @@ function bindNodeRowEvents(box) {
 }
 
 // 节点健康（就地展开，不用跳页）
-// 进程名 → 人话
+// 进程名 → 可读说明
 function procName(p) { const k = 'hc.p.' + p; const v = t(k); return v === k ? p : v; }
 
-// 缺失项渲染（人话：缺什么 = 什么 + 什么用）
+// 缺失项渲染（可读：缺什么 = 什么 + 什么用）
 function renderHealthItems(h) {
   let html = '';
   if (h.missing && h.missing.length) {
@@ -1291,7 +1291,7 @@ function renderHealthInline(n) {
     && (!h.ports_missing || !h.ports_missing.length);
   if (noProb) html += '<div class="svc-line ok">全部检查通过</div>';
   else {
-    // 人话诊断（异步填充）
+    // 可读诊断（异步填充）
     const id = 'diag_' + n.id;
     html += '<div id="' + id + '"></div>';
     setTimeout(async () => {
@@ -1722,7 +1722,7 @@ async function distributeConfig() {
     html += '<div class="' + (r.ok ? 'ok' : 'err') + '">' + src + ' → ' + dstShow + ' — ' +
       (r.skipped ? t('cl.svcSkipped') : (r.ok ? t('ops.done') : t('ops.fail'))) + '</div>';
   }
-  // 失败 → 附人话诊断（rsync 缺失 / 免密没配）
+  // 失败 → 附可读诊断（rsync 缺失 / 免密没配）
   if (anyFail) {
     const diag = await diagnoseHtml(anyFail);
     if (diag) html += diag;
@@ -1880,7 +1880,7 @@ async function runCluster(action) {
       if (!ok) {
         lines[lines.length - 1] = renderLine(label + (detail ? ' — ' + detail : ''), 'fail');
         powerLog(lines.join(''));
-        // 人话诊断
+        // 可读诊断
         const diag = await diagnoseHtml(detail);
         if (diag) lines.push(diag);
         // 依赖被破坏，停止后续阶段
@@ -1906,7 +1906,7 @@ async function runCluster(action) {
   refreshVmStatus();  // 刷新 VM 开/关机状态
 }
 
-// 人话诊断：调后端规则表，返回 HTML（失败时展示）
+// 可读诊断：调后端规则表，返回 HTML（失败时展示）
 async function diagnoseHtml(text) {
   if (!text) return '';
   let hits = [];
@@ -2192,7 +2192,7 @@ function bindBottomPanel() {
       const r = await window.pywebview.api.node_exec(n, cmd);
       out.querySelector('.term-line.run:last-of-type') && out.lastElementChild.remove();
       out.innerHTML += '<div class="term-line ' + (r.ok ? '' : 'err') + '">' + escAll(r.out || '(无输出)') + '</div>';
-      // 命中诊断规则 → 追加人话建议（如 HDFS 权限）
+      // 命中诊断规则 → 追加可读建议（如 HDFS 权限）
       if (!r.ok && r.out) {
         const dh = await diagnoseHtml(r.out);
         if (dh) out.innerHTML += dh;
@@ -2331,7 +2331,7 @@ function renderCmdLines(cmd) {
   }).join('');
 }
 
-// 命令 → 人话说明（让大一新生看得懂"这一步在干嘛"）
+// 命令 → 可读说明（让大一新生看得懂"这一步在干嘛"）
 function describeCmd(cmd) {
   const c = String(cmd || '');
   const has = (s) => c.indexOf(s) !== -1;
