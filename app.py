@@ -43,6 +43,7 @@ ensure_deps()
 import webview  # noqa
 import core
 import cluster
+import config_backup
 import diagpack
 import cfgtmpl
 import services
@@ -90,24 +91,13 @@ class Api:
         except Exception as e:
             return {"ok": False, "msg": str(e)}
 
-    def set_window_geom(self, x, y, w, h):
-        """前端拖拽边缘时调用：一次设置窗口位置与大小（SetWindowPos）。"""
-        if not sys.platform.startswith("win"):
-            return {"ok": False}
+    def resize_window(self, w, h, fix):
+        """前端拖拽边缘时调用：转发给 pywebview 原生 resize。
+        pywebview 内部按 fix_point 自动定位并处理 DPI 缩放，避免手算几何导致的漂移。"""
         try:
-            import ctypes
-            from ctypes import wintypes
-            hwnd = _get_hwnd()
-            if not hwnd:
-                return {"ok": False, "msg": "no hwnd"}
-            user32 = ctypes.windll.user32
-            SWP_NOZORDER = 0x0004
-            SWP_NOACTIVATE = 0x0010
-            ok = user32.SetWindowPos(wintypes.HWND(hwnd), 0,
-                                     int(round(x)), int(round(y)),
-                                     int(round(w)), int(round(h)),
-                                     SWP_NOZORDER | SWP_NOACTIVATE)
-            return {"ok": bool(ok)}
+            from webview.window import FixPoint
+            webview.windows[0].resize(int(round(w)), int(round(h)), FixPoint(int(fix)))
+            return {"ok": True}
         except Exception as e:
             return {"ok": False, "msg": str(e)}
 
@@ -272,6 +262,14 @@ class Api:
         """看一眼命令日志（不清空），供执行中实时显示。"""
         return core.peek_cmd_log()
 
+    def peek_cmd_history(self):
+        """命令历史全量（不清空），供底部"输出"tab 持续显示。"""
+        return core.peek_history()
+
+    def clear_cmd_history(self):
+        core.clear_history()
+        return {"ok": True}
+
     # ===== HDFS 操作 =====
     def hdfs_ls(self, path="/"):
         return cluster.hdfs_ls(path)
@@ -337,6 +335,25 @@ class Api:
 
     def services_topology(self):
         return cluster.services_topology()
+
+    # ===== 配置备份 / 恢复 =====
+    def scan_configs(self):
+        return config_backup.scan_configs()
+
+    def backup_configs(self, paths, label=""):
+        return config_backup.backup_configs(paths, label)
+
+    def list_backups(self):
+        return config_backup.list_backups()
+
+    def restore_backup(self, bid):
+        return config_backup.restore_backup(bid)
+
+    def delete_backup(self, bid):
+        return config_backup.delete_backup(bid)
+
+    def detect_config_changes(self):
+        return config_backup.detect_changes()
 
     def resource_metrics(self):
         return cluster.resource_metrics()

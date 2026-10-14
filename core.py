@@ -40,8 +40,10 @@ def log(msg, exc=False):
 import threading
 import itertools
 _CMD_LOG = []
+_CMD_HISTORY = []          # 只增历史（供底部"输出"tab 持续显示），不因 drain 清空
 _CMD_LOCK = threading.Lock()
 _CMD_MAX = 500
+_CMD_HISTORY_MAX = 500
 _CMD_ID = itertools.count(1)
 
 def start_cmd(cmd, target=""):
@@ -68,6 +70,9 @@ def finish_cmd(cid, out="", ok=True):
                     it["out"] = str(out)[:2000]
                     it["ok"] = bool(ok)
                     it["running"] = False
+                    _CMD_HISTORY.append(dict(it))
+                    if len(_CMD_HISTORY) > _CMD_HISTORY_MAX:
+                        del _CMD_HISTORY[:-_CMD_HISTORY_MAX]
                     return
     except Exception:
         pass
@@ -76,10 +81,14 @@ def record_cmd(cmd, out="", ok=True, target=""):
     """一次性记录一条已完成的命令（无 running 阶段时用）。"""
     try:
         with _CMD_LOCK:
-            _CMD_LOG.append({"id": next(_CMD_ID), "cmd": str(cmd), "out": str(out)[:2000],
-                             "ok": bool(ok), "running": False, "target": str(target)})
+            item = {"id": next(_CMD_ID), "cmd": str(cmd), "out": str(out)[:2000],
+                    "ok": bool(ok), "running": False, "target": str(target)}
+            _CMD_LOG.append(item)
             if len(_CMD_LOG) > _CMD_MAX:
                 del _CMD_LOG[:-_CMD_MAX]
+            _CMD_HISTORY.append(dict(item))
+            if len(_CMD_HISTORY) > _CMD_HISTORY_MAX:
+                del _CMD_HISTORY[:-_CMD_HISTORY_MAX]
     except Exception:
         pass
 
@@ -100,6 +109,22 @@ def drain_cmd_log():
             return items
     except Exception:
         return []
+
+def peek_history():
+    """命令历史全量（不清空），供底部"输出"tab 持续显示。"""
+    try:
+        with _CMD_LOCK:
+            return [dict(x) for x in _CMD_HISTORY]
+    except Exception:
+        return []
+
+def clear_history():
+    """清空命令历史。"""
+    try:
+        with _CMD_LOCK:
+            _CMD_HISTORY.clear()
+    except Exception:
+        pass
 
 # 依次尝试查找 vmrun：通用路径优先，最后是"保底路径"（可自行增删）
 VMRUN_CANDIDATES = [

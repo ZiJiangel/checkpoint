@@ -100,6 +100,7 @@
             <div class="nav-item" data-pane="diagpack"><span class="nav-ico">⊞</span><span data-i18n="pane.diagpack">脱敏诊断包</span></div>
             <div class="nav-item" data-pane="clustercfg"><span class="nav-ico">⌘</span><span data-i18n="pane.clustercfg">声明式集群配置</span></div>
             <div class="nav-item" data-pane="cfgtmpl"><span class="nav-ico">⚙</span><span data-i18n="pane.cfgtmpl">配置模板</span></div>
+            <div class="nav-item" data-pane="cfgbackup"><span class="nav-ico">⛁</span><span data-i18n="pane.cfgbackup">配置备份</span></div>
           </div>
         </div>
       </div>
@@ -454,6 +455,30 @@
         <div class="hint-foot" data-i18n="cfgtmpl.hint">模板仅供参照，请按你的实际环境（主机名/路径）修改。Checkpoint 不会自动写入集群。</div>
         <textarea id="cfgtmplText" class="hive-sql" style="min-height:340px;margin-top:0.8rem"></textarea>
         <div class="result" id="cfgtmplOut"></div>
+      </div>
+
+      <div class="view hidden" id="view-cfgbackup">
+        <div class="view-head">
+          <span class="obj-title" data-i18n="pane.cfgbackup">配置备份</span>
+          <span class="obj-sub" data-i18n="cbk.sub">把 master 上的关键配置打包存到本地，随时还原（几 KB，不用关机）</span>
+        </div>
+        <div class="card">
+          <div class="form-row">
+            <button class="mini-btn" id="cbkScan" data-i18n="cbk.scan">扫描配置</button>
+            <button class="primary" id="cbkBackup" disabled data-i18n="cbk.backup">备份当前配置</button>
+            <input id="cbkLabel" placeholder="标记（可选，如 simple / kerberos）" style="max-width:260px">
+          </div>
+          <div class="hint-foot" data-i18n="cbk.scanHint">先扫描，确认要备份哪些文件（可勾选，也可手动加路径）。</div>
+          <div id="cbkFileList" style="margin-top:0.6rem"></div>
+          <div class="form-row" style="margin-top:0.5rem">
+            <input id="cbkManual" placeholder="手动加路径（如 /opt/myapp/conf/xx.xml），回车添加" style="max-width:420px">
+          </div>
+        </div>
+        <div class="sec-head" style="margin-top:1.5rem"><span class="sec-title" data-i18n="cbk.history">历史备份</span>
+          <button class="mini-btn" id="cbkRefresh" style="margin-left:auto" data-i18n="hdfs.refresh">刷新</button>
+        </div>
+        <div id="cbkList"></div>
+        <div class="result" id="cbkOut"></div>
       </div>
     </section>
    </div>

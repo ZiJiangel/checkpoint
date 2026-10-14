@@ -250,13 +250,23 @@ document.addEventListener('keydown', (e) => {
     { dir: 'sw', css: { left: '0', bottom: '0', width: CORNER + 'px', height: CORNER + 'px' }, cursor: 'nesw-resize' },
     { dir: 'se', css: { right: '0', bottom: '0', width: CORNER + 'px', height: CORNER + 'px' }, cursor: 'nwse-resize' },
   ];
+  // FixPoint 位值（与 pywebview 一致）：NORTH=1 WEST=2 EAST=4 SOUTH=8
+  // fix_point 表示"固定不动的边"，由拖拽方向决定（拖左边 → 固定右边 EAST）
+  const FIX = {
+    e: 2,               // 拖右 → 固定左
+    w: 4,               // 拖左 → 固定右
+    s: 1,               // 拖下 → 固定上
+    se: 3,              // 固定左上
+    sw: 5,              // 固定右上
+  };
   let drag = null;
+  let pending = null;
+  let rafId = 0;
 
   function startResize(dir, e) {
     drag = {
       dir,
       sx: e.screenX, sy: e.screenY,
-      wx: window.screenX, wy: window.screenY,
       ww: window.outerWidth, wh: window.outerHeight,
     };
     e.preventDefault();
@@ -264,17 +274,26 @@ document.addEventListener('keydown', (e) => {
     document.body.style.userSelect = 'none';
   }
 
+  function flush() {
+    rafId = 0;
+    if (!pending) return;
+    const { w, h, fix } = pending;
+    pending = null;
+    try { window.pywebview.api.resize_window(w, h, fix); } catch (err) {}
+  }
+
   document.addEventListener('mousemove', (e) => {
     if (!drag) return;
     const dx = e.screenX - drag.sx;
     const dy = e.screenY - drag.sy;
-    let x = drag.wx, y = drag.wy, w = drag.ww, h = drag.wh;
+    let w = drag.ww, h = drag.wh;
     if (drag.dir.includes('e')) w = drag.ww + dx;
+    if (drag.dir.includes('w')) w = drag.ww - dx;
     if (drag.dir.includes('s')) h = drag.wh + dy;
-    if (drag.dir.includes('w')) { w = drag.ww - dx; x = drag.wx + dx; }
-    if (w < MIN_W) { if (drag.dir.includes('w')) x = drag.wx + (drag.ww - MIN_W); w = MIN_W; }
-    if (h < MIN_H) { if (drag.dir.includes('s')) y = drag.wy; h = MIN_H; }
-    try { window.pywebview.api.set_window_geom(x, y, w, h); } catch (err) {}
+    if (w < MIN_W) w = MIN_W;
+    if (h < MIN_H) h = MIN_H;
+    pending = { w, h, fix: FIX[drag.dir] };
+    if (!rafId) rafId = requestAnimationFrame(flush);   // 每帧最多一次，避免 IPC 堆积
   }, true);
 
   document.addEventListener('mouseup', () => {
@@ -319,7 +338,7 @@ let CHECKED_ONCE = false;  // 避免反复体检
 
 function showView(name) {
   const doSwitch = () => {
-    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'tables', 'import', 'hbase', 'yarn', 'verify', 'deploycheck', 'diagpack', 'clustercfg', 'cfgtmpl', 'jobtpl'].forEach(v => {
+    ['cluster', 'node', 'vm', 'settings', 'hdfs', 'hive', 'tables', 'import', 'hbase', 'yarn', 'verify', 'deploycheck', 'diagpack', 'clustercfg', 'cfgtmpl', 'jobtpl', 'cfgbackup'].forEach(v => {
       const el = document.getElementById('view-' + v);
       if (el) el.classList.toggle('hidden', v !== name);
     });
@@ -382,6 +401,7 @@ function bindActivityBar() {
       else if (el.dataset.pane === 'diagpack') { showView('diagpack'); }
       else if (el.dataset.pane === 'clustercfg') { showView('clustercfg'); }
       else if (el.dataset.pane === 'cfgtmpl') { showView('cfgtmpl'); loadCfgTemplate(); }
+      else if (el.dataset.pane === 'cfgbackup') { showView('cfgbackup'); loadBackups(); }
     });
   });
 }
@@ -2022,6 +2042,37 @@ async function renderMonitor() {
   box.innerHTML = html + cmdHtml;
 }
 
+// ============ 底部"输出"tab：命令历史流水（持续可见）============
+let _BP_OUT_TIMER = null;
+async function refreshBpOutput() {
+  const box = document.getElementById('bpOutput');
+  if (!box) return;
+  let cmds = [];
+  try { cmds = await window.pywebview.api.peek_cmd_history(); } catch (e) { cmds = []; }
+  if (!cmds || !cmds.length) {
+    box.innerHTML = '<div class="empty">' + t('bp.empty') + '</div>';
+    return;
+  }
+  const recent = cmds.slice(-100).reverse();   // 最近 100 条，最新在上
+  box.innerHTML = recent.map(c => {
+    const okCls = c.running ? 'run' : (c.ok ? '' : 'err');
+    const tail = c.running ? ' …' : '';
+    const tgt = c.target ? '  @' + escAll(c.target) : '';
+    let h = '<div class="bp-cmd ' + okCls + '"><span class="bp-cmd-line">$ ' + escAll(formatCmd(c.cmd)) + tail + tgt + '</span>';
+    if (c.out && !c.running) h += '<div class="bp-cmd-out">' + escAll(c.out) + '</div>';
+    h += '</div>';
+    return h;
+  }).join('');
+}
+function startBpOutput() {
+  stopBpOutput();
+  refreshBpOutput();
+  _BP_OUT_TIMER = setInterval(refreshBpOutput, 1500);
+}
+function stopBpOutput() {
+  if (_BP_OUT_TIMER) { clearInterval(_BP_OUT_TIMER); _BP_OUT_TIMER = null; }
+}
+
 // ============ 底部面板（仿 VSCode，B+ 档）============
 function bindBottomPanel() {
   const panel = document.getElementById('bottomPanel');
@@ -2039,6 +2090,9 @@ function bindBottomPanel() {
     if (bp === 'term') {
       if (panel.classList.contains('collapsed')) panel.classList.remove('collapsed');
       fillTermNodeSelect();
+    } else if (bp === 'output') {
+      if (panel.classList.contains('collapsed')) panel.classList.remove('collapsed');
+      refreshBpOutput();
     }
   }));
   // 终端：节点选择 + 输入
@@ -2308,7 +2362,8 @@ async function takeCmdLogHtml(expanded) {
   try { cmds = await window.pywebview.api.drain_cmd_log(); } catch (e) { cmds = []; }
   _CMD_CACHE = cmds || [];
   if (!_CMD_CACHE.length) return '';
-  return renderCmdItems(_CMD_CACHE, expanded !== false);
+  // 默认折叠（命令块收起，可点标题展开）；要展开需显式传 true
+  return renderCmdItems(_CMD_CACHE, expanded === true);
 }
 
 // 实时命令显示：操作执行期间，把命令区挂在某个容器上定时刷新（像 shell）
@@ -2938,6 +2993,166 @@ async function saveCfgTemplate() {
   } catch (e) { out.innerHTML = '<div class="verify-step fail">' + escAll(String(e)) + '</div>'; }
 }
 
+// ============ 配置备份 / 恢复（工具域）============
+let _CBK_FILES = [];   // 待备份文件（含勾选态）
+
+async function scanConfigs() {
+  const box = document.getElementById('cbkFileList');
+  const out = document.getElementById('cbkOut');
+  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.scan_configs(); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + escAll(String(e)) + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml(false);
+  if (!r.ok) { box.innerHTML = '<div class="empty err">' + escAll(r.msg || t('ops.fail')) + '</div>' + cmdHtml; return; }
+  _CBK_FILES = (r.files || []).map(p => ({ path: p, on: true }));
+  renderCbkFiles();
+  out.innerHTML = cmdHtml;
+}
+
+// 给配置路径配一句"这是什么"
+function cbkFileDesc(path) {
+  const p = String(path || '');
+  const base = p.split('/').pop();
+  const map = {
+    'core-site.xml': 'Hadoop 核心配置（默认文件系统、临时目录）',
+    'hdfs-site.xml': 'HDFS 配置（副本数、NameNode/DataNode 路径）',
+    'yarn-site.xml': 'YARN 配置（ResourceManager、NodeManager）',
+    'mapred-site.xml': 'MapReduce 配置（运行框架）',
+    'hadoop-env.sh': 'Hadoop 环境变量（JAVA_HOME、用户变量）',
+    'capacity-scheduler.xml': 'YARN 调度器配置',
+    'hadoop-policy.xml': 'Hadoop 服务级授权策略',
+    'kms-site.xml': 'KMS（密钥管理）配置',
+    'kms-acls.xml': 'KMS 访问控制',
+    'httpfs-site.xml': 'HttpFS 配置',
+    'hdfs-rbf-site.xml': 'HDFS 联邦（Router）配置',
+    'ssl-server.xml': 'Hadoop SSL 服务端配置',
+    'container-executor.cfg': 'YARN 容器执行器配置（含安全/白名单）',
+    'workers': 'DataNode / Worker 主机列表',
+    'hadoop-metrics2.properties': 'Hadoop 指标上报配置',
+    'log4j.properties': '日志级别配置',
+    'yarn-env.sh': 'YARN 环境变量',
+    'mapred-env.sh': 'MapReduce 环境变量',
+    'httpfs-env.sh': 'HttpFS 环境变量',
+    'kms-env.sh': 'KMS 环境变量',
+    'spark-defaults.conf': 'Spark 默认配置',
+    'spark-env.sh': 'Spark 环境变量',
+    'hive-site.xml': 'Hive 配置',
+    'hive-env.sh': 'Hive 环境变量',
+    'hbase-site.xml': 'HBase 配置',
+    'zoo.cfg': 'ZooKeeper 配置',
+    '/etc/krb5.conf': 'Kerberos 客户端配置（realm / KDC 地址）',
+    '/etc/hosts': '主机名 → IP 解析',
+    '/etc/profile.d/hadoop.sh': 'Hadoop 环境变量（登录时生效）',
+    '/etc/profile.d/hive.sh': 'Hive 环境变量（登录时生效）',
+    '/etc/profile.d/spark.sh': 'Spark 环境变量（登录时生效）',
+    '/etc/profile.d/flume.sh': 'Flume 环境变量（登录时生效）',
+    '/etc/profile.d/hbase.sh': 'HBase 环境变量（登录时生效）',
+    '/etc/profile.d/zookeeper.sh': 'ZooKeeper 环境变量（登录时生效）',
+  };
+  if (map[p]) return map[p];
+  if (map[base]) return map[base];
+  if (p.indexOf('/etc/profile.d/') === 0) return '环境变量（登录时生效）';
+  if (base.endsWith('.xml')) return '配置文件';
+  if (base.endsWith('.conf')) return '配置文件';
+  if (base.endsWith('.cfg')) return '配置文件';
+  if (base.endsWith('.sh')) return 'Shell 配置脚本';
+  return '';
+}
+
+let _CBK_EXPANDED = false;   // 配置清单是否展开
+
+function renderCbkFiles() {
+  const box = document.getElementById('cbkFileList');
+  const btn = document.getElementById('cbkBackup');
+  if (!_CBK_FILES.length) {
+    box.innerHTML = '<div class="empty">' + t('cbk.none') + '</div>';
+    if (btn) btn.disabled = true;
+    return;
+  }
+  const rows = _CBK_FILES.map((f, i) => {
+    const desc = cbkFileDesc(f.path);
+    return '<label class="cbk-row">' +
+      '<input type="checkbox" data-cbk-idx="' + i + '"' + (f.on ? ' checked' : '') + '>' +
+      '<span>' + escAll(f.path) + (desc ? '<span class="cbk-desc">' + escAll(desc) + '</span>' : '') + '</span></label>';
+  }).join('');
+  const many = _CBK_FILES.length > 10;
+  const collapsed = many && !_CBK_EXPANDED;
+  let html = '<div class="cbk-list' + (collapsed ? ' cbk-clip' : '') + '">' + rows + '</div>';
+  if (many) {
+    html += '<div class="cbk-toggle" id="cbkToggle">' +
+      (_CBK_EXPANDED ? t('cbk.collapse') : t('cbk.expand')) +
+      '（' + _CBK_FILES.length + '）</div>';
+  }
+  box.innerHTML = html;
+  box.querySelectorAll('[data-cbk-idx]').forEach(cb => cb.addEventListener('change', () => {
+    _CBK_FILES[+cb.dataset.cbkIdx].on = cb.checked;
+  }));
+  const tg = document.getElementById('cbkToggle');
+  if (tg) tg.addEventListener('click', () => { _CBK_EXPANDED = !_CBK_EXPANDED; renderCbkFiles(); });
+  if (btn) btn.disabled = !_CBK_FILES.some(f => f.on);
+}
+
+async function doBackup() {
+  const out = document.getElementById('cbkOut');
+  const paths = _CBK_FILES.filter(f => f.on).map(f => f.path);
+  if (!paths.length) { uiAlert(t('cbk.pickOne')); return; }
+  const label = document.getElementById('cbkLabel').value.trim();
+  if (!await uiConfirm(t('cbk.backup') + '（' + paths.length + ' 个文件）？')) return;
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.backup_configs(paths, label); }
+  catch (e) { out.innerHTML = '<div class="empty err">' + escAll(String(e)) + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml(false);
+  out.innerHTML = (r.ok
+    ? '<div class="verify-step done"><span class="vs-ico">✓</span>' + escAll(t('cbk.done') + ' ' + r.id) + '</div>'
+    : '<div class="verify-step fail"><span class="vs-ico">✕</span>' + escAll(r.msg || '') + '</div>') + cmdHtml;
+  loadBackups();
+}
+
+async function loadBackups() {
+  const box = document.getElementById('cbkList');
+  if (!box) return;
+  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  let r;
+  try { r = await window.pywebview.api.list_backups(); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + escAll(String(e)) + '</div>'; return; }
+  const items = (r && r.items) || [];
+  if (!items.length) { box.innerHTML = '<div class="empty">' + t('cbk.noHistory') + '</div>'; return; }
+  box.innerHTML = items.map(it =>
+    '<div class="form-row" style="align-items:center;gap:0.6rem;padding:0.4rem 0;border-bottom:1px solid rgba(255,255,255,0.06)">' +
+    '<span>📦</span>' +
+    '<span style="font-family:monospace;font-size:0.82rem">' + escAll(it.time) + '</span>' +
+    '<span style="font-size:0.78rem;opacity:0.7">' + (it.count || 0) + ' ' + t('cbk.files') + (it.label ? ' · ' + escAll(it.label) : '') + '</span>' +
+    '<span style="flex:1"></span>' +
+    '<button class="mini-btn" data-cbk-restore="' + escAll(it.id) + '">' + t('cbk.restore') + '</button>' +
+    '<button class="mini-btn" data-cbk-del="' + escAll(it.id) + '">' + t('btn.delete') + '</button>' +
+    '</div>'
+  ).join('');
+  box.querySelectorAll('[data-cbk-restore]').forEach(b => b.addEventListener('click', () => restoreBackup(b.dataset.cbkRestore)));
+  box.querySelectorAll('[data-cbk-del]').forEach(b => b.addEventListener('click', () => delBackup(b.dataset.cbkDel)));
+}
+
+async function restoreBackup(bid) {
+  const out = document.getElementById('cbkOut');
+  if (!await uiConfirm(t('cbk.restoreConfirm') + ' ' + bid + ' ?')) return;
+  await resetCmdLog();
+  let r;
+  try { r = await window.pywebview.api.restore_backup(bid); }
+  catch (e) { out.innerHTML = '<div class="empty err">' + escAll(String(e)) + '</div>'; return; }
+  const cmdHtml = await takeCmdLogHtml(false);
+  out.innerHTML = (r.ok
+    ? '<div class="verify-step done"><span class="vs-ico">✓</span>' + escAll(r.msg || t('cbk.restored')) + '</div>'
+    : '<div class="verify-step fail"><span class="vs-ico">✕</span>' + escAll(r.msg || '') + '</div>') + cmdHtml;
+}
+
+async function delBackup(bid) {
+  if (!await uiConfirm(t('cbk.delConfirm') + ' ' + bid + ' ?')) return;
+  try { await window.pywebview.api.delete_backup(bid); } catch (e) {}
+  loadBackups();
+}
+
 // ============ 结果导出（体检结果 → markdown）============
 function buildHealthMarkdown() {
   const lines = [];
@@ -3254,6 +3469,7 @@ async function renderYarn() {
 window.addEventListener('pywebviewready', async () => {
   bindActivityBar();
   bindBottomPanel();
+  startBpOutput();
   bindClusterTabs();
   const yarnRefreshBtn = document.getElementById('yarnRefresh');
   if (yarnRefreshBtn) yarnRefreshBtn.addEventListener('click', renderYarn);
@@ -3314,6 +3530,19 @@ window.addEventListener('pywebviewready', async () => {
   if (ccfgExp) ccfgExp.addEventListener('click', exportClusterCfg);
   const ccfgImp = document.getElementById('ccfgImport');
   if (ccfgImp) ccfgImp.addEventListener('click', importClusterCfg);
+  // 配置备份
+  const cbkScan = document.getElementById('cbkScan');
+  if (cbkScan) cbkScan.addEventListener('click', scanConfigs);
+  const cbkBackup = document.getElementById('cbkBackup');
+  if (cbkBackup) cbkBackup.addEventListener('click', doBackup);
+  const cbkRefresh = document.getElementById('cbkRefresh');
+  if (cbkRefresh) cbkRefresh.addEventListener('click', loadBackups);
+  const cbkManual = document.getElementById('cbkManual');
+  if (cbkManual) cbkManual.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const v = cbkManual.value.trim();
+    if (v) { _CBK_FILES.push({ path: v, on: true }); cbkManual.value = ''; renderCbkFiles(); }
+  });
   // Hive 工具栏
   const hiveRunBtn = document.getElementById('hiveRun');
   if (hiveRunBtn) hiveRunBtn.addEventListener('click', runHive);
