@@ -722,6 +722,8 @@ async function loadVms(force) {
 function renderAll() {
   renderAliasList();
   renderSidebar();
+  // VMS 更新（含后台补的快照）后，集群快照选项卡要跟着刷新
+  if (NODES && NODES.length) renderClusterSnap();
 }
 
 function renderAliasList() {
@@ -1953,8 +1955,8 @@ function bindClusterTabs() {
         const el = document.getElementById('ctab-' + c);
         if (el) el.classList.toggle('hidden', c !== k);
       });
-      if (k === 'topo' && !_TOPO_LOADED) renderTopology();
-      if (k === 'monitor' && !_MON_LOADED) renderMonitor();
+      if (k === 'topo') renderTopology();
+      if (k === 'monitor') renderMonitor();
       if (k === 'kerb' && !_KERB_LOADED) runKerberosCheck();
     });
   });
@@ -1967,18 +1969,18 @@ let _TOPO_LOADED = false;
 let _MON_LOADED = false;
 let _KERB_LOADED = false;
 
-async function renderTopology() {
+async function renderTopology(silent) {
   const box = document.getElementById('svcTopo');
   if (!box) return;
-  const reload = _TOPO_LOADED;      // 已加载过 → 保留旧内容，不清空
+  if (silent === undefined) silent = _TOPO_LOADED;   // 已加载过 → 静默刷新
   _TOPO_LOADED = true;
-  if (!reload) box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
-  await resetCmdLog();
+  if (!silent) box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  if (!silent) await resetCmdLog();
   let r;
   try { r = await window.pywebview.api.services_topology(); }
-  catch (e) { box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
-  const cmdHtml = await takeCmdLogHtml();
-  if (!r.ok) { box.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + cmdHtml; return; }
+  catch (e) { if (!silent) box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = silent ? '' : await takeCmdLogHtml();
+  if (!r.ok) { if (!silent) box.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + cmdHtml; return; }
   let html = '<div class="topo">';
   html += r.nodes.map(n => {
     const isMaster = n.role === 'master';
@@ -2011,18 +2013,18 @@ function sparkline(values, color, max) {
     '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.5"/></svg>';
 }
 
-async function renderMonitor() {
+async function renderMonitor(silent) {
   const box = document.getElementById('monitorView');
   if (!box) return;
-  const reload = _MON_LOADED;       // 已加载过 → 保留旧内容
+  if (silent === undefined) silent = _MON_LOADED;   // 已加载过 → 静默刷新
   _MON_LOADED = true;
-  if (!reload) box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
-  await resetCmdLog();
+  if (!silent) box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  if (!silent) await resetCmdLog();
   let r;
   try { r = await window.pywebview.api.resource_metrics(); }
-  catch (e) { box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
-  const cmdHtml = await takeCmdLogHtml();
-  if (!r.ok) { box.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + cmdHtml; return; }
+  catch (e) { if (!silent) box.innerHTML = '<div class="empty err">' + e + '</div>'; return; }
+  const cmdHtml = silent ? '' : await takeCmdLogHtml();
+  if (!r.ok) { if (!silent) box.innerHTML = '<div class="empty err">' + escAll(r.msg || '') + '</div>' + cmdHtml; return; }
   // 记录本次采样
   const mm = r.master || {};
   _MON_HISTORY.push({ cpu: Number(mm.cpu || 0), mem: (Number(mm.mem_total || 1) > 0 ? Math.round(Number(mm.mem_used || 0) / Number(mm.mem_total) * 100) : 0), disk: (Number(mm.disk_total || 1) > 0 ? Math.round(Number(mm.disk_used || 0) / Number(mm.disk_total) * 100) : 0) });
