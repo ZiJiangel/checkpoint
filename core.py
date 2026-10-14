@@ -404,6 +404,17 @@ def set_lang(lang):
     save_json(SETTINGS_FILE, s)
 
 
+def get_kerberos():
+    """Kerberos 认证配置（realm / principal / keytab / password）。"""
+    return load_json(SETTINGS_FILE, {}).get("kerberos", {}) or {}
+
+
+def set_kerberos(cfg):
+    s = load_json(SETTINGS_FILE, {})
+    s["kerberos"] = cfg or {}
+    save_json(SETTINGS_FILE, s)
+
+
 def get_auto_check():
     """打开集群页时是否自动体检（默认开）"""
     return load_json(SETTINGS_FILE, {}).get("auto_check", True)

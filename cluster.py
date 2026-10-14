@@ -385,6 +385,63 @@ def hbase_tables(timeout=60):
     return {"ok": ok, "tables": tables, "msg": out if not ok else ""}
 
 
+def kerberos_auth():
+    """一键 Kerberos 认证：对时 → 查 KDC → kinit → klist 验证。
+    返回 {ok, steps:[{label, ok, out}], msg}。"""
+    m = _master_node()
+    if not m:
+        return {"ok": False, "steps": [], "msg": "未找到 master 节点"}
+    if node_vm_off(m):
+        return {"ok": False, "steps": [], "msg": "master 节点关机，请先开机"}
+    cfg = core.get_kerberos()
+    realm = (cfg.get("realm") or "").strip()
+    principal = (cfg.get("principal") or "").strip()
+    keytab = (cfg.get("keytab") or "").strip()
+    password = cfg.get("password") or ""
+    steps = []
+
+    def run(label, cmd, t=30, use_code=True):
+        ok, out = _hdfs_master_run(cmd, timeout=t, use_exit_code=use_code)
+        steps.append({"label": label, "ok": ok, "out": out})
+        return ok, out
+
+    # 1) 对时（Kerberos 对时间极敏感）
+    run("检查时间同步", "timedatectl 2>/dev/null | grep -qi 'synchronized: yes' && echo OK || "
+        "(chronyc tracking 2>/dev/null | grep -qi 'Leap status.*Normal' && echo OK || echo 未同步)", 15)
+    # 2) 查 KDC 服务（在 kdc 节点上）
+    kdc_node = next((n for n in list_nodes() if n.get("role") == "kdc"), None)
+    if kdc_node and not node_vm_off(kdc_node):
+        ok_kdc, out_kdc = ssh_exec(kdc_node.get("host", ""), kdc_node.get("port", 22),
+                                   kdc_node.get("user", ""), kdc_node.get("pass", ""),
+                                   "systemctl is-active krb5kdc 2>/dev/null || echo 未运行", timeout=12)
+        steps.append({"label": "检查 KDC 服务", "ok": "active" in (out_kdc or ""), "out": out_kdc})
+    else:
+        steps.append({"label": "检查 KDC 服务", "ok": True, "out": "（未配 kdc 节点，跳过）"})
+    # 3) kinit
+    if not principal:
+        steps.append({"label": "获取票据 (kinit)", "ok": False, "out": "未配置 principal（去设置页填 realm / principal / keytab 或密码）"})
+        return {"ok": False, "steps": steps, "msg": "缺少 Kerberos 配置"}
+    if keytab:
+        ok_k, out_k = run("获取票据 (kinit)", "kinit -kt %s %s && echo OK" % (keytab, principal), 30)
+    elif password:
+        run("获取票据 (kinit)", "echo %s | kinit %s && echo OK" % (_shq(password), principal), 30)
+    else:
+        # 没密码没 keytab：用户已有票据也行（kinit 可能已手动做过）
+        steps.append({"label": "获取票据 (kinit)", "ok": True, "out": "（未配 keytab/密码，跳过，直接验票据）"})
+    # 4) 验证
+    ok_v, out_v = run("验证票据 (klist)", "klist 2>&1 | head -6", 15)
+    has_ticket = ("krbtgt" in (out_v or "")) or ("Principal" in (out_v or "")) or ("默认主体" in (out_v or ""))
+    if steps and steps[-1]["label"] == "验证票据 (klist)":
+        steps[-1]["ok"] = has_ticket
+    all_ok = has_ticket
+    return {"ok": all_ok, "steps": steps,
+            "msg": "已获取票据，SparkSQL 等可以正常运行" if all_ok else "未获取到有效票据，见上"}
+
+
+def _shq(s):
+    return "'" + str(s).replace("'", "'\\''") + "'"
+
+
 def detect_components():
     """检测集群装了哪些组件（按配置目录/命令探测）。
     返回 {ok, components: {hive:bool, hbase:bool, spark:bool, ...}, msg}。

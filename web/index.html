@@ -113,6 +113,7 @@
           <button class="mini-btn" id="clusterAdd" data-i18n="cl.add" data-i18n-title="tip.add">添加节点</button>
           <button class="mini-btn" id="clusterCheck" data-i18n="cl.check" data-i18n-title="tip.check">体检</button>
           <button class="mini-btn" id="deployCheck" data-i18n="cl.deployCheck" data-i18n-title="tip.deploy">部署自检</button>
+          <button class="mini-btn" id="kinitBtn" data-i18n="cl.kinit">Kerberos 认证</button>
           <button class="mini-btn" id="exportResult" data-i18n="cl.exportResult">导出结果</button>
           <button class="mini-btn primary" id="clusterStart" data-i18n="cl.startAll" data-i18n-title="tip.start">一键启动</button>
           <button class="mini-btn" id="clusterStop" data-i18n="cl.stopAll" data-i18n-title="tip.stop">一键停止</button>
@@ -219,6 +220,20 @@
             <input type="checkbox" id="kerberosSwitch" style="width:auto;min-width:0">
             <span data-i18n="set.kerberos">启用 Kerberos（一键启停时包含 KDC 阶段）</span>
           </label>
+        </div>
+        <div class="hint-foot" data-i18n="set.kinitHint">填下面几项，就能在集群页点「Kerberos 认证」一键拿票据（kinit）。</div>
+        <div class="form-row">
+          <input id="kbrRealm" placeholder="Realm（如 EXAMPLE.COM）" style="max-width:280px">
+        </div>
+        <div class="form-row">
+          <input id="kbrPrincipal" placeholder="Principal（如 root/admin@EXAMPLE.COM）" style="max-width:420px">
+        </div>
+        <div class="form-row">
+          <input id="kbrKeytab" placeholder="Keytab 路径（可选，如 /etc/security/keytabs/xxx.keytab）" style="max-width:520px">
+        </div>
+        <div class="form-row">
+          <input id="kbrPassword" type="password" placeholder="或 密码（keytab 留空时用）" style="max-width:280px">
+          <button class="primary" id="saveKbr" data-i18n="btn.save">保存</button>
         </div>
         <div class="sec-head" style="margin-top:2rem"><span class="sec-title" data-i18n="set.vmware">VMware 路径</span></div>
         <div class="form-row">

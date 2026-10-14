@@ -1894,6 +1894,29 @@ function renderLine(text, state) {
   return '<div class="result ' + cls + '">' + icon + ' ' + text + '</div>';
 }
 
+// ============ Kerberos 一键认证 ============
+async function runKinit() {
+  const btn = document.getElementById('kinitBtn');
+  const box = document.getElementById('clusterOverview');
+  if (!box) return;
+  await resetCmdLog();
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = t('cl.kinitRunning');
+  box.innerHTML = '<div class="empty">' + t('ops.running') + '</div>';
+  let r;
+  try { r = await window.pywebview.api.kerberos_auth(); }
+  catch (e) { box.innerHTML = '<div class="empty err">' + escAll(String(e)) + '</div>'; btn.disabled = false; btn.textContent = old; return; }
+  const cmdHtml = await takeCmdLogHtml();
+  let html = '<div class="sec-head"><span class="sec-title">' + t('cl.kinit') + '</span></div>';
+  (r.steps || []).forEach(s => {
+    html += '<div class="verify-step ' + (s.ok ? 'done' : 'fail') + '"><span class="vs-ico">' + (s.ok ? '✓' : '✕') + '</span>' + escAll(s.label) + (s.out ? '：' + escAll(String(s.out).split('\n')[0]) : '') + '</div>';
+  });
+  if (r.ok) html += '<div class="verify-step done" style="margin-top:0.5rem"><span class="vs-ico">✓</span>' + t('cl.kinitOk') + '</div>';
+  else html += '<div class="verify-step fail" style="margin-top:0.5rem"><span class="vs-ico">✕</span>' + escAll(r.msg || t('ops.fail')) + '</div>';
+  box.innerHTML = html + cmdHtml;
+  btn.disabled = false; btn.textContent = old;
+}
+
 // ============ 集群视图选项卡（概览/节点/拓扑/监控/快照/分发）============
 function bindClusterTabs() {
   document.querySelectorAll('#clusterTabs .detail-tab').forEach(t => {
@@ -3258,6 +3281,19 @@ window.addEventListener('pywebviewready', async () => {
       try { await window.pywebview.api.set_service_enabled('kdc', kbSwitch.checked); } catch (e) {}
     });
   }
+  const saveKbrBtn = document.getElementById('saveKbr');
+  if (saveKbrBtn) saveKbrBtn.addEventListener('click', async () => {
+    const cfg = {
+      realm: document.getElementById('kbrRealm').value.trim(),
+      principal: document.getElementById('kbrPrincipal').value.trim(),
+      keytab: document.getElementById('kbrKeytab').value.trim(),
+      password: document.getElementById('kbrPassword').value,
+    };
+    await window.pywebview.api.save_kerberos(cfg);
+    uiAlert(t('msg.saved'));
+  });
+  const kinitBtn = document.getElementById('kinitBtn');
+  if (kinitBtn) kinitBtn.addEventListener('click', runKinit);
   const exportResultBtn = document.getElementById('exportResult');
   if (exportResultBtn) exportResultBtn.addEventListener('click', exportResult);
   const dcheckRunBtn = document.getElementById('dcheckRun');
@@ -3293,6 +3329,16 @@ window.addEventListener('pywebviewready', async () => {
   if (hiveClearBtn) hiveClearBtn.addEventListener('click', () => { document.getElementById('hiveSql').value = ''; document.getElementById('hiveOut').innerHTML = ''; });
   const s = await window.pywebview.api.get_settings();
   initLang(s.lang);
+  // Kerberos 配置回填
+  try {
+    const kb = await window.pywebview.api.get_kerberos();
+    if (kb) {
+      if (kb.realm) document.getElementById('kbrRealm').value = kb.realm;
+      if (kb.principal) document.getElementById('kbrPrincipal').value = kb.principal;
+      if (kb.keytab) document.getElementById('kbrKeytab').value = kb.keytab;
+      if (kb.password) document.getElementById('kbrPassword').value = kb.password;
+    }
+  } catch (e) {}
   document.getElementById('vmrunPath').value = s.vmrun || '';
   AUTO_CHECK = s.auto_check !== false;
   document.getElementById('autoCheck').checked = AUTO_CHECK;

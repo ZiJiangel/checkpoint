@@ -325,6 +325,16 @@ class Api:
     def hbase_tables(self):
         return cluster.hbase_tables()
 
+    def kerberos_auth(self):
+        return cluster.kerberos_auth()
+
+    def get_kerberos(self):
+        return core.get_kerberos()
+
+    def save_kerberos(self, cfg):
+        core.set_kerberos(cfg)
+        return {"ok": True}
+
     def services_topology(self):
         return cluster.services_topology()
 

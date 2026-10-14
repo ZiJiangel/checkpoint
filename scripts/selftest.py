@@ -102,6 +102,11 @@ check("hive_import ok", r.get("ok") is True, r)
 check("hive_import 有 ddl", "create external table" in (r.get("ddl") or ""))
 check("hive_import 列名", "c1 string" in (r.get("ddl") or "") and "c2 string" in (r.get("ddl") or ""))
 
+# ---- 测 _shq（kerberos 用）----
+print("[_shq]")
+check("普通", cluster._shq("abc") == "'abc'")
+check("单引号", cluster._shq("a'b") == "'a'\\''b'", cluster._shq("a'b"))
+
 # ---- 测 _shell_quote（shell 转义，防命令注入/篡改）----
 print("[_shell_quote]")
 check("普通", cluster._shell_quote("abc") == "'abc'")
